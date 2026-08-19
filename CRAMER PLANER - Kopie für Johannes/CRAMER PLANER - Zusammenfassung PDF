@@ -1,0 +1,54 @@
+# Projekt: CRAMER PLANER - Phase 6: Speichern, Scan-Funktion & PDF-Zusammenfassung (PROJEKT-ABSCHLUSS)
+
+## ROLLE & ZIEL
+Dieses Dokument definiert das Finale des Konfigurationsprozesses. Es regelt, wie die erfassten Daten im System gespeichert, die Handzeichnung des Beraters direkt digitalisiert und alles in einem kompakten B2B-Übergabe-PDF für die Arbeitsvorbereitung (AV) zusammengefasst wird.
+
+---
+
+## 1. SPEICHER- & DATENBANK-LOGIK
+* **Der Speicher-Button:** Am Ende der Konfiguration klickt der Berater auf einen prominenten Button `[Entwurf speichern & Zusammenfassung erstellen]`.
+* **Datenkonsistenz:** Alle eingegebenen Daten (Phase 2 bis Phase 5) werden dauerhaft unter dem eindeutigen Primary Key (der Entwurfsnummer) in der Web-App gespeichert.
+* **Wiederauffindbarkeit:** Die Web-App benötigt eine Übersichtsliste („Dashboard“), in der alte Entwürfe nach Auftragsnummer, Berater oder Standort gefiltert und jederzeit wieder geöffnet werden können.
+
+---
+
+## 2. DIE INTEGRIERTE SCAN-/FOTO-FUNKTION (Kamera-Schnittstelle)
+Um den analogen Medienbruch zu eliminieren, enthält die Web-App direkt vor dem PDF-Export ein Kamera-Scan-Modul:
+* **Funktion:** Der Berater nutzt die Kamera des iPads, Tablets oder Smartphones direkt in der Web-App (`navigator.mediaDevices.getUserMedia`).
+* **Ablauf:** Er fotografiert die handgezeichnete Skizze und die Maßzeichnungen, die er live im Kundengespräch erstellt hat.
+* **Bildoptimierung (Scan-Effekt):** Das System wandelt das Foto automatisch in eine kontrastreiche, perfekt lesbare Schwarz-Weiß- oder Dokumenten-Ansicht um (hoher Kontrast, damit Bleistiftlinien extrem scharf werden).
+* **Anhang:** Diese optimierte Bilddatei wird direkt digital an den aktuellen Entwurf angehängt.
+
+---
+
+## 3. DAS FINALE AV-ÜBERGABE-PDF (Layout & Inhalt)
+Das generierte PDF ist das offizielle Dokument für die Produktion/Arbeitsvorbereitung. Es soll **maximal kompakt** (idealerweise 1–2 Seiten) und ohne unnötigen Fließtext im Tabellen-Layout aufgebaut sein:
+
+### SEITE 1: DIE DIGITALE DATEN-ZUSAMMENFASSUNG
+* **Header (Kopfzeile):**
+  - Auftragsnummer
+  - Name des Kunden
+  - Berater (Automatisch aus Login)
+  - Standort / Filiale (Aus Dropdown)
+  - Datum & Uhrzeit
+  - Entwurfsnummer (Primary Key)
+* **Bereich Korpus & Fronten:**
+  - Kompakte Auflistung der gewählten Produktgruppe und Serie.
+  - Strukturierte Tabelle der Fronten von links nach rechts (z. B. *Front 1: Drehtür, Code T50-51, Mattlack*).
+* **Bereich Sonderausstattung & Notizen (Extrem Wichtig):**
+  - Hier werden alle Freitexte und die große Textarea der Sonderausstattung unzensiert und übersichtlich angedruckt, da diese essenziell für die AV sind.
+
+### SEITE 2: DIE DIGITALISIERTE ZEICHNUNG
+* Das in Schritt 2 eingescannte/fotografierte Bild der Handzeichnung wird automatisch in voller Größe auf Seite 2 (oder als direkter Anhang) in das PDF eingebettet.
+
+---
+
+## ACTION-LOGIK FÜR DEN BERATER
+Nach dem Speichern hat der Berater zwei direkte Optionen:
+1. `[PDF herunterladen]`: Generiert das fertige Dokument (Seite 1: Daten, Seite 2: Scan) lokal auf dem Gerät.
+2. `[An AV senden]`: Schickt das PDF im Hintergrund automatisch per E-Mail oder Schnittstelle direkt an die zentrale Arbeitsvorbereitung.
+
+---
+
+## HINWEIS FÜR CLAUDE
+Dieses Dokument markiert das absolute Ende des Konfigurator-Workflows. Implementiere eine Speicherfunktion, die alle Zustände (States) bereinigt in der Datenbank ablegt. Nutze für den PDF-Export eine Library wie `jspdf` oder `pdfmake`. Integriere ein HTML5-Kamera-Eingabefeld, das auf Mobilgeräten/iPads direkt die native Kamera im Dokumentenmodus ansteuert. Das PDF muss absolut sauber formatiert und auf das Nötigste reduziert sein, damit die AV auf einen Blick alle Infos sieht.

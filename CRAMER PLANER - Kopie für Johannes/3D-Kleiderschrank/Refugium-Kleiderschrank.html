@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>CRAMER · Refugium Kleiderschrank · 3D</title>
+<style>
+  :root{
+    --bg1:#232529; --bg2:#141518;
+    --panel:rgba(24,26,28,0.82);
+    --panel2:rgba(24,26,28,0.62);
+    --line:rgba(255,255,255,0.12);
+    --txt:#f2f0ec; --muted:#b7b3ab; --accent:#c8a97a; --accent2:#9fb0a8;
+    --radius:14px;
+    --font:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;overflow:hidden;font-family:var(--font);color:var(--txt);
+    background:radial-gradient(120% 120% at 50% 8%,var(--bg1),var(--bg2));}
+  #app{position:fixed;inset:0}
+  canvas{display:block}
+
+  .panel{background:var(--panel);backdrop-filter:blur(8px);border:1px solid var(--line);
+    border-radius:var(--radius);box-shadow:0 10px 40px rgba(0,0,0,.28)}
+
+  /* top bar */
+  /* Modular-Export-Button (oben links) */
+  #btnModular{position:absolute;top:16px;left:18px;z-index:14;appearance:none;cursor:pointer;
+    border:1px solid var(--accent);background:linear-gradient(180deg,#d8b98a,#c5a575);color:#1b1a17;
+    font:inherit;font-weight:600;font-size:12.5px;border-radius:11px;padding:11px 15px;
+    display:flex;align-items:center;gap:8px;box-shadow:0 8px 24px rgba(0,0,0,.32);transition:.15s}
+  #btnModular:hover{filter:brightness(1.06);box-shadow:0 8px 26px rgba(200,169,122,.42)}
+  #btnModular:active{transform:translateY(1px)}
+  #btnModular:disabled{opacity:.6;cursor:default;filter:none}
+  #btnModular .ic{font-size:15px;line-height:1}
+
+  #topbar{position:absolute;top:70px;left:18px;padding:14px 18px;max-width:min(46vw,430px)}
+  #topbar .brand{font-size:12px;letter-spacing:.32em;color:var(--accent);font-weight:600;text-transform:uppercase}
+  #topbar h1{margin:4px 0 2px;font-size:20px;font-weight:600;letter-spacing:.01em}
+  #topbar .sub{font-size:12.5px;color:var(--muted)}
+  #topbar .dims{margin-top:8px;font-size:13px;color:var(--txt)}
+  #topbar .dims b{color:var(--accent);font-weight:600}
+
+  /* export (PowerPoint .glb) */
+  #exportbar{position:absolute;top:18px;right:18px;width:250px;padding:12px}
+  #btnExport{width:100%;appearance:none;cursor:pointer;border:1px solid var(--accent);
+    background:linear-gradient(180deg,#d8b98a,#c5a575);color:#1b1a17;font:inherit;font-weight:600;font-size:12.5px;
+    border-radius:11px;padding:11px 12px;display:flex;align-items:center;justify-content:center;gap:8px;
+    line-height:1.15;text-align:center;transition:.15s}
+  #btnExport:hover{filter:brightness(1.06);box-shadow:0 6px 22px rgba(200,169,122,.38)}
+  #btnExport:active{transform:translateY(1px)}
+  #btnExport:disabled{opacity:.6;cursor:default;filter:none;box-shadow:none}
+  #btnExport .ic{font-size:15px;line-height:1}
+  #exportbar .exsub{margin-top:7px;font-size:11px;color:var(--muted);text-align:center;line-height:1.3}
+  #exportbar .exsub b{color:var(--txt);font-weight:600}
+  #exportbar .exrow{display:flex;gap:7px;margin-top:9px}
+  #exportbar .exmini{flex:1 1 0;min-width:0;appearance:none;cursor:pointer;border:1px solid var(--line);color:var(--txt);
+    background:rgba(255,255,255,.05);border-radius:9px;padding:8px 6px;font:inherit;font-size:11px;font-weight:500;
+    display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.1;text-align:center;transition:.15s}
+  #exportbar .exmini:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.28)}
+  #exportbar .exmini:active{transform:translateY(1px)}
+  #exportbar .exmini:disabled{opacity:.55;cursor:default}
+  #exportbar .exmini .ic{font-size:15px;line-height:1}
+  #toast{position:absolute;top:64px;left:50%;transform:translateX(-50%) translateY(-8px);max-width:min(80vw,420px);
+    padding:9px 16px;border-radius:22px;background:rgba(20,22,24,.94);border:1px solid var(--line);color:var(--txt);
+    font-size:12.5px;opacity:0;transition:.28s;pointer-events:none;z-index:40;text-align:center}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  #toast.ok{border-color:rgba(120,200,140,.55)} #toast.err{border-color:rgba(220,120,120,.6)}
+
+  /* order info */
+  #info{position:absolute;top:112px;right:18px;padding:13px 16px;width:250px;font-size:12.5px}
+  #info h2{margin:0 0 8px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+  #info .row{display:flex;justify-content:space-between;gap:10px;padding:3px 0;border-bottom:1px dashed rgba(255,255,255,.07)}
+  #info .row:last-child{border-bottom:0}
+  #info .k{color:var(--muted)} #info .v{text-align:right;font-weight:500}
+  #info .price{margin-top:8px;font-size:16px;font-weight:700;color:var(--accent);text-align:right}
+
+  /* legend */
+  #legend{position:absolute;left:18px;bottom:18px;padding:12px 14px;width:290px;font-size:12px}
+  #legend h2{margin:0 0 8px;font-size:11px;letter-spacing:.22em;text-transform:uppercase;color:var(--accent)}
+  #legend .item{display:flex;align-items:center;gap:9px;padding:3px 0}
+  #legend .sw{width:20px;height:20px;border-radius:5px;flex:0 0 auto;border:1px solid rgba(255,255,255,.22);box-shadow:inset 0 0 6px rgba(0,0,0,.35)}
+  #legend .lbl{flex:1;line-height:1.15}
+  #legend .lbl small{color:var(--muted);display:block;font-size:10.5px}
+  #legend .pg{font-size:10px;color:var(--muted);border:1px solid var(--line);padding:1px 6px;border-radius:20px}
+
+  /* controls */
+  #controls{position:absolute;right:18px;bottom:18px;padding:12px;display:flex;flex-direction:column;gap:8px;width:232px}
+  #controls .grp{display:flex;gap:8px}
+  button.btn{flex:1;appearance:none;cursor:pointer;border:1px solid var(--line);color:var(--txt);
+    background:rgba(255,255,255,.05);padding:9px 10px;border-radius:10px;font:inherit;font-size:12.5px;
+    transition:.15s;display:flex;align-items:center;justify-content:center;gap:7px}
+  button.btn:hover{background:rgba(255,255,255,.13);border-color:rgba(255,255,255,.28)}
+  button.btn.active{background:var(--accent);color:#1b1a17;border-color:var(--accent);font-weight:600}
+  button.btn .ic{font-size:14px;line-height:1}
+
+  /* step bar */
+  #stepbar{position:absolute;left:50%;transform:translateX(-50%);bottom:18px;padding:10px 12px;
+    display:flex;align-items:center;gap:12px}
+  #stepbar button{appearance:none;cursor:pointer;border:1px solid var(--line);background:rgba(255,255,255,.06);
+    color:var(--txt);width:38px;height:38px;border-radius:10px;font-size:17px;transition:.15s}
+  #stepbar button:hover{background:rgba(255,255,255,.16)}
+  #stepbar button:disabled{opacity:.32;cursor:default}
+  #stepbar .stxt{min-width:186px;text-align:center}
+  #stepbar .stxt .n{font-size:11px;letter-spacing:.2em;color:var(--accent);text-transform:uppercase}
+  #stepbar .stxt .t{font-size:14px;font-weight:600;margin-top:1px}
+  #stepbar .dots{display:flex;gap:5px;justify-content:center;margin-top:6px}
+  #stepbar .dots i{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.2)}
+  #stepbar .dots i.on{background:var(--accent)}
+
+  #hint{position:absolute;left:50%;top:16px;transform:translateX(-50%);font-size:11.5px;color:var(--muted);
+    background:var(--panel2);padding:6px 12px;border-radius:20px;border:1px solid var(--line);pointer-events:none}
+
+  #loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;
+    gap:14px;background:radial-gradient(120% 120% at 50% 30%,var(--bg1),var(--bg2));z-index:20;color:#c9c7c2}
+  #loading .spin{width:38px;height:38px;border:3px solid rgba(255,255,255,.14);border-top-color:var(--accent);
+    border-radius:50%;animation:sp 1s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  #err{position:absolute;inset:0;display:none;align-items:center;justify-content:center;padding:40px;text-align:center;
+    background:#1c1e20;color:#eee;z-index:30;font-size:14px;line-height:1.6}
+
+  @media (max-width:920px){
+    #info,#legend{display:none}
+    #topbar{max-width:52vw}
+    #topbar .sub,#topbar .dims{display:none}
+    #topbar h1{font-size:17px}
+    #controls{width:200px}
+    #exportbar{width:200px}
+    #btnExport{font-size:11.5px}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="loading"><div class="spin"></div><div>3D-Modell wird geladen …</div></div>
+<div id="err"></div>
+
+<div id="hint">🖱️ Ziehen = drehen · Scrollen = zoomen · Klick auf Tür/Schub = öffnen</div>
+
+<button id="btnModular" title="Eine .glb mit benannten Einzelteilen (Body, Door_Left/Mid/Right, Drawer_Top/Bottom, Cover_Plate, Base_Plate, Shelves_Group) – ideal für Blender / Windows 3D-Viewer / model-viewer"><span class="ic">🧩</span><span>Modell als .GLB für PowerPoint herunterladen</span></button>
+
+<div id="topbar" class="panel">
+  <div class="brand">CRAMER · Wohnvilla</div>
+  <h1>Kleiderschrank «Refugium»</h1>
+  <div class="sub">Serie Refugium · 4 Segmente · Fixmaß (mm-genau)</div>
+  <div class="dims">Maße B×H×T: <b>250 × 200 × 60 cm</b></div>
+</div>
+
+<div id="exportbar" class="panel">
+  <button id="btnExport"><span class="ic">📦</span><span>Modell für PowerPoint (.glb) exportieren</span></button>
+  <div class="exsub">Speichert <b id="exStep">Schritt 6 · Fertig · mit LED</b> — genau die sichtbaren Teile</div>
+  <div class="exrow">
+    <button id="btnExportExplode" class="exmini" title="Explosionszeichnung – komplettes Modell, Teile auseinandergezogen"><span class="ic">💥</span>Explosion</button>
+    <button id="btnExportOpen" class="exmini" title="Alle Türen &amp; Schübe offen – komplettes Modell"><span class="ic">🚪</span>Türen offen</button>
+  </div>
+</div>
+<div id="toast"></div>
+
+<div id="info" class="panel">
+  <h2>Auftragsdaten</h2>
+  <div class="row"><span class="k">Entwurf</span><span class="v">CRAMER-2026-AB-0001</span></div>
+  <div class="row"><span class="k">Auftrag</span><span class="v">2026-AB067</span></div>
+  <div class="row"><span class="k">Kunde</span><span class="v">Cristiano Ronaldo</span></div>
+  <div class="row"><span class="k">Berater</span><span class="v">Anna Berger</span></div>
+  <div class="row"><span class="k">Datum</span><span class="v">13.07.2026</span></div>
+  <div class="price">9.067,18 € <span style="font-size:10px;color:var(--muted);font-weight:400">inkl. MwSt.</span></div>
+</div>
+
+<div id="legend" class="panel">
+  <h2>Materialien &amp; Farben</h2>
+  <div id="legendItems"></div>
+</div>
+
+<div id="controls" class="panel">
+  <div class="grp">
+    <button class="btn" id="btnOpen"><span class="ic">🚪</span>Öffnen</button>
+    <button class="btn" id="btnExplode"><span class="ic">✳️</span>Explosion</button>
+  </div>
+  <div class="grp">
+    <button class="btn" id="btnRotate"><span class="ic">🔄</span>Drehen</button>
+    <button class="btn" id="btnDims"><span class="ic">📐</span>Maße</button>
+  </div>
+  <div class="grp">
+    <button class="btn" id="btnReset"><span class="ic">🎯</span>Ansicht</button>
+    <button class="btn" id="btnShot"><span class="ic">📷</span>Foto</button>
+  </div>
+</div>
+
+<div id="stepbar" class="panel">
+  <button id="stepPrev">‹</button>
+  <div>
+    <div class="stxt"><div class="n" id="stepN">Schritt 6 / 6</div><div class="t" id="stepT">Fertig · mit LED</div></div>
+    <div class="dots" id="stepDots"></div>
+  </div>
+  <button id="stepNext">›</button>
+</div>
+
+<script src="vendor/three.min.js"></script>
+<script src="vendor/OrbitControls.js"></script>
+<script src="vendor/RoundedBoxGeometry.js"></script>
+<script src="vendor/GLTFExporter.js"></script>
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+if(!window.THREE){ showErr("Three.js konnte nicht geladen werden. Bitte den Ordner <b>vendor/</b> neben dieser Datei belassen."); return; }
+function showErr(html){ const e=$("#err"); e.style.display="flex"; e.innerHTML="<div>"+html+"</div>"; $("#loading").style.display="none"; }
+
+/* ============================================================
+   FARBEN & MATERIALIEN  (aus AV-Übergabe CRAMER-2026-AB-0001)
+   Farbwerte = sRGB-Näherung der RAL-/Materialangaben
+   ============================================================ */
+const COL = {
+  ral1019:  "#a48f7a",  // Mattlack Graubeige RAL 1019  (Korpus außen + Rückwand Sicht)  [PG2]
+  ral7021:  "#2e3234",  // Mattlack Schwarzgrau RAL 7021 (alle Fronten)                  [PG2]
+  white:    "#f4f1e9",  // Decoboard Interior White W10100SD (Korpus innen)              [PG1]
+  glass:    "#26292a",  // Glas / Rauchglas Volcano 4 mm (Abdeckplatte)                  [PG3]
+  led:      "#ffe3b8",  // warmweiße LED (~3000 K)
+  metal:    "#c4c8cc",  // Kleiderstange (Aluminium)
+  handle:   "#33383c"   // Griffleiste (gepulvert, Schwarzgrau)
+};
+
+const MAT_LEGEND = [
+  {c:COL.ral1019, n:"Mattlack Graubeige", s:"RAL 1019 · Korpus außen + Rückwand", pg:"PG 2"},
+  {c:COL.ral7021, n:"Mattlack Schwarzgrau", s:"RAL 7021 · alle Fronten (D1–D3, S1/S2)", pg:"PG 2"},
+  {c:COL.white,   n:"Decoboard Interior White", s:"W10100SD · Korpus innen + Böden", pg:"PG 1"},
+  {c:COL.glass,   n:"Rauchglas «Volcano» 4 mm", s:"Abdeckplatte oben", pg:"PG 3"},
+  {c:COL.led,     n:"LED warmweiß", s:"Türinnenseiten + Kleiderstange", pg:"—"},
+];
+
+/* ============================================================
+   MASSE  (Meter; 1 Einheit = 1 m)
+   ============================================================ */
+const W=2.50, H=2.00, D=0.60;          // Gesamt B×H×T
+const T=0.019;                         // Paneelstärke 19 mm
+const GLT=0.006;                        // Abdeckplatte (Rauchglas) sichtbar 6 mm
+const SOCK=0.046;                       // Sockelhöhe (2000 − 1950 Front − 4 Glas ≈ 46 mm)
+const bodyBottom=SOCK, bodyTop=H-GLT, bodyH=bodyTop-bodyBottom; // 0.046 … 1.994 ≈ 1.95
+const frontZ=D/2;                       // vordere Korpusebene z=0.30
+const FT=0.019;                         // Frontstärke
+const FW=0.60, FH=1.95;                 // Türblatt 600×1950
+const nSeg=4;
+const innerW=W-(nSeg+1)*T;              // 2.405
+const openW=innerW/nSeg;                // 0.60125
+const panelX = i => -W/2 + T/2 + i*(T+openW);          // Mittelachse Vertikalpaneel i (0..4)
+const openX  = j => -W/2 + T + openW/2 + j*(T+openW);   // Mittelachse Öffnung j (0..3)
+const bodyMidY = bodyBottom + bodyH/2;                   // 1.020
+
+/* Segment-Belegung links→rechts (Reihenfolge lt. Front-Typ 1..4):
+   Seg0 = Drehtür D1 | Seg1 = Drehtür D2 | Seg2 = 2 Schübe S1/S2 + offenes Regal R1 | Seg3 = Drehtür D3 */
+
+/* ============================================================
+   RENDERER / SZENE / KAMERA
+   ============================================================ */
+const app=$("#app");
+// robuste Viewport-Größe (Fallback, falls das Fenster beim Laden noch 0×0 ist)
+const vpW=()=>window.innerWidth||document.documentElement.clientWidth||1280;
+const vpH=()=>window.innerHeight||document.documentElement.clientHeight||720;
+const renderer=new THREE.WebGLRenderer({antialias:true, preserveDrawingBuffer:true, alpha:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(vpW(), vpH());
+renderer.outputEncoding=THREE.sRGBEncoding;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=0.96;
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+app.appendChild(renderer.domElement);
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color("#16171a");           // dunkler Studio-Raum; Hintergrund wird über outputEncoding kodiert → NICHT konvertieren
+scene.fog=new THREE.Fog("#16171a", 12, 30); scene.fog.color.convertSRGBToLinear();
+
+const camera=new THREE.PerspectiveCamera(42, vpW()/vpH(), 0.05, 100);
+const CAM_HOME=new THREE.Vector3(3.05, 1.72, 3.75);
+const TARGET=new THREE.Vector3(0, 1.0, 0);
+camera.position.copy(CAM_HOME);
+
+const controls=new THREE.OrbitControls(camera, renderer.domElement);
+controls.target.copy(TARGET);
+controls.enableDamping=true; controls.dampingFactor=0.08;
+controls.minDistance=1.8; controls.maxDistance=11;
+controls.maxPolarAngle=Math.PI*0.5-0.02;   // nicht unter den Boden
+controls.update();
+
+/* ---- Umgebung (dezente Reflexe für Glas/Lack) ---- */
+const pmrem=new THREE.PMREMGenerator(renderer);
+(function(){
+  const c=document.createElement("canvas"); c.width=16; c.height=128;
+  const x=c.getContext("2d"); const g=x.createLinearGradient(0,0,0,128);
+  g.addColorStop(0,"#b6b8bb"); g.addColorStop(.5,"#83868a"); g.addColorStop(1,"#3a3c3f");
+  x.fillStyle=g; x.fillRect(0,0,16,128);
+  const tex=new THREE.CanvasTexture(c); tex.mapping=THREE.EquirectangularReflectionMapping;
+  scene.environment=pmrem.fromEquirectangular(tex).texture; tex.dispose();
+})();
+
+/* ---- Licht (Studio) ---- */
+const hemi=new THREE.HemisphereLight("#cfe0ff","#0f1113",0.26); hemi.color.convertSRGBToLinear(); hemi.groundColor.convertSRGBToLinear(); scene.add(hemi);
+scene.add(new THREE.AmbientLight("#ffffff",0.09));
+// ☀️ Zenit-Licht: Sonne senkrecht von oben (leicht nach vorn geneigt, damit die Fronten satt lesbar bleiben)
+const key=new THREE.DirectionalLight("#fff5e6",1.55); key.color.convertSRGBToLinear();
+key.position.set(0.4,9,2.0); key.target.position.set(0,1.0,0); scene.add(key.target);
+key.castShadow=true;
+key.shadow.mapSize.set(2048,2048); key.shadow.bias=-0.0002; key.shadow.normalBias=0.02;
+const sc=key.shadow.camera; sc.near=1; sc.far=20; sc.left=-2.4; sc.right=2.4; sc.top=2.4; sc.bottom=-2.4;
+scene.add(key);
+// Weiches Fülllicht von vorne (hebt die dunklen Schwarzgrau-Fronten aus dem Dunkel)
+const fill=new THREE.DirectionalLight("#dfe8ff",0.40); fill.color.convertSRGBToLinear(); fill.position.set(2.6,2.1,5.0); scene.add(fill);
+// Rim/Konturlicht von hinten-oben: trennt den dunklen Schrank vom dunklen Hintergrund
+const rim=new THREE.DirectionalLight("#ffffff",0.70);  rim.position.set(-2.4,3.6,-4.6); scene.add(rim);
+
+/* ---- Boden: dunkel mit sanftem Licht-Pool unter dem Schrank ---- */
+function makeFloorTex(){
+  const c=document.createElement("canvas"); c.width=c.height=512;
+  const x=c.getContext("2d");
+  const g=x.createRadialGradient(256,256,10, 256,256,256);
+  g.addColorStop(0,"#24262a"); g.addColorStop(0.4,"#16181b"); g.addColorStop(1,"#0e0f12");
+  x.fillStyle=g; x.fillRect(0,0,512,512);
+  const t=new THREE.CanvasTexture(c); t.encoding=THREE.sRGBEncoding; return t;
+}
+const floor=new THREE.Mesh(
+  new THREE.PlaneGeometry(26,26),
+  new THREE.MeshStandardMaterial({map:makeFloorTex(), roughness:0.9, metalness:0.0})
+);
+floor.rotation.x=-Math.PI/2; floor.receiveShadow=true; scene.add(floor);
+
+/* ============================================================
+   MATERIALIEN
+   ============================================================ */
+const M = {
+  ext:   new THREE.MeshStandardMaterial({color:COL.ral1019, roughness:0.86, metalness:0.0, envMapIntensity:0.45}),
+  front: new THREE.MeshPhysicalMaterial({color:COL.ral7021, roughness:0.82, metalness:0.0,
+           clearcoat:0.06, clearcoatRoughness:0.5, envMapIntensity:0.22}), // echter Mattlack, kaum Reflexion
+  white: new THREE.MeshStandardMaterial({color:COL.white,   roughness:0.64, metalness:0.0, envMapIntensity:0.5}),
+  glass: new THREE.MeshPhysicalMaterial({color:COL.glass, roughness:0.08, metalness:0.0,
+           transparent:true, opacity:0.62, depthWrite:false,
+           clearcoat:1.0, clearcoatRoughness:0.06, envMapIntensity:1.4, side:THREE.DoubleSide}),
+  metal: new THREE.MeshStandardMaterial({color:COL.metal, roughness:0.28, metalness:0.9, envMapIntensity:1.2}),
+  handle:new THREE.MeshStandardMaterial({color:COL.handle, roughness:0.5, metalness:0.5}),
+  led:   new THREE.MeshBasicMaterial({color:COL.led}),
+  hole:  new THREE.MeshStandardMaterial({color:"#c9c6bd", roughness:0.9}),
+};
+// sRGB→Linear: in r128 werden Hex-Farben sonst beim sRGB-Output doppelt gamma-kodiert (aufgehellt).
+Object.values(M).forEach(m=>{ if(m.color) m.color.convertSRGBToLinear(); });
+floor.material.color.convertSRGBToLinear();
+// Seitenwand: Außenfläche Graubeige (RAL1019), Innenfläche Weiß  (BoxGeometry-Reihenfolge: px,nx,py,ny,pz,nz)
+// Linke Wand: Innenseite = +X ; Rechte Wand: Innenseite = -X
+function sideWallMats(side){
+  const o=M.ext, w=M.white;
+  return side==="left" ? [w,o,o,o,o,o] : [o,w,o,o,o,o];
+}
+
+/* ---- Helfer ---- */
+function box(w,h,d,mat,round){
+  let g;
+  if(round){ g=new THREE.RoundedBoxGeometry(w,h,d,3,Math.min(round, Math.min(w,h,d)/2-0.001)); }
+  else{ g=new THREE.BoxGeometry(w,h,d); }
+  const m=new THREE.Mesh(g,mat); m.castShadow=true; m.receiveShadow=true; return m;
+}
+function place(m,x,y,z){ m.position.set(x,y,z); return m; }
+
+/* ============================================================
+   TEILE-GRUPPEN  (für Steps / Explosion)
+   ============================================================ */
+const gSocket=new THREE.Group();
+const gCarcass=new THREE.Group();
+const gInterior=new THREE.Group();
+const gFronts=new THREE.Group();
+const gGlass=new THREE.Group();
+const gDims=new THREE.Group();
+[gSocket,gCarcass,gInterior,gFronts,gGlass,gDims].forEach(g=>scene.add(g));
+// Namen für saubere, benannte Knoten in allen .glb-Exporten
+gSocket.name="Base_Plate"; gCarcass.name="Body"; gInterior.name="Innenausstattung"; gFronts.name="Fronten"; gGlass.name="Cover_Plate";
+
+const openables=[];   // Türen & Schübe
+const pickable=[];    // Meshes für Klick-Auswahl
+const ledMeshes=[];   // LED-Streifen
+const ledLights=[];   // Punktlichter innen
+
+/* ---------- Sockel ---------- */
+(function(){
+  const h=SOCK, inset=0.03;
+  const s=box(W-2*inset, h, D-inset, M.front); // Sockel dunkel abgesetzt
+  place(s, 0, h/2, -inset/2);
+  gSocket.add(s);
+})();
+
+/* ---------- Korpus ---------- */
+(function(){
+  // Außenwände (volle Höhe)
+  const left = box(T,bodyH,D, sideWallMats("left"));   place(left,  panelX(0), bodyMidY, 0);
+  const right= box(T,bodyH,D, sideWallMats("right"));  place(right, panelX(4), bodyMidY, 0);
+  gCarcass.add(left,right);
+  // Innere Trennwände (zwischen Boden & Deckel)
+  for(let i=1;i<=3;i++){
+    const dv=box(T, bodyH-2*T, D, M.white); place(dv, panelX(i), bodyMidY, 0); gCarcass.add(dv);
+  }
+  // Boden & Deckel
+  const bot=box(innerW, T, D, M.white); place(bot,0, bodyBottom+T/2, 0); gCarcass.add(bot);
+  const top=box(innerW, T, D, M.white); place(top,0, bodyTop-T/2, 0);    gCarcass.add(top);
+  // Rückwand: innen weiß (+z), außen Graubeige (−z, Sicht)
+  const back=box(W-2*T, bodyH-2*T, 0.010, [M.ext,M.ext,M.ext,M.ext,M.white,M.ext]);
+  place(back, 0, bodyMidY, -D/2+0.006); gCarcass.add(back);
+})();
+
+/* ---------- Lochreihen (dezent) ---------- */
+function drillRows(cx, faceSign){
+  // zwei vertikale Lochreihen auf einer Innenfläche
+  const g=new THREE.Group();
+  const geom=new THREE.CylinderGeometry(0.004,0.004,0.006,8);
+  const zs=[frontZ-0.06, -frontZ+0.10];
+  for(const z of zs){
+    for(let y=bodyBottom+0.18; y<bodyTop-0.12; y+=0.064){
+      const m=new THREE.Mesh(geom, M.hole);
+      m.rotation.z=Math.PI/2;
+      m.position.set(cx+faceSign*(T/2+0.001), y, z);
+      g.add(m);
+    }
+  }
+  return g;
+}
+
+/* ---------- Innenausstattung ---------- */
+function shelf(cx, y){
+  const s=box(openW-0.006, 0.019, D-0.06, M.white); place(s, cx, y, -0.02);
+  return s;
+}
+(function(){
+  // Seg0 (D1): Kleiderstange + LED
+  const cx0=openX(0), railY=1.74;
+  const rail=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,openW-0.02,16), M.metal);
+  rail.rotation.z=Math.PI/2; rail.position.set(cx0, railY, 0.02); rail.castShadow=true;
+  gInterior.add(rail);
+  const railLed=box(openW-0.04,0.012,0.012,M.led); place(railLed, cx0, railY+0.05, -0.04);
+  gInterior.add(railLed); ledMeshes.push(railLed);
+  // Lochreihe beidseitig (an beiden flankierenden Wänden jedes Segments)
+  gInterior.add(drillRows(panelX(0), +1)); gInterior.add(drillRows(panelX(1), -1)); // Seg0
+
+  // Seg1 (D2): 1 Einlegeboden
+  gInterior.add(shelf(openX(1), 1.02));
+  gInterior.add(drillRows(panelX(1), +1)); gInterior.add(drillRows(panelX(2), -1)); // Seg1
+
+  // Seg2 (offenes Regal R1): 3 sichtbare Einlegeböden
+  const cx2=openX(2), r1Bot=bodyBottom+0.40, r1Top=bodyTop-0.006, span=r1Top-r1Bot;
+  for(let k=1;k<=3;k++){ gInterior.add(shelf(cx2, r1Bot + span*k/4)); }
+  gInterior.add(drillRows(panelX(2), +1)); gInterior.add(drillRows(panelX(3), -1)); // Seg2
+
+  // Seg3 (D3): Hängebereich (leer)
+  gInterior.add(drillRows(panelX(3), +1)); gInterior.add(drillRows(panelX(4), -1)); // Seg3
+})();
+
+/* ---------- Fronten ---------- */
+function ledStripOnDoor(doorGroup, hinge){
+  // schmaler warmweißer Streifen an der Türinnenseite
+  const strip=box(0.014, FH-0.10, 0.010, M.led);
+  const xLocal = hinge==="left" ? FW-0.05 : -(FW-0.05);
+  strip.position.set(xLocal, 0, -(FT/2)-0.006);
+  strip.castShadow=false;
+  doorGroup.add(strip); ledMeshes.push(strip);
+}
+function makeDoor(code, segCenter, hinge){
+  const pivot=new THREE.Group();
+  const px = hinge==="left" ? segCenter-FW/2 : segCenter+FW/2;
+  pivot.position.set(px, bodyMidY, frontZ+FT/2);
+  const leaf=box(FW,FH,FT, M.front, 0.006);
+  leaf.position.x = hinge==="left" ? FW/2 : -FW/2;
+  leaf.userData.pick=true;
+  pivot.add(leaf); pickable.push(leaf);
+  ledStripOnDoor(pivot, hinge);
+  const sign = hinge==="left" ? -1 : 1;
+  const item={type:"door", code:code, g:pivot, closed:0, openA:sign*1.62, cur:0, tgt:0};
+  pivot.name = code==="D1"?"Door_Left" : code==="D2"?"Door_Mid" : "Door_Right";
+  leaf.userData.item=item; openables.push(item);
+  gFronts.add(pivot);
+  // Innen-Punktlicht (LED-Wirkung)
+  const pl=new THREE.PointLight(COL.led, 0.0, 1.4, 2.0); pl.color.convertSRGBToLinear();
+  pl.position.set(segCenter, 1.35, 0.05); scene.add(pl); ledLights.push(pl);
+  return item;
+}
+function makeDrawer(code, segCenter, yc, hgt){
+  const g=new THREE.Group();
+  g.position.set(segCenter, yc, frontZ+FT/2);
+  const front=box(FW, hgt, FT, M.front, 0.016);        // «Curve» → stärker gerundet
+  front.userData.pick=true; g.add(front); pickable.push(front);
+  // Griffleiste (gepulvert) – schmale Leiste an Oberkante
+  const grip=box(FW-0.06, 0.016, 0.026, M.handle); place(grip, 0, hgt/2-0.02, FT/2+0.006); g.add(grip);
+  // Schubkasten (angedeutet)
+  const boxBody=box(FW-0.06, hgt-0.05, D-0.14, M.white); place(boxBody, 0, -0.01, -(D-0.14)/2 - FT/2 + 0.02);
+  boxBody.castShadow=true; g.add(boxBody);
+  const item={type:"drawer", code:code, g:g, closedZ:g.position.z, openZ:g.position.z+0.42, cur:0, tgt:0};
+  g.name = code==="S2"?"Drawer_Top":"Drawer_Bottom";
+  front.userData.item=item; openables.push(item);
+  gFronts.add(g);
+  return item;
+}
+(function(){
+  makeDoor("D1", openX(0), "left");
+  makeDoor("D2", openX(1), "right");
+  // Seg2: zwei Schübe unten
+  makeDrawer("S1", openX(2), bodyBottom+0.10, 0.20);
+  makeDrawer("S2", openX(2), bodyBottom+0.30, 0.20);
+  makeDoor("D3", openX(3), "right");
+})();
+
+/* ---------- Abdeckplatte (Rauchglas) ---------- */
+(function(){
+  const over=0.012;
+  const g=box(W+over, GLT, D+over, M.glass);
+  place(g, 0, bodyTop+GLT/2, 0);
+  g.castShadow=false;
+  gGlass.add(g);
+})();
+
+/* ============================================================
+   MASSLINIEN
+   ============================================================ */
+function label(text){
+  const c=document.createElement("canvas"); const s=256; c.width=s; c.height=128;
+  const x=c.getContext("2d");
+  x.fillStyle="rgba(20,22,24,0.9)"; roundRect(x,8,34,240,60,14); x.fill();
+  x.fillStyle="#c8a97a"; x.font="600 46px Segoe UI, sans-serif"; x.textAlign="center"; x.textBaseline="middle";
+  x.fillText(text, s/2, 66);
+  const tex=new THREE.CanvasTexture(c); tex.anisotropy=4;
+  const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, depthTest:false, transparent:true}));
+  sp.scale.set(0.46,0.23,1); return sp;
+}
+function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath();}
+function dimLine(a,b){
+  const g=new THREE.BufferGeometry().setFromPoints([a,b]);
+  return new THREE.Line(g, new THREE.LineBasicMaterial({color:"#3a3a38"}));
+}
+(function(){
+  const zf=D/2+0.16;
+  // Breite 250
+  gDims.add(dimLine(new THREE.Vector3(-W/2,-0.02,zf), new THREE.Vector3(W/2,-0.02,zf)));
+  const wl=label("250 cm"); wl.position.set(0,0.12,zf); gDims.add(wl);
+  // Höhe 200
+  const xl=-W/2-0.16;
+  gDims.add(dimLine(new THREE.Vector3(xl,0,zf-0.16), new THREE.Vector3(xl,H,zf-0.16)));
+  const hl=label("200 cm"); hl.position.set(xl-0.02,H/2,zf-0.16); gDims.add(hl);
+  // Tiefe 60
+  const xr=W/2+0.16;
+  gDims.add(dimLine(new THREE.Vector3(xr,0.02,-D/2), new THREE.Vector3(xr,0.02,D/2)));
+  const dl=label("60 cm"); dl.position.set(xr+0.02,0.14,0); gDims.add(dl);
+  gDims.visible=false;
+})();
+
+/* ============================================================
+   ZUSTAND / STEPS / EXPLOSION
+   ============================================================ */
+const STEPS=[
+  {t:"Sockel", grp:[gSocket]},
+  {t:"Korpus (Wände · Boden · Rückwand)", grp:[gSocket,gCarcass]},
+  {t:"Innenausstattung (Böden · Stange)", grp:[gSocket,gCarcass,gInterior]},
+  {t:"Fronten (Türen · Schübe)", grp:[gSocket,gCarcass,gInterior,gFronts]},
+  {t:"Abdeckplatte · Rauchglas", grp:[gSocket,gCarcass,gInterior,gFronts,gGlass]},
+  {t:"Fertig · mit LED", grp:[gSocket,gCarcass,gInterior,gFronts,gGlass]},
+];
+const state={ step:STEPS.length-1, open:false, exploded:false, rotate:false, dims:false };
+
+// Explosions-Offsets je Gruppe
+const explode=[
+  {g:gSocket,   base:new THREE.Vector3(0,0,0), off:new THREE.Vector3(0,-0.55,0)},
+  {g:gInterior, base:new THREE.Vector3(0,0,0), off:new THREE.Vector3(0,0,-0.55)},
+  {g:gFronts,   base:new THREE.Vector3(0,0,0), off:new THREE.Vector3(0,0,0.75)},
+  {g:gGlass,    base:new THREE.Vector3(0,0,0), off:new THREE.Vector3(0,0.55,0)},
+];
+
+function applyStep(){
+  const vis=STEPS[state.step].grp;
+  [gSocket,gCarcass,gInterior,gFronts,gGlass].forEach(g=>g.visible=vis.includes(g));
+  const ledOn = state.step>=STEPS.length-1;
+  ledMeshes.forEach(m=>m.visible=ledOn);
+  $("#stepN").textContent="Schritt "+(state.step+1)+" / "+STEPS.length;
+  $("#stepT").textContent=STEPS[state.step].t;
+  $("#stepDots").querySelectorAll("i").forEach((d,i)=>d.classList.toggle("on", i<=state.step));
+  $("#stepPrev").disabled = state.step===0;
+  $("#stepNext").disabled = state.step===STEPS.length-1;
+  const ex=$("#exStep"); if(ex) ex.textContent="Schritt "+(state.step+1)+" · "+STEPS[state.step].t;
+  // Steps < Fronten: alles geschlossen
+  if(state.step<3){ setOpen(false); }
+}
+function syncOpenBtn(){
+  $("#btnOpen").classList.toggle("active",state.open);
+  $("#btnOpen").innerHTML = state.open ? '<span class="ic">🚪</span>Schließen' : '<span class="ic">🚪</span>Öffnen';
+}
+function setOpen(v){
+  state.open=v;
+  openables.forEach(o=> o.tgt = v?1:0 );
+  syncOpenBtn();
+}
+
+/* ============================================================
+   ANIMATION
+   ============================================================ */
+const clock=new THREE.Clock();
+let lastW=vpW(), lastH=vpH();
+function tick(){
+  requestAnimationFrame(tick);
+  const dt=Math.min(clock.getDelta(),0.05);
+  const k=1-Math.pow(0.0009, dt); // sanftes Lerp
+
+  // Größen-Sync (falls der Tab/das Fenster erst nach dem Laden eine Größe bekommt)
+  const cw=vpW(), ch=vpH();
+  if(cw!==lastW || ch!==lastH){ lastW=cw; lastH=ch; camera.aspect=cw/ch; camera.updateProjectionMatrix(); renderer.setSize(cw,ch); }
+
+  // Türen / Schübe
+  openables.forEach(o=>{
+    o.cur += (o.tgt-o.cur)*k;
+    if(o.type==="door"){ o.g.rotation.y = o.openA*o.cur; }
+    else { o.g.position.z = o.closedZ + (o.openZ-o.closedZ)*o.cur; }
+  });
+  // LED-Innenlicht: an, wenn Tür offen & finaler Step
+  const ledMax = (state.step>=STEPS.length-1)?1:0;
+  ledLights.forEach((pl,i)=>{
+    const door=openables.filter(o=>o.type==="door")[i];
+    const want = ledMax*(door?door.cur:0)*1.6;
+    pl.intensity += (want-pl.intensity)*k;
+  });
+  // Explosion
+  explode.forEach(e=>{
+    const goal = state.exploded ? e.off : e.base;
+    e.g.position.lerp(goal, k);
+  });
+  if(state.rotate){ controls.autoRotate=true; controls.autoRotateSpeed=0.9; }
+  else controls.autoRotate=false;
+
+  controls.update();
+  renderer.render(scene,camera);
+}
+
+/* ============================================================
+   INTERAKTION
+   ============================================================ */
+const ray=new THREE.Raycaster(); const mouse=new THREE.Vector2();
+let downXY=null;
+renderer.domElement.addEventListener("pointerdown",e=>{ downXY=[e.clientX,e.clientY]; });
+renderer.domElement.addEventListener("pointerup",e=>{
+  if(!downXY) return;
+  const moved=Math.hypot(e.clientX-downXY[0], e.clientY-downXY[1]);
+  downXY=null;
+  if(moved>6) return;                    // war ein Drag → ignorieren
+  if(state.step<3 || state.exploded) return;
+  mouse.x=(e.clientX/vpW())*2-1; mouse.y=-(e.clientY/vpH())*2+1;
+  ray.setFromCamera(mouse,camera);
+  const hit=ray.intersectObjects(pickable,false)[0];
+  if(hit && hit.object.userData.item){
+    const it=hit.object.userData.item; it.tgt = it.tgt>0.5?0:1;
+    state.open = openables.some(o=>o.tgt>0.5); syncOpenBtn();  // Button-Label mit realem Zustand synchron halten
+  }
+});
+
+/* Buttons */
+$("#btnOpen").onclick=()=>{ if(state.step>=3) setOpen(!state.open); };
+$("#btnExplode").onclick=()=>{
+  state.exploded=!state.exploded;
+  $("#btnExplode").classList.toggle("active",state.exploded);
+  if(state.exploded){ state.step=STEPS.length-1; applyStep(); setOpen(false); }
+};
+$("#btnRotate").onclick=()=>{ state.rotate=!state.rotate; $("#btnRotate").classList.toggle("active",state.rotate); };
+$("#btnDims").onclick=()=>{ state.dims=!state.dims; gDims.visible=state.dims; $("#btnDims").classList.toggle("active",state.dims); };
+$("#btnReset").onclick=()=>{ camera.position.copy(CAM_HOME); controls.target.copy(TARGET); controls.update(); };
+$("#btnShot").onclick=()=>{
+  renderer.render(scene,camera);
+  const a=document.createElement("a");
+  a.download="Refugium-Kleiderschrank.png"; a.href=renderer.domElement.toDataURL("image/png"); a.click();
+};
+$("#stepPrev").onclick=()=>{ if(state.step>0){ state.step--; if(state.exploded){state.exploded=false;$("#btnExplode").classList.remove("active");} applyStep(); } };
+$("#stepNext").onclick=()=>{ if(state.step<STEPS.length-1){ state.step++; applyStep(); } };
+
+window.addEventListener("keydown",e=>{
+  if(e.key==="ArrowRight") $("#stepNext").click();
+  else if(e.key==="ArrowLeft") $("#stepPrev").click();
+  else if(e.key===" "){ e.preventDefault(); $("#btnOpen").click(); }
+});
+
+/* ============================================================
+   EXPORT → .glb (für PowerPoint 3D-Modelle)
+   Exportiert GENAU die aktuell sichtbaren Schrank-Teile (WYSIWYG je Aufbauschritt).
+   ============================================================ */
+function toast(msg, kind){
+  const t=$("#toast"); if(!t) return;
+  t.textContent=msg; t.className=""; if(kind) t.classList.add(kind); t.classList.add("show");
+  clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"), kind==="err"?4600:2800);
+}
+function downloadBlob(blob, name){
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a"); a.href=url; a.download=name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 2000);
+}
+function stepSlug(){
+  return STEPS[state.step].t
+    .replace(/ä/g,"ae").replace(/ö/g,"oe").replace(/ü/g,"ue").replace(/ß/g,"ss")
+    .toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+}
+let exporting=false;
+// Gemeinsamer Export-Kern: schreibt die übergebenen Gruppen als .glb (onlyVisible filtert unsichtbare Teile/Kinder).
+function doExport(parts, fname, extraOpts){
+  if(exporting) return;
+  if(typeof THREE.GLTFExporter!=="function"){
+    toast("GLTFExporter nicht geladen – bitte vendor/GLTFExporter.js prüfen.","err"); return;
+  }
+  exporting=true;
+  const btns=[$("#btnExport"),$("#btnExportExplode"),$("#btnExportOpen"),$("#btnModular")].filter(Boolean);
+  btns.forEach(b=>b.disabled=true);
+  toast("⏳ Export wird erstellt …");
+  let finished=false;
+  const done=()=>{ if(finished) return; finished=true; clearTimeout(watchdog); exporting=false; btns.forEach(b=>b.disabled=false); };
+  // r128 GLTFExporter kennt keinen onError-Callback → Watchdog, falls die async-Kette still hängt.
+  const watchdog=setTimeout(()=>{ if(!finished){ toast("Export hat zu lange gedauert – bitte erneut versuchen.","err"); done(); } }, 20000);
+  try{
+    new THREE.GLTFExporter().parse(parts, function(result){
+      try{
+        const blob = (result instanceof ArrayBuffer)
+          ? new Blob([result], {type:"model/gltf-binary"})
+          : new Blob([JSON.stringify(result)], {type:"model/gltf+json"});
+        downloadBlob(blob, fname);
+        toast("✓ Gespeichert: "+fname+"  ("+Math.max(1,Math.round(blob.size/1024))+" KB)","ok");
+      }catch(e){ toast("Export fehlgeschlagen: "+e.message,"err"); }
+      finally{ done(); }
+    }, Object.assign({ binary:true, onlyVisible:true, trs:false }, extraOpts||{}));
+  }catch(e){ toast("Export fehlgeschlagen: "+e.message,"err"); done(); }
+}
+// Aktueller Aufbauschritt (WYSIWYG): nur die gerade sichtbaren Teile.
+function exportSchrank(){
+  const slug=stepSlug();
+  doExport([gSocket,gCarcass,gInterior,gFronts,gGlass],
+           "mein_kleiderschrank_schritt-"+(state.step+1)+(slug?("_"+slug):"")+".glb");
+}
+// Zwei Sondervarianten des KOMPLETTEN Modells: Explosionszeichnung bzw. alle Türen offen.
+// Die Pose wird nur für den (synchron gelesenen) Export gesetzt und danach sofort zurückgesetzt
+// → die Live-Ansicht bleibt exakt so, wie sie war.
+function exportPose(kind){
+  if(exporting) return;
+  const gs=[gSocket,gCarcass,gInterior,gFronts,gGlass];
+  const doors=openables.filter(o=>o.type==="door");
+  const draws=openables.filter(o=>o.type==="drawer");
+  // Ausgangszustand sichern
+  const sVis=gs.map(g=>g.visible), sLed=ledMeshes.map(m=>m.visible);
+  const sPos=explode.map(e=>e.g.position.clone());
+  const sDoor=doors.map(o=>o.g.rotation.y), sDraw=draws.map(o=>o.g.position.z);
+  // Komplettes Modell sichtbar machen (unabhängig vom aktuellen Step) + mit LED
+  gs.forEach(g=>g.visible=true); ledMeshes.forEach(m=>m.visible=true);
+  let fname;
+  if(kind==="explode"){                         // Teile auseinandergezogen, Türen/Schübe zu
+    explode.forEach(e=>e.g.position.copy(e.off));
+    doors.forEach(o=>o.g.rotation.y=0);
+    draws.forEach(o=>o.g.position.z=o.closedZ);
+    fname="mein_kleiderschrank_explosionszeichnung.glb";
+  }else{                                         // zusammengebaut, alle Türen + Schübe offen
+    explode.forEach(e=>e.g.position.copy(e.base));
+    doors.forEach(o=>o.g.rotation.y=o.openA);
+    draws.forEach(o=>o.g.position.z=o.openZ);
+    fname="mein_kleiderschrank_tueren-offen.glb";
+  }
+  doExport(gs, fname);   // GLTFExporter liest die Transforms synchron in parse()
+  // sofort (vor dem nächsten Frame) zurücksetzen – kein sichtbarer Sprung in der Live-Ansicht
+  gs.forEach((g,i)=>g.visible=sVis[i]); ledMeshes.forEach((m,i)=>m.visible=sLed[i]);
+  explode.forEach((e,i)=>e.g.position.copy(sPos[i]));
+  doors.forEach((o,i)=>o.g.rotation.y=sDoor[i]); draws.forEach((o,i)=>o.g.position.z=sDraw[i]);
+}
+$("#btnExport").onclick=exportSchrank;
+$("#btnExportExplode").onclick=()=>exportPose("explode");
+$("#btnExportOpen").onclick=()=>exportPose("open");
+window.exportSchrank=exportSchrank;            // aktueller Step
+window.exportExplosion=()=>exportPose("explode");
+window.exportTuerenOffen=()=>exportPose("open");
+
+/* ============================================================
+   MODULARES MASTER-MODELL  →  eine .glb mit benannten Einzelteilen
+   Hierarchie:  "Schrank_Gesamt"
+     ├─ Body           (Korpus + fest verbaute Lochreihen + Kleiderstange, statisch)
+     ├─ Base_Plate     (Sockelplatte)
+     ├─ Cover_Plate    (Abdeckplatte / Rauchglas)
+     ├─ Shelves_Group  (alle losen Einlegeböden)
+     ├─ Door_Left  · Door_Mid · Door_Right   (Pivot exakt an der Scharnierkante)
+     └─ Drawer_Top · Drawer_Bottom
+   Immer zusammengebaut & geschlossen (unabhängig vom aktuellen Live-Zustand).
+   ============================================================ */
+function cloneClean(o){
+  // WICHTIG: three r128 Object3D.copy() macht JSON.parse(JSON.stringify(userData)).
+  // Unsere Pick-Meshes tragen userData.item mit zirkulären THREE-Refs → würde beim clone() endlos rekursieren.
+  // Daher userData der Originale vor dem Klonen leeren und danach wiederherstellen.
+  const saved=[];
+  o.traverse(x=>{ if(x.userData && Object.keys(x.userData).length){ saved.push([x,x.userData]); x.userData={}; } });
+  let c;
+  try{ c=o.clone(); } finally { saved.forEach(p=>{ p[0].userData=p[1]; }); }
+  c.traverse(x=>{ x.visible=true; });   // im Export alles sichtbar
+  return c;
+}
+function buildModularSchrank(){
+  const root=new THREE.Group(); root.name="Schrank_Gesamt";
+  // Body: Korpus-Panele  +  Lochreihen (Groups) / Kleiderstange (metal) / Stangen-LED (led)
+  const body=new THREE.Group(); body.name="Body";
+  gCarcass.children.forEach(m=>body.add(cloneClean(m)));
+  gInterior.children.forEach(m=>{
+    if(m.type==="Group" || m.material===M.metal || m.material===M.led) body.add(cloneClean(m));
+  });
+  root.add(body);
+  // Shelves_Group: lose Einlegeböden (weiße Böden der Innenausstattung)
+  const shelves=new THREE.Group(); shelves.name="Shelves_Group";
+  gInterior.children.forEach(m=>{ if(m.isMesh && m.material===M.white) shelves.add(cloneClean(m)); });
+  root.add(shelves);
+  // Base_Plate & Cover_Plate
+  const base=new THREE.Group(); base.name="Base_Plate"; gSocket.children.forEach(m=>base.add(cloneClean(m))); root.add(base);
+  const cover=new THREE.Group(); cover.name="Cover_Plate"; gGlass.children.forEach(m=>cover.add(cloneClean(m))); root.add(cover);
+  // Türen (Pivot = Scharnierkante, geschlossen) + Schübe (eingefahren)
+  openables.forEach(o=>{
+    const c=cloneClean(o.g);
+    if(o.type==="door"){ c.name = o.code==="D1"?"Door_Left" : o.code==="D2"?"Door_Mid" : "Door_Right"; c.rotation.y=0; }
+    else { c.name = o.code==="S2"?"Drawer_Top" : "Drawer_Bottom"; c.position.z=o.closedZ; }
+    root.add(c);
+  });
+  return root;
+}
+function exportModular(){ doExport([buildModularSchrank()], "modularer_schrank.glb", {trs:true}); } // TRS = explizite Pivots für Blender/Animation
+$("#btnModular").onclick=exportModular;
+window.exportModular=exportModular;
+window.buildModularSchrank=buildModularSchrank;
+
+/* Legende + Step-Dots aufbauen */
+(function(){
+  const L=$("#legendItems");
+  MAT_LEGEND.forEach(m=>{
+    const d=document.createElement("div"); d.className="item";
+    d.innerHTML=`<span class="sw" style="background:${m.c}"></span>
+      <span class="lbl">${m.n}<small>${m.s}</small></span><span class="pg">${m.pg}</span>`;
+    L.appendChild(d);
+  });
+  const dots=$("#stepDots");
+  STEPS.forEach(()=>{ const i=document.createElement("i"); dots.appendChild(i); });
+})();
+
+window.addEventListener("resize",()=>{
+  lastW=vpW(); lastH=vpH();
+  camera.aspect=lastW/lastH; camera.updateProjectionMatrix();
+  renderer.setSize(lastW,lastH);
+});
+
+window.__wardrobe={scene,camera,openables,pickable,gSocket,gCarcass,gInterior,gFronts,gGlass,ledMeshes,state,setOpen,applyStep,STEPS,exportSchrank};
+
+/* Deep-Link: Zustand direkt per URL setzen, z.B. ?step=3&open=1&dims=1&explode=1&rotate=1 */
+(function(){
+  const q=new URLSearchParams(location.search);
+  if(q.has("step")){ state.step=Math.max(0,Math.min(STEPS.length-1, parseInt(q.get("step"),10)||0)); }
+  if(q.get("dims")==="1"){ state.dims=true; gDims.visible=true; $("#btnDims").classList.add("active"); }
+  if(q.get("rotate")==="1"){ state.rotate=true; $("#btnRotate").classList.add("active"); }
+  applyStep();
+  if(q.get("explode")==="1" && state.step>=3){
+    state.exploded=true; $("#btnExplode").classList.add("active");
+    explode.forEach(e=>e.g.position.copy(e.off));
+  }
+  if(q.get("open")==="1" && state.step>=3 && !state.exploded){
+    setOpen(true);
+    openables.forEach(o=>{ o.cur=1; o.tgt=1; if(o.type==="door") o.g.rotation.y=o.openA; else o.g.position.z=o.openZ; });
+    ledLights.forEach((pl,i)=>{ const d=openables.filter(o=>o.type==="door")[i]; pl.intensity=1.6; });
+  }
+})();
+
+$("#loading").style.display="none";
+tick();
+})();
+</script>
+</body>
+</html>

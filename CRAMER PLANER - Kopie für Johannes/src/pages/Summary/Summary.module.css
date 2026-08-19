@@ -1,0 +1,505 @@
+.page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.badge {
+  align-self: flex-start;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  padding: 4px 12px;
+}
+
+.title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.lead {
+  color: var(--color-ink-secondary);
+  max-width: 64ch;
+}
+
+/* Scan-Bereich */
+.scan {
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.scanText {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  align-items: flex-start;
+}
+
+.scanTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.scanHint {
+  font-size: 0.9rem;
+  color: var(--color-ink-secondary);
+  max-width: 46ch;
+}
+
+.scanImage {
+  width: 220px;
+  max-height: 260px;
+  object-fit: contain;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: #fff;
+}
+
+.scanEmpty {
+  width: 220px;
+  min-height: 140px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-ink-muted);
+  background: var(--color-surface-soft);
+  border: 1px dashed var(--color-line-strong);
+  border-radius: var(--radius-md);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+}
+
+/*
+ * Warum „An AV senden" gerade nicht geht. Steht unter den Knöpfen statt als Meldung im
+ * Fenster: der Hinweis gilt dauerhaft, solange die Nummern fehlen — er ist kein Ereignis,
+ * das man wegklickt.
+ */
+.avHinweis {
+  margin: var(--space-3) 0 0;
+  padding: 9px 13px;
+  border-left: 3px solid var(--color-danger);
+  border-radius: 0 7px 7px 0;
+  background: color-mix(in srgb, var(--color-danger) 8%, transparent);
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: var(--color-ink-secondary);
+  max-width: 70ch;
+}
+
+@media (max-width: 640px) {
+  .scan {
+    flex-direction: column;
+  }
+  .scanImage,
+  .scanEmpty {
+    width: 100%;
+  }
+}
+
+.block {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.blockTitle {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-soft);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.blockBody {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+
+.row:not(:last-child) {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.k {
+  font-size: 0.82rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  flex-shrink: 0;
+}
+
+.v {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--color-ink);
+  text-align: right;
+}
+
+.mono {
+  font-family: 'SFMono-Regular', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+}
+
+.pg {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+/* Fronten-Recap */
+.colGroup {
+  padding: var(--space-3) var(--space-4);
+}
+
+.colGroup:not(:last-child) {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.colHead {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin-bottom: var(--space-2);
+}
+
+.elem {
+  padding: var(--space-2) 0;
+}
+
+.elem:not(:last-child) {
+  border-bottom: 1px dashed var(--color-line);
+}
+
+.elemHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-3);
+}
+
+.elemHeadLeft {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.price {
+  font-weight: 700;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  text-align: right;
+}
+
+.priceOnRequest {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+  text-align: right;
+}
+
+.elemType {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+.elemLabel {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.elemStyle {
+  font-size: 0.8rem;
+  color: var(--color-ink-secondary);
+}
+
+.elemMeta {
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+  margin-top: 2px;
+}
+
+.fieldList {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 0.9rem;
+  color: var(--color-ink-secondary);
+}
+
+.notes {
+  padding: var(--space-3) var(--space-4);
+  white-space: pre-wrap;
+  color: var(--color-ink);
+}
+
+/* Preis-Zusammenfassung (Phase 8) */
+.totals {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.totalsHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.totalsTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.vatNote {
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+}
+
+.totalRow,
+.optRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-ink-secondary);
+}
+
+.optRow {
+  cursor: pointer;
+}
+
+.optLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-ink);
+  cursor: pointer;
+}
+
+.amount {
+  font-weight: 600;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.grandRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  margin-top: var(--space-2);
+  border-top: 2px solid var(--color-ink);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.grandAmount {
+  font-size: 1.35rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.onRequestNote {
+  margin-top: var(--space-3);
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+/* Weitere Positionen (Buckets) */
+.posRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) var(--space-4);
+}
+
+.posRow:not(:last-child) {
+  border-bottom: 1px solid var(--color-line);
+}
+
+.posLabel {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  color: var(--color-ink);
+}
+
+.posBucket {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+.subtotalRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--color-line-strong);
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.targetRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding-top: var(--space-3);
+  margin-top: var(--space-2);
+  border-top: 1px dashed var(--color-line-strong);
+  color: var(--color-ink-secondary);
+}
+
+.delta {
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+}
+
+/* Phase A – Verkaufspreis (manuell erfasst, verbindlich) */
+.vkBox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 2px solid var(--color-ink);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+}
+
+.vkHead {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.vkTitle {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.vkHint {
+  font-size: 0.85rem;
+  color: var(--color-ink-secondary);
+  max-width: 60ch;
+}
+
+.vkRow {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-5);
+  flex-wrap: wrap;
+}
+
+.vkField {
+  flex: 1;
+  min-width: 220px;
+}
+
+.vkPreview {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  align-items: flex-end;
+  min-width: 160px;
+}
+
+.vkPreviewLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.vkPreviewValue {
+  font-size: 1.6rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+@media (max-width: 640px) {
+  .vkPreview {
+    align-items: flex-start;
+  }
+}

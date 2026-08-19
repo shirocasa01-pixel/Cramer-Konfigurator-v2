@@ -1,0 +1,76 @@
+.steps {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.step {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-ink-muted);
+}
+
+.stepBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 4px 8px;
+  margin: -4px -8px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color 0.16s ease;
+}
+
+.stepBtn:hover {
+  background: var(--color-surface-sunken);
+}
+
+.stepBtn:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.no {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-strong);
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.label {
+  font-size: 0.85rem;
+  letter-spacing: 0.01em;
+}
+
+.active {
+  color: var(--color-ink);
+}
+
+.active .no {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.active .label {
+  font-weight: 700;
+}
+
+.done {
+  color: var(--color-ink-secondary);
+}
+
+.done .no {
+  background: var(--color-ink-secondary);
+  border-color: var(--color-ink-secondary);
+  color: var(--color-accent-contrast);
+}

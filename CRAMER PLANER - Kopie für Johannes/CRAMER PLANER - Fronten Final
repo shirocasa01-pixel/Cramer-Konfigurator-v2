@@ -1,0 +1,90 @@
+# Projekt: CRAMER PLANER - Phase 5: Fronten & Abschlüsse
+
+## ROLLE & ZIEL
+Dieses Dokument beschreibt die hochkomplexe Logik für Punkt 3 (Front) und Punkt 4 (Sonderausstattung) des Konfigurators. Der Berater baut das Möbel Stück für Stück über eine dynamische Plus-Logik von links nach rechts auf.
+
+---
+
+## ALLGEMEINE UI- & DATEN-REGELN
+
+1. **Reihenfolge (Von links nach rechts):** Jedes Mal, wenn der Berater bei einem Front-Typ auf ein `[+]` klickt, wird ein Element generiert (z. B. *Front 1 (ganz links)*, *Front 2*, *Front 3*...).
+2. **Größen- & Identifikations-Schnittstelle:** Jedes hinzugefügte Front-Element besitzt zu Beginn zwei optionale Eingabefelder:
+   - *Feld A (Maße):* Eingabe der exakten Breite/Höhe.
+   - *Feld B (Katalog-Code):* Ein kurzes Freitextfeld für interne Kürzel (z. B. „T50-51“).
+3. **Zentrale Farbmatrix (Interkonnektivität):** Sobald im System eine Materialgruppe wie `Decoboard`, `Mattlack`, `Furnier` oder `Glas` ausgewählt wird, lädt die App automatisch das standardisierte, zentrale Dropdown-Menü mit den hinterlegten Kramer-Farbtönen (z. B. Eiche Milano, Anthrazitgrau etc.).
+4. **Ergänzende Textfelder:** Wo im analogen Block "Freitext" steht (z. B. nach Griffen oder PTO), wird ein kurzes, einzeiliges Textfeld für stichpunktartige Notizen (z. B. RAL-Nummern oder Beschlagsvorgaben) eingeblendet – kein großes Textareal!
+
+---
+
+## 3. FRONT - STRUKTUR UND DROPDOWN-HIERARCHIE
+
+Sobald ein neues Front-Element erzeugt wird, wählt der Berater zuerst die Hauptgruppe. Danach öffnen sich kaskadierend die folgenden Unter-Dropdowns:
+
+### A. Schiebetüren (grifflos)
+* **Schiene** -> Dropdown: [Zentrale Farbmatrix] + einzeiliges Freitextfeld (z. B. für RAL)
+* **Glossy** -> Dropdown: [Zentrale Farbmatrix] + einzeiliges Freitextfeld (z. B. für RAL)
+* **Less** -> Dropdown: [Glas-Farben aus Zentralmatrix]
+* **Classic**
+  - `Decoboard` -> Dropdown: [Zentrale Farbmatrix]
+  - `Mattlack` -> Dropdown: [Zentrale Farbmatrix]
+  - `Furnier` -> Dropdown: [Zentrale Farbmatrix]
+  - `Glas` -> Dropdown: [Zentrale Farbmatrix]
+  - `Xtreme Plus` -> Dropdown: [Zentrale Farbmatrix]
+
+### B. Schiebetüren (Edge)
+* **Griff RAL:** (Einzeiliges Freitextfeld)
+* **Material-Auswahl:** Dropdown-Optionen für:
+  - `Decoboard` / `Mattlack` / `Furnier` / `Xtreme Plus` -> Jeweils Dropdown aus Zentralmatrix.
+  - `Glas hinterlackiert` -> Dropdown aus spezifischer Glas-Matrix.
+
+### C. Drehtüren
+* **Glossy** -> Unterpunkte identisch zu *Less*:
+  - `Griff` / `PTO RAL` / `Glas` -> Jeweils Dropdown aus Zentralmatrix + kurzes Freitextfeld.
+* **Less**
+  - `Griff` / `PTO RAL` / `Glas` -> Jeweils Dropdown aus Zentralmatrix + kurzes Freitextfeld.
+* **Line** -> Auswahl steuert direkt das Material:
+  - `Glas` / `Mattlack` / `Furnier` -> Jeweils Dropdown aus Zentralmatrix + kurzes Freitextfeld.
+* **Classic**
+  - `Griff` / `PTO` -> Jeweils kurzes Freitextfeld.
+  - Material-Auswahl: `Decoboard` / `Mattlack` / `Furnier` / `Xtreme Plus` -> Jeweils Dropdown aus Zentralmatrix + kurzes Freitextfeld.
+* **107** -> Unterpunkte identisch zu *Curve*:
+  - `Griffleiste RAL` -> Kurzes Freitextfeld.
+  - Material-Auswahl: `Decoboard` / `Mattlack` / `Furnier` / `Glas` / `Xtreme Plus` -> Jeweils Dropdown aus Zentralmatrix + kurzes Freitextfeld.
+* **Curve**
+  - `Griffleiste RAL` -> Kurzes Freitextfeld.
+  - Material-Auswahl: `Decoboard` / `Mattlack` / `Furnier` / `Glas` / `Xtreme Plus` -> Jeweils Dropdown aus Zentralmatrix + kurzes Freitextfeld.
+
+### D. Schübe (Schubladen)
+*Die logische Baumstruktur und alle Unterpunkte für Schübe entsprechen exakt der Struktur der **Drehtüren** (Glossy, Less, Line, Classic, 107, Curve) inklusive aller dazugehörigen Material-Dropdowns und kurzen Freitextfeldern.*
+
+---
+
+## ERGÄNZENDE COMPONENTEN (Gilt für das gesamte Möbelstück)
+
+### Grifffarbe
+* `falls abweichend:` Einzeiliges Freitextfeld zur Angabe von spezifischen RAL-/Farbtönen.
+
+### Abschl. oben (Abschlussplatte oben)
+* [ ] `wie Korpus` -> (Übernimmt automatisch das Material von Punkt 2b "Korpus Außen").
+* [ ] `anders` -> Schaltet folgende Unteroptionen frei:
+  - **DP** -> Dropdown zur Stärkenauswahl: `[1cm, 2cm, 3cm]`
+  - **Glas** -> Automatische Fixierung auf `[4mm]`
+  - **UK** -> Automatische Fixierung auf `[2cm]`
+
+### Abschl. unten (Sockel / Bodenabschluss)
+*Auswahl über ein exklusives Radio-Button- oder Dropdown-Feld (kein Freitext bei Standard):*
+* `[ ] SO` (Sockel)
+* `[ ] SSP` (Schwebende Sockelplatte)
+* `[ ] KS` (Kommodensockel)
+* `[ ] UK` (Umlaufkorpus)
+* `[ ] KG / UK mit Fuß` -> **Ausnahme:** Aktiviert ein kurzes Freitextfeld für spezifische Fuß-Typen oder Höhen.
+
+---
+
+## 4. SONDERAUSSTATTUNG
+* **Notizfeld:** Ein großes Freitext-Eingabefeld (Textarea) für freie Notizen, Sonderkonstruktionen oder logistische Hinweise des Beraters. Diese Daten werden unverändert in der späteren Zusammenfassung ausgegeben.
+
+---
+
+## HINWEIS FÜR CLAUDE
+Dieses Dokument enthält die granulare Verschachtelung für die Fronten-Ebene. Setze die bedingten Dropdowns (Conditional Rendering) extrem präzise um. Wiederkehrende Material-Dropdowns (z. B. Mattlack oder Decoboard) müssen auf dieselbe Datenstruktur (Zentralmatrix) zugreifen. Achte streng darauf, dass Textfelder bei den Front-Optionen kurze, einzeilige Text-Inputs sind, während die Sonderausstattung am Ende eine große Textarea erhält.

@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc *)",
+      "Bash(python -c \"import openpyxl; print\\('openpyxl', openpyxl.__version__\\)\")",
+      "Bash(mkdir -p C:/Users/Lenovo/AppData/Local/Temp/claude/C--Users-Lenovo-OneDrive-Dokumente-CRAMER-PLANER/a6c03fcb-2fa7-44a3-ae06-22a3434b3e05/scratchpad/xlsx-extract)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(sed -i \"s|const num=s=>{const v=Number\\(String\\(s\\).replace\\(/\\\\\\\\\\\\\\\\./g,''\\).replace\\(',','.'\\)\\);return Number.isFinite\\(v\\)?v:null;};|const num=s=>{const t=String\\(s\\).trim\\(\\);if\\(!t\\)return null;const v=Number\\(t.replace\\(/\\\\\\\\\\\\\\\\./g,''\\).replace\\(',','.'\\)\\);return Number.isFinite\\(v\\)?v:null;};|\" gen.cjs)",
+      "Bash(node gen.cjs)",
+      "Bash(node -e ' *)",
+      "Bash(node run.cjs)",
+      "Bash(node run-p8.cjs)",
+      "Bash(echo \"TSC_EXIT=$?\")",
+      "Bash(cd \"/c/Users/Lenovo/Downloads\" && ls -la \"CRAMER-2026-AB-0001 \\(1\\) \\(1\\).pdf\")",
+      "Bash(python -c ' *)",
+      "Bash(py --version)",
+      "Bash(py -c ' *)",
+      "Bash(mkdir -p \"/c/Users/Lenovo/OneDrive/Dokumente/CRAMER PLANER/3D-Kleiderschrank/vendor\")",
+      "Bash(curl -sL -o three.min.js \"https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js\")",
+      "Bash(curl -sL -o OrbitControls.js \"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js\")",
+      "Bash(curl -sL -o RoundedBoxGeometry.js \"https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/geometries/RoundedBoxGeometry.js\")",
+      "WebSearch",
+      "Bash(grep -o 'RoundedBoxGeometry.\\\\{0,80\\\\}' \"C:/Users/Lenovo/OneDrive/Dokumente/CRAMER PLANER/3D-Kleiderschrank/vendor/RoundedBoxGeometry.js\")",
+      "WebFetch(domain:encycolorpedia.com)"
+    ]
+  }
+}

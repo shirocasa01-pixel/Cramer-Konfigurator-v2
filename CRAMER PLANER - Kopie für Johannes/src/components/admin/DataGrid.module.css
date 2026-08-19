@@ -1,0 +1,452 @@
+/*
+ * Data-Grid: hohe Datendichte, ruhige Oberfläche.
+ *
+ * Die Tabelle ist reine Anzeige — keine Eingabefelder in der Fläche. Deshalb darf sie
+ * dichter sein als ein Formular: 26 px Zeilenhöhe, feine Trennlinien statt Rahmen,
+ * Zebrastreifen nur als Hauch. Interaktion gibt es an genau zwei Stellen: dem
+ * Breiten-Schieber im Spaltenkopf und dem Bearbeiten-Symbol am Zeilenende.
+ */
+
+/*
+ * Die Breite kommt als Pixelwert aus der Komponente (Summe der Spaltenbreiten) — hier
+ * steht bewusst KEIN `width: max-content`.
+ *
+ * Das war die Ursache dafür, dass sich Spalten nicht enger als ihr Text ziehen ließen:
+ * bei intrinsischer Breite (`max-content`) fällt der Browser trotz `table-layout: fixed`
+ * auf die automatische Verteilung zurück und gibt jeder Spalte mindestens ihre
+ * Inhaltsbreite. Erst mit einer festen Pixelbreite greift das feste Layout, und die
+ * Spaltenbreiten aus dem `colgroup` gelten so, wie sie eingestellt sind.
+ */
+.grid {
+  min-width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  table-layout: fixed;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+/* --- Spaltenköpfe --------------------------------------------------------------- */
+
+.grid thead th {
+  /* `sticky` erzeugt bereits einen Positionierungskontext — der Schieber darunter
+     richtet sich daran aus. Kein `overflow: hidden` hier, sonst wird er abgeschnitten;
+     das Kürzen übernimmt `.thTitel`. */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  height: 30px;
+  padding: 0 10px;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--grid-kopf-ink);
+  background: var(--grid-kopf-bg);
+  border-bottom: 1px solid var(--grid-linie-stark);
+  white-space: nowrap;
+}
+
+.thNum {
+  text-align: right;
+}
+
+.thTitel {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Schieber an der Spaltengrenze – 9 px Trefferfläche, 1 px sichtbar. */
+.resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 9px;
+  height: 100%;
+  cursor: col-resize;
+  touch-action: none;
+  z-index: 3;
+}
+
+.resizer::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 4px;
+  width: 1px;
+  background: var(--grid-linie);
+  transition: background-color 0.12s ease;
+}
+
+.resizer:hover::after,
+.resizer:active::after {
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  left: 3.5px;
+  background: var(--grid-akzent);
+}
+
+/* --- Zellen --------------------------------------------------------------------- */
+
+.grid tbody td {
+  height: 26px;
+  padding: 0 10px;
+  border-bottom: 1px solid var(--grid-linie);
+  color: var(--grid-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  vertical-align: middle;
+}
+
+.grid tbody tr:nth-child(even) td {
+  background: var(--grid-zebra);
+}
+
+.grid tbody tr:hover td {
+  background: var(--grid-hover);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78125rem;
+  letter-spacing: -0.02em;
+}
+
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Gruppenzeile (Preisblatt: Artikel über seinen Zeilen) ---------------------- */
+
+.gruppenZelle {
+  padding: 7px 10px !important;
+  height: auto !important;
+  background: var(--grid-gruppe-bg) !important;
+  border-top: 1px solid var(--grid-linie-stark);
+  border-bottom: 1px solid var(--grid-linie-stark) !important;
+  white-space: normal !important;
+  font-size: 0.75rem;
+}
+
+/* --- Zeilen-Aktion --------------------------------------------------------------- */
+
+.aktionZelle {
+  text-align: center;
+  padding: 0 !important;
+}
+
+.aktion {
+  width: 24px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--grid-ink-leise);
+  font-size: 0.8125rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s ease, background-color 0.12s ease;
+}
+
+.grid tbody tr:hover .aktion {
+  opacity: 1;
+}
+
+.aktion:hover {
+  background: var(--grid-akzent-weich);
+  color: var(--grid-akzent);
+}
+
+.aktion:focus-visible {
+  opacity: 1;
+  outline: 2px solid var(--grid-akzent);
+  outline-offset: 1px;
+}
+
+.leer {
+  padding: 28px !important;
+  text-align: center;
+  color: var(--grid-ink-leise);
+  font-size: 0.8125rem;
+  white-space: normal !important;
+}
+
+/* --- Spaltenmenü ----------------------------------------------------------------- */
+
+.menueWurzel {
+  position: relative;
+}
+
+.menueTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border: 1px solid var(--grid-linie-stark);
+  border-radius: 7px;
+  background: var(--grid-flaeche);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--grid-ink);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+
+.menueTrigger:hover {
+  border-color: var(--grid-akzent);
+}
+
+.menueTrigger:focus-visible {
+  outline: 2px solid var(--grid-akzent);
+  outline-offset: 1px;
+}
+
+.menueZaehler {
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: var(--grid-akzent-weich);
+  color: var(--grid-akzent);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.menuePanel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  width: 264px;
+  padding: 6px;
+  border: 1px solid var(--grid-linie-stark);
+  border-radius: 11px;
+  background: var(--grid-flaeche);
+  box-shadow: 0 12px 32px rgb(0 0 0 / 0.14), 0 2px 6px rgb(0 0 0 / 0.06);
+}
+
+.menueKopf {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 8px 8px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--grid-ink-leise);
+  border-bottom: 1px solid var(--grid-linie);
+}
+
+.menueKopfAktionen {
+  display: flex;
+  gap: 8px;
+}
+
+.linkButton {
+  border: 0;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-size: 0.6875rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--grid-akzent);
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.menueListe {
+  max-height: 340px;
+  overflow-y: auto;
+  padding-top: 4px;
+}
+
+.menueEintrag {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 8px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  color: var(--grid-ink);
+  cursor: pointer;
+  user-select: none;
+}
+
+.menueEintrag:hover {
+  background: var(--grid-hover);
+}
+
+.menueEintrag input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--grid-akzent);
+  cursor: pointer;
+}
+
+/* --- Wurzel & Scrollfläche ------------------------------------------------------- */
+
+.wurzel {
+  position: relative;
+  height: 100%;
+  outline: none;
+}
+
+/*
+ * Der horizontale Schieber muss IMMER sichtbar sein — bei 22 Spalten ist sonst nicht
+ * erkennbar, dass rechts noch etwas steht. `overflow-x: scroll` statt `auto`, und auf
+ * WebKit die Leiste ausdrücklich einblenden (dort wären Overlay-Scrollbars unsichtbar,
+ * bis man scrollt).
+ */
+.scrollFlaeche {
+  height: 100%;
+  overflow-x: scroll;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+}
+
+.scrollFlaeche::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  -webkit-appearance: none;
+}
+
+.scrollFlaeche::-webkit-scrollbar-track {
+  background: var(--grid-zebra);
+  border-top: 1px solid var(--grid-linie);
+}
+
+.scrollFlaeche::-webkit-scrollbar-thumb {
+  background: var(--grid-linie-stark);
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background-clip: content-box;
+}
+
+.scrollFlaeche::-webkit-scrollbar-thumb:hover {
+  background: var(--grid-ink-leise);
+  background-clip: content-box;
+}
+
+/* --- Zeilennummern-Spalte (fixiert, grau wie in Excel) ---------------------------- */
+
+.nrKopf,
+.nrZelle {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  width: 52px;
+  text-align: center !important;
+  background: var(--grid-kopf-bg) !important;
+  color: var(--grid-ink-leise) !important;
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  border-right: 1px solid var(--grid-linie-stark) !important;
+  user-select: none;
+  cursor: pointer;
+}
+
+.nrKopf {
+  z-index: 4;
+}
+
+.nrZelle {
+  font-size: 0.75rem;
+  padding: 0 6px !important;
+}
+
+.nrZelle:hover {
+  background: var(--grid-akzent-weich) !important;
+  color: var(--grid-akzent) !important;
+}
+
+/* --- Zellauswahl ------------------------------------------------------------------ */
+
+.markiert {
+  background: var(--grid-akzent-weich) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--grid-akzent) 40%, transparent);
+}
+
+.auswahlHinweis {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 20;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--grid-ink);
+  color: var(--grid-flaeche);
+  font-size: 0.75rem;
+  font-weight: 500;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.22);
+  pointer-events: none;
+}
+
+/* --- Spaltenkopf: Markieren ---------------------------------------------------------- */
+
+.grid thead th {
+  user-select: none;
+  cursor: pointer;
+}
+
+.grid thead th:hover {
+  background: var(--grid-akzent-weich);
+  color: var(--grid-akzent);
+}
+
+/* --- Füllspalte ---------------------------------------------------------------------
+ * Nimmt den Platz auf, der rechts übrig bleibt, damit die echten Spalten exakt ihre
+ * eingestellte Pixelbreite behalten. Sie ist reine Fläche: kein Markieren, kein Hover.
+ */
+
+.fuellKopf,
+.fuellZelle {
+  padding: 0 !important;
+  cursor: default;
+}
+
+.grid thead th.fuellKopf:hover {
+  background: var(--grid-kopf-bg);
+  color: var(--grid-kopf-ink);
+}
+
+/* --- Zeilen-Aktionen (mehrere) ------------------------------------------------------ */
+
+.aktionZelle {
+  position: sticky;
+  right: 0;
+  z-index: 2;
+  padding: 0 4px !important;
+  text-align: right;
+  background: var(--grid-flaeche);
+  border-left: 1px solid var(--grid-linie);
+  white-space: nowrap;
+}
+
+.grid tbody tr:nth-child(even) .aktionZelle {
+  background: var(--grid-zebra);
+}
+
+.aktionGefahr:hover {
+  background: color-mix(in srgb, #c0392b 16%, transparent);
+  color: #c0392b;
+}
+
+.menueFuss {
+  margin: 6px 0 2px;
+  padding: 0 8px;
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  color: var(--grid-ink-leise);
+}

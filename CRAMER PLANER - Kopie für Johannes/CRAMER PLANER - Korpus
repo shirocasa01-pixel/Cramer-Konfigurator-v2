@@ -1,0 +1,47 @@
+# Projekt: CRAMER PLANER - Phase 4: Korpus-Konfiguration
+
+## ROLLE & ZIEL
+Dieses Dokument beschreibt die Logik und die Eingabemaske für den Korpus-Bereich (Schritt 2 des Konfigurators). Diese Seite öffnet sich, nachdem der Entwurf erfolgreich angelegt und die Produktgruppe/Serie ausgewählt wurde.
+
+---
+
+## LOGIK-REGEL FÜR DEN BEREICH "a. INNEN"
+* **Bedingung:** Der Bereich "a. Innen" ist **NUR** sichtbar und auswählbar, wenn im vorherigen Schritt eine Serie gewählt wurde, die zu *Velare* oder *Refugium* gehört (z. B. Sideboards aus der Velare-Serie oder Kleiderschränke aus der Refugium-Serie). Bei allen anderen Serien bleibt dieser Bereich komplett ausgeblendet.
+* **Spezifischer Filter:** 
+  - Wenn zuvor ein *Velare*-Produkt gewählt wurde, ist unter Innen auch nur die Option *Velare* aktiv.
+  - Wenn zuvor ein *Refugium*-Produkt gewählt wurde, ist unter Innen auch nur die Option *Refugium* aktiv.
+
+---
+
+## STRUKTUR & FELDAUSWAHL (KORPUS)
+
+### a. Innen (Bedingt sichtbar)
+* **Option Velare:**
+  - `Decoboard` -> Auswahl über **Dropdown-Menü** (Hinweis: Holt sich die spezifischen Dekobord-Farben/Holztöne aus einer externen Farbtabelle).
+  - `anders` -> Auswahl triggert ein **manuelles Freitextfeld** (für individuelle Sonderwünsche).
+* **Option Refugium:**
+  - `Decoboard` -> Auswahl über **Dropdown-Menü** (Zugeordnet aus externer Farbtabelle).
+  - `anders` -> Auswahl triggert ein **manuelles Freitextfeld**.
+
+### b. Außen (Farbe/Material des Korpus)
+*Diese Optionen sind immer im Dropdown-Menü auswählbar (die konkreten Farblisten folgen in einem späteren Schritt aus einer separaten Tabelle):*
+* `Decoboard` -> Dropdown-Auswahl der entsprechenden Dekobord-Farben
+* `Mattlack` -> Dropdown-Auswahl der entsprechenden Mattlack-Farben
+* `Furnier` -> Dropdown-Auswahl der entsprechenden Furnier-Holzarten
+* `Glas` -> Dropdown-Auswahl der entsprechenden Glas-Ausführungen
+* `Xtreme Plus` -> Dropdown-Auswahl der entsprechenden Xtreme-Plus-Ausführungen
+* `anders` -> Triggert ein **manuelles Freitextfeld** für Sonderfarben
+
+### c. Abdeckplatte (Oberseite des Möbels)
+*Auswahl der Ausführung ebenfalls über strukturierte Dropdown-Menüs:*
+* `Decoboard` -> Dropdown-Auswahl
+* `Mattlack` -> Dropdown-Auswahl
+* `Furnier` -> Dropdown-Auswahl
+* `Glas` -> Dropdown-Auswahl (z. B. für Glasplatten-Auflagen)
+* `Xtreme Plus` -> Dropdown-Auswahl
+* `anders` -> Triggert ein **manuelles Freitextfeld**
+
+---
+
+## HINWEIS FÜR CLAUDE
+Bitte implementiere die UI-Steuerung exakt so, dass die Auswahlfelder dynamisch auf die zuvor gewählte Produktserie reagieren. Verwende für die Materialgruppen (Decoboard, Mattlack etc.) bereits Dropdown-Komponenten, die als Datenquelle vorerst auf Platzhalter-Listen verweisen, da die finale Farbmatrix in einem späteren Dokument übergeben wird. Nur die Option 'anders' erlaubt die direkte manuelle Texteingabe.

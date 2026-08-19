@@ -1,0 +1,134 @@
+.shell {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+}
+
+.topbar {
+  min-height: var(--topbar-height);
+  padding: var(--space-3) var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-surface);
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.leftGroup {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+  transition: border-color 0.16s ease;
+}
+
+.backBtn:hover {
+  border-color: var(--color-ink);
+}
+
+.brand {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  cursor: pointer;
+}
+
+.context {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ctxItem {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  min-width: 0;
+}
+
+.ctxLabel {
+  font-size: 0.66rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.ctxValue {
+  font-weight: 600;
+  color: var(--color-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.right {
+  flex-shrink: 0;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.account {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1.2;
+}
+
+.accountLabel {
+  font-size: 0.66rem;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.accountName {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  min-height: var(--footer-height);
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+
+/* Enge Displays (iPad Hochformat): Live-Kontext ausblenden, um Kopf ruhig zu halten */
+@media (max-width: 900px) {
+  .context {
+    display: none;
+  }
+}

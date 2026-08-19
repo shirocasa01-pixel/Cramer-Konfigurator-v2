@@ -1,0 +1,50 @@
+# Projekt: CRAMER PLANER - Schnittstelle Maße & Fronten-Logik (Phase 4.5 & 5)
+
+## ROLLE & ZIEL
+Dieses Dokument beschreibt den Übergang nach der Korpus-Konfiguration. Es regelt, wie die Gesamtmaße erfasst werden und wie darauf aufbauend die Fronten (Türen, Schübe) von links nach rechts per "Plus-Logik" hinzugefügt und dokumentiert werden.
+
+---
+
+## INTERFACE 1: DIE MARE-EINGABE (Die Schnittstelle)
+Bevor die Fronten definiert werden können, muss die Hülle des Möbels exakt vermasst werden. Hierzu erscheinen folgende Eingabefelder:
+
+1. **Gesamthöhe (in cm):** (Eingabefeld oder gängige Raster-Auswahl)
+2. **Gesamtbreite (in cm):** (Eingabefeld)
+3. **Gesamttiefe (in cm):** (Dropdown oder Eingabefeld, wichtig für die spätere Bauteil-Validierung)
+
+*Aktion:* Nach Eingabe der Gesamtmaße schaltet das System den Bereich **"Punkt 3: Fronten-Verwaltung"** frei.
+
+---
+
+## INTERFACE 2: FRONTEN HINZUFÜGEN (Die Von-Links-nach-Rechts-Regel)
+Die Fronten werden modular über eine dynamische Liste gepflegt. Standardmäßig ist die Liste leer. 
+
+* **Der Plus-Mechanismus:** Jedes Mal, wenn der Berater auf `[+ Front-Element hinzufügen]` klickt, wird ein neues Element in die Liste aufgenommen.
+* **Reihenfolge-Regel:** Das System nummeriert die Elemente automatisch hoch (Front 1, Front 2, Front 3...). Es gilt die strikte Regel: **Es wird immer von links nach rechts gezählt und abgearbeitet.**
+
+---
+
+## INTERFACE 3: OPTIONEN PRO FRONT-ELEMENT
+Für jedes hinzugefügte Element (z. B. "Front 1") öffnet sich ein Formular mit zwei flexiblen Wegen für die Dokumentation:
+
+### 1. Typ-Auswahl (Hauptgruppen)
+Der Berater wählt per Klick oder Dropdown den Typ:
+* `[ ] Schiebetür`
+* `[ ] Drehtür`
+* `[ ] Schübe (Schubladen)`
+* `[ ] Offen (Regal)`
+
+### 2. Größen- & Code-Identifikation (Zwei Optionen)
+Hier hat der Berater die Wahl zwischen zwei Feldern, um das Element für die Arbeitsvorbereitung (AV) eindeutig zu bestimmen:
+* **Option A: Manuelle Maße:** Eingabe der exakten Breite/Höhe des Elements (z. B. Breite: 50 cm).
+* **Option B: Katalog-Code (Flexibles Freitextfeld):** Der Berater kann den internen Bestellcode direkt eintippen (z. B. *„T50-51“* für eine 50er Drehtür mit 4 Rastern). Das System speichert diesen Code als primäre Information für die Stückliste ab.
+
+### 3. Material- & Oberflächen-Submenü (Beispiel-Vorschau)
+Sobald der Typ gewählt ist, schalten sich die Design-Optionen frei:
+* **Stil-Linie:** `[Glossy / Less / Classic / Edge ...]`
+* **Farbe / Ausführung:** Dropdown für Standard-Farbtöne (z. B. RAL-Nummern) ODER das Feld "anders" mit manuellem Freitext.
+
+---
+
+## HINWEIS FÜR CLAUDE
+Dieses Dokument bildet das Herzstück der Datenerfassung. Programmiere eine dynamische Array-Struktur in React (z.B. `fronts: Array`), bei der jedes Element eine ID, eine automatisch generierte Positionsnummer (von links nach rechts), ein Typ-Feld, ein optionales Maß-Feld sowie ein Freitextfeld für den 'Katalog-Code' (z. B. T50-51) besitzt. Stelle sicher, dass die Benutzeroberfläche übersichtlich bleibt, wenn mehrere Fronten nebeneinander existieren.

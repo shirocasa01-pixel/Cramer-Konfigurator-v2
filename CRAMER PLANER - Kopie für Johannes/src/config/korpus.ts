@@ -1,0 +1,124 @@
+import type { ProductSeries } from './productCatalog'
+
+/**
+ * Korpus-Bereiche (Phase 4) als Konfiguration. Legt fest, welche Materialgruppen
+ * je Bereich zulässig sind, ob „anders“ (Freitext) erlaubt ist, ob eine „Keine“-
+ * Option existiert, ob der Bereich bedingt sichtbar ist (Innen) und ob er Pflicht ist.
+ *
+ * Datengetrieben: Neue Bereiche oder geänderte Materialzulassungen erfordern nur
+ * Anpassungen hier – keine UI-/Logik-Umbauten.
+ */
+export interface KorpusArea {
+  id: string
+  /** Anzeigename laut Korpus-Doku (z. B. „a. Innen“). */
+  label: string
+  /** Kurzbeschreibung laut Korpus-Doku. */
+  hint?: string
+  /** Zulässige Materialgruppen (Verweise auf materialMatrix-IDs). */
+  materialGroupIds: string[]
+  /** „anders“ (manuelles Freitextfeld) erlauben. */
+  allowCustom: boolean
+  /** Optional: „Keine …“-Auswahl (erfüllt die Pflicht ohne Material), z. B. „Keine Abdeckplatte“. */
+  noneLabel?: string
+  /** Nur sichtbar, wenn die Serie „Innen“ aktiviert (Korpus-Regel Velare/Refugium). */
+  requiresInnenSeries?: boolean
+  /** Pflichtbereich (sofern sichtbar) – erzwungene Progression. */
+  required: boolean
+}
+
+/** Außenkorpus-Modus (Phase 9b). */
+export type KorpusMode = 'komplett' | 'getrennt'
+
+// Für Außen & Abdeckplatte identische Materialzulassung (laut Korpus-Doku).
+const AUSSEN_ABDECKPLATTE_GROUPS = ['decoboard', 'mattlack', 'furnier', 'glas', 'xtreme-plus']
+
+/**
+ * Punkt 5.3 — Dietmars Beispiel: „Korpi mittel (teilweise offen) >> Korpus innen
+ * daher furniert." Neben Decoboard steht deshalb auch Furnier zur Auswahl.
+ *
+ * ACHTUNG Preisfolge: Der Refugium-Korpus `10-10-05-0003` trägt im Preisblatt nur
+ * die Achsen BREITE × RASTER — keine Preisgruppe. Eine von Decoboard abweichende
+ * Innenausführung hat dort also keine eigene Preiszeile; die Kalkulation weist das
+ * als Hinweis aus, statt den Decoboard-Preis stillschweigend zu übernehmen.
+ */
+const innenArea: KorpusArea = {
+  id: 'innen',
+  label: 'a. Innen',
+  hint: 'Innenausführung – nur bei Velare / Refugium',
+  materialGroupIds: ['decoboard', 'furnier'],
+  allowCustom: true,
+  requiresInnenSeries: true,
+  required: true,
+}
+const aussenArea: KorpusArea = {
+  id: 'aussen',
+  label: 'b. Außen (komplett)',
+  hint: 'Farbe / Material des gesamten Außenkorpus',
+  materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
+  allowCustom: true,
+  required: true,
+}
+const aussenLinksArea: KorpusArea = {
+  id: 'aussenLinks',
+  label: 'b1. Außen – Seite links',
+  hint: 'Material der linken Seite',
+  materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
+  allowCustom: true,
+  required: true,
+}
+const aussenRechtsArea: KorpusArea = {
+  id: 'aussenRechts',
+  label: 'b2. Außen – Seite rechts',
+  hint: 'Material der rechten Seite',
+  materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
+  allowCustom: true,
+  required: true,
+}
+const abdeckplatteArea: KorpusArea = {
+  id: 'abdeckplatte',
+  label: 'c. Abdeckplatte',
+  hint: 'Oberseite des Möbels',
+  materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
+  allowCustom: true,
+  // Pflichtbereich, aber durch „Keine Abdeckplatte“ erfüllbar.
+  noneLabel: 'Keine Abdeckplatte',
+  required: true,
+}
+
+/** Rückwände (innen/außen) – volle Katalog-Auswahl inkl. Furnier (Phase B). */
+export const RUECKWAND_GROUPS = AUSSEN_ABDECKPLATTE_GROUPS
+
+/**
+ * Außen-Rückwand (Phase B) – nur relevant, wenn „Sicht-Rückwand?" aktiv ist.
+ * Optional (kein Pflichtbereich); wird separat von `getVisibleKorpusAreas` behandelt.
+ */
+export const rueckwandAussenArea: KorpusArea = {
+  id: 'rueckwandAussen',
+  label: 'd. Rückwand Außen',
+  hint: 'Sichtbare Außen-Rückwand',
+  materialGroupIds: RUECKWAND_GROUPS,
+  allowCustom: true,
+  required: false,
+}
+
+/** Standard-Bereiche (Modus „komplett“). */
+export const korpusAreas: KorpusArea[] = [innenArea, aussenArea, abdeckplatteArea]
+
+/**
+ * Regel: Welche Korpus-Bereiche sind für Serie & Modus sichtbar?
+ * „Innen“ nur bei Velare/Refugium; „getrennt“ ersetzt „Außen“ durch links/rechts.
+ */
+export function getVisibleKorpusAreas(
+  series: ProductSeries | undefined,
+  mode: KorpusMode = 'komplett',
+): KorpusArea[] {
+  const aussen = mode === 'getrennt' ? [aussenLinksArea, aussenRechtsArea] : [aussenArea]
+  const all = [innenArea, ...aussen, abdeckplatteArea]
+  return all.filter((area) => {
+    // „Innen" nur bei Serien mit Innenausführung (Velare/Refugium).
+    if (area.requiresInnenSeries && !series?.korpusInnen) return false
+    // Serien-Filtering: Abdeckplatte für Serien ohne Abdeckplatte ausblenden (z. B. Refugium).
+    if (area.id === 'abdeckplatte' && series?.hasAbdeckplatte === false) return false
+    return true
+  })
+}

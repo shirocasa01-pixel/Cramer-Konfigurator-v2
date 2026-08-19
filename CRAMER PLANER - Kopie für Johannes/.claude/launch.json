@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cramer-planer-dev",
+      "runtimeExecutable": "C:\\Program Files\\nodejs\\node.exe",
+      "runtimeArgs": ["node_modules/vite/bin/vite.js", "--host", "--port", "5173"],
+      "port": 5173
+    },
+    {
+      "name": "kleiderschrank",
+      "runtimeExecutable": "py",
+      "runtimeArgs": ["-m", "http.server", "5599", "--directory", "3D-Kleiderschrank"],
+      "port": 5599
+    }
+  ]
+}

@@ -1,0 +1,241 @@
+.page {
+  width: 100%;
+  max-width: 920px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  color: var(--color-ink-secondary);
+  max-width: 66ch;
+}
+
+.context {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+/* Front-Typ-Spalte (= Korpus-Segment) */
+.column {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.columnHead {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.columnTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.columnPos {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  padding: 3px 10px;
+}
+
+.empty {
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}
+
+.elements {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.addRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-line-strong);
+}
+
+.addBtn {
+  min-height: 44px;
+  padding: 0 var(--space-4);
+  border: 1px dashed var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: border-color 0.16s ease, background-color 0.16s ease;
+}
+
+.addBtn:hover:not(:disabled) {
+  border-style: solid;
+  border-color: var(--color-ink);
+  background: var(--color-surface-soft);
+}
+
+.addBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.addHint {
+  flex-basis: 100%;
+  font-size: 0.82rem;
+  color: var(--color-ink-muted);
+}
+
+.columnHint {
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+/* Schritt 7 – zweiläufige Schiebetür: Exklusivitäts-Banner + Anzahl-Selektor */
+.exclusiveBanner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface-soft);
+  border: 1px solid var(--color-line-strong);
+  border-left: 3px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  color: var(--color-ink-secondary);
+  font-size: 0.92rem;
+}
+
+.exclusiveTitle {
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.anzahl {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.anzahlLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.anzahlHint {
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.chip,
+.chipActive {
+  min-height: 44px;
+  padding: 0 var(--space-5);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.chip:hover {
+  border-color: var(--color-ink);
+}
+
+.chipActive {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.extra {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.sectionTitle {
+  font-size: 1.2rem;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.issues {
+  margin: 0;
+  padding-left: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}
+
+/* Punkt 7.7 – rechnerische Türbreite direkt am Auswahl-Chip. */
+.chipSub {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.anzahlWarn {
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--color-ink-secondary);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--color-danger);
+  background: rgba(178, 59, 59, 0.06);
+}

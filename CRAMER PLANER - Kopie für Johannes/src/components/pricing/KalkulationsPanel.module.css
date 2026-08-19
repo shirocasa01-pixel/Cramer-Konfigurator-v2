@@ -1,0 +1,294 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-5);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.sub {
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+  margin-top: 2px;
+}
+
+.headRight {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.badgeOk,
+.badgeOpen {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.badgeOk {
+  background: #e8f3ec;
+  color: #1f6b3d;
+}
+
+.badgeOpen {
+  background: #fdf0e6;
+  color: #8a4b12;
+}
+
+.empty {
+  font-size: 0.9rem;
+  color: var(--color-ink-secondary);
+}
+
+.tableWrap {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.table th,
+.table td {
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.thPos,
+.thNum {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.thNum,
+.tdNum {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.groupRow {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+  background: var(--color-surface-soft);
+  border-top: 1px solid var(--color-line);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.tdPos {
+  border-bottom: 1px solid var(--color-line-soft, #ececec);
+}
+
+.tdNum {
+  border-bottom: 1px solid var(--color-line-soft, #ececec);
+}
+
+.rowOpen td {
+  background: #fffaf4;
+}
+
+.posHead {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.posLabel {
+  font-weight: 600;
+}
+
+.tagDerived {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-ink-secondary);
+  border: 1px solid var(--color-line);
+}
+
+.posDetail {
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+  margin-top: 2px;
+}
+
+.posNote {
+  font-size: 0.76rem;
+  color: var(--color-ink-secondary);
+  margin-top: 4px;
+  max-width: 66ch;
+  line-height: 1.4;
+}
+
+.onRequest {
+  color: #8a4b12;
+  font-weight: 600;
+}
+
+.subtotalRow td {
+  border-top: 1px solid var(--color-line);
+  font-weight: 600;
+  padding-top: 10px;
+}
+
+.totalRow td {
+  border-top: 2px solid var(--color-ink);
+  font-weight: 700;
+  font-size: 1rem;
+  padding-top: 10px;
+}
+
+.messages {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+}
+
+.messages li {
+  display: flex;
+  gap: var(--space-2);
+  align-items: baseline;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm, 6px);
+  border-left: 3px solid transparent;
+}
+
+.msgTag {
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+  min-width: 62px;
+}
+
+.msg_fehler {
+  background: #fdecec;
+  border-left-color: #c8102e;
+  color: #7d1220;
+}
+
+.msg_warnung {
+  background: #fdf5e9;
+  border-left-color: #d98b1f;
+  color: #7a4c0c;
+}
+
+.msg_info {
+  background: var(--color-surface-soft);
+  border-left-color: var(--color-line);
+  color: var(--color-ink-secondary);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.actionHint {
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+}
+
+/* --- Kontext-Zeile: Artikelnummer, Kurzzeichen, Teileart, Produktgruppe --------- */
+.artikelZeile {
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-2);
+  align-items: baseline;
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+.artikelnummer {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  color: var(--color-ink);
+  letter-spacing: -0.01em;
+}
+
+.klassifikation::before {
+  content: '·';
+  margin-right: var(--space-2);
+}
+
+/* --- Achsen A1–A5 mit Klartext-Beschriftung ------------------------------------ */
+.achsen {
+  margin-top: 4px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+
+.achse {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 1px 6px;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-pill);
+  font-size: 0.6875rem;
+  line-height: 1.5;
+  background: var(--color-surface-sunken, transparent);
+}
+
+.achseSpalte {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color: var(--color-ink-muted);
+}
+
+.achseName {
+  color: var(--color-ink-muted);
+}
+
+.achseWert {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.quelle {
+  font-size: 0.6875rem;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}

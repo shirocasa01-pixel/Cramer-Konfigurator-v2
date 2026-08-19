@@ -1,0 +1,193 @@
+.page {
+  width: 100%;
+  max-width: 880px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-5) var(--space-8);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title {
+  font-size: 1.9rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  color: var(--color-ink-secondary);
+  max-width: 62ch;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+}
+
+.sectionNo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 0.75rem;
+}
+
+.sectionHint {
+  font-weight: 400;
+  color: var(--color-ink-muted);
+}
+
+/* Produktgruppen-Kacheln */
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--space-4);
+}
+
+.tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-height: 104px;
+  padding: var(--space-4);
+  text-align: left;
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease, background-color 0.16s ease;
+}
+
+.tile:hover:not(:disabled) {
+  border-color: var(--color-ink);
+  box-shadow: var(--shadow-sm);
+}
+
+.tileSelected,
+.tileSelected:hover {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+  background: var(--color-surface-soft);
+}
+
+.tileInactive {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.tileName {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.tileDesc {
+  font-size: 0.85rem;
+  color: var(--color-ink-secondary);
+}
+
+.tileFlag {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+.tileCheck {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 0.8rem;
+}
+
+/* Serien-Auswahl */
+.series {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.serie {
+  min-height: var(--touch-target);
+  padding: 0 var(--space-5);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.serie:hover {
+  border-color: var(--color-ink);
+}
+
+.serieSelected,
+.serieSelected:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+/* Anzahl der für die Serie freigegebenen Artikel (aus dem Modus der Stammdaten). */
+.serieCount {
+  margin-left: var(--space-2);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+/* Herkunftsnachweis: woher die freigeschalteten Artikel kommen. */
+.stammdatenNote {
+  margin-top: var(--space-3);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-ink-muted);
+}
+
+.stammdatenNote strong {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-top: var(--space-2);
+}
+
+.actionHint {
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}

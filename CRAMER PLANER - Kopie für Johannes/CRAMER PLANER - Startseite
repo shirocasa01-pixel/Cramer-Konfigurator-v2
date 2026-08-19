@@ -1,0 +1,43 @@
+# Projekt: CRAMER PLANER - Neue Ablauf- und Startstruktur
+
+## ROLLE & ZIEL
+Dieses Dokument definiert die neue Phasen-Struktur der Web-App. Der Fokus liegt auf der allerersten Ansicht (Login & Entwurfsanlage), gefolgt von der Produktgruppen-Auswahl als Schritt 2.
+
+---
+
+## PHASE 1: AUTHENTIFIZIERUNG (LOGIN-SEITE)
+Beim Aufrufen der Web-App landet der Berater zuerst auf einer simplen, sauberen Login-Maske (E-Mail / Passwort).
+* **Vorteil:** Durch das Einloggen ist der Name des Beraters im System hinterlegt. Das manuelle Feld "Berater" entfällt im nächsten Schritt, da die App weiß, wer angemeldet ist.
+
+---
+
+## PHASE 2: DIE NEUE STARTSEITE (ENTWURF ANLEGEN)
+Nach dem Login öffnet sich sofort die Maske "Neuen Entwurf anlegen". Hier gibt es folgende Felder:
+
+1. **Berater:** (Wird automatisch aus dem Login-Account eingetragen, nicht editierbar).
+2. **Datum:** (Wird automatisch auf das aktuelle Tagesdatum gesetzt, nicht editierbar).
+3. **Auftragsnummer:** (Manuelles Pflicht-Eingabefeld für den Berater).
+4. **Ort / Filiale:** (Dropdown-Auswahl der Cramer-Standorte, z. B. "Hamburg - Kieler Straße", "Elmshorn", "Kiel").
+5. **Entwurfsnummer (Primary Key):** (Wird im Hintergrund vollautomatisch und absolut eindeutig generiert, z. B. über eine UUID-Logik oder ein systemübergreifendes Muster wie `KRAMER-2026-XXXXX`).
+
+*Aktion:* Erst wenn der Berater auf den Button **"Weiter zur Produktauswahl"** klickt, öffnet sich Phase 3.
+
+---
+
+## PHASE 3: PRODUKTGRUPPEN- & SERIEN-AUSWAHL
+Hier wählt der Berater aus, was der Kunde konfigurieren möchte. Die Struktur filtert sich wie folgt:
+
+1. **Sideboards** -> Schaltet Serien frei: [Atrium, Porticus, Publicum, Velare]
+2. **Kleiderschränke** -> Schaltet Serie frei: [Refugium]
+3. **Regale / Wohnwände** -> Schaltet Serien frei: [Atrium, Publicum]
+4. **Medienmöbel** -> Schaltet Serien frei: [Cavum, Supersonus]
+5. **Tische** -> Schaltet Serien frei: [Tavolo, Arcum]
+6. **Sitzen** (Inaktiv: Nur als Platzhalter ohne Funktion anzeigen)
+7. **Schlafen** (Inaktiv: Nur als Platzhalter ohne Funktion anzeigen)
+
+*Logik-Hinweis für Claude:* Sobald eine spezifische Serie ausgewählt wird (z. B. "Kleiderschränke -> Refugium"), passt sich der darauffolgende Konfigurationsprozess und die Maske exakt an die Maße und Regeln dieses Modells an.
+
+---
+
+## HINWEIS FÜR CLAUDE
+Bitte programmiere für diesen Schritt ausschließlich die Benutzeroberfläche und die Logik für Phase 1 (Login), Phase 2 (Entwurfsdaten-Formular inkl. automatischer ID-Generierung) und Phase 3 (Produktgruppen-Kacheln). Das Innenleben der Möbel wird noch nicht implementiert.

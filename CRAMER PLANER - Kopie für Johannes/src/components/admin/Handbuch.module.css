@@ -1,0 +1,147 @@
+/*
+ * Handbuch: Lesetext in einer Werkzeug-Oberfläche.
+ *
+ * Anders als Grid und Formular ist das hier Fließtext — also begrenzte Zeilenlänge,
+ * größere Zeilenhöhe, ruhige Gliederung. Es soll gelesen und nicht überflogen werden.
+ */
+
+.wurzel {
+  height: 100%;
+  overflow-y: auto;
+  background: var(--color-surface);
+}
+
+.blatt {
+  max-width: 78ch;
+  margin: 0 auto;
+  padding: 32px 28px 64px;
+  font-size: 0.875rem;
+  line-height: 1.65;
+  color: var(--color-ink);
+}
+
+.h1 {
+  margin: 0 0 8px;
+  font-size: 1.375rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.lead {
+  margin: 0 0 8px;
+  font-size: 0.9375rem;
+  color: var(--color-ink-secondary);
+}
+
+.abschnitt {
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid var(--color-line);
+}
+
+.h2 {
+  margin: 0 0 10px;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.h3 {
+  margin: 0 0 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.abschnitt p {
+  margin: 0 0 12px;
+}
+
+.schema {
+  margin: 4px 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-surface-sunken);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.hinweis {
+  padding: 11px 14px;
+  border-left: 3px solid var(--color-accent);
+  border-radius: 0 8px 8px 0;
+  background: color-mix(in srgb, var(--color-accent) 6%, transparent);
+  font-size: 0.8125rem;
+  color: var(--color-ink-secondary);
+}
+
+.tabelle {
+  width: 100%;
+  margin: 4px 0 14px;
+  border-collapse: separate;
+  border-spacing: 0;
+  border: 1px solid var(--color-line);
+  border-radius: 9px;
+  overflow: hidden;
+  font-size: 0.8125rem;
+}
+
+.tabelle th {
+  padding: 7px 10px;
+  text-align: left;
+  background: var(--color-surface-soft);
+  border-bottom: 1px solid var(--color-line);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.tabelle td {
+  padding: 5px 10px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.tabelle tr:last-child td {
+  border-bottom: 0;
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  letter-spacing: -0.02em;
+}
+
+.leise {
+  color: var(--color-ink-muted);
+}
+
+.liste {
+  margin: 0;
+  padding-left: 22px;
+}
+
+.liste li {
+  margin-bottom: 9px;
+}
+
+.zweiSpalten {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.blatt code {
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--color-surface-sunken);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.8125em;
+}

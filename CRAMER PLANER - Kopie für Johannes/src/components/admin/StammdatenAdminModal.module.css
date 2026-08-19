@@ -1,0 +1,422 @@
+/*
+ * Rahmen der Stammdaten-Verwaltung.
+ *
+ * Der dunkle Kopfbalken markiert beim Öffnen den Kontextwechsel: das ist nicht mehr die
+ * Kundenansicht, hier wird an Daten gearbeitet. Darunter geht es hell und ruhig weiter —
+ * Werkzeugleiste, Grid, Statuszeile.
+ *
+ * Die `--grid-*`-Variablen definieren hier das Farbschema des Data Grids und der
+ * Popover-Elemente; DataGrid und MehrfachFilter greifen ausschließlich darauf zu und
+ * bleiben dadurch von der Rahmen-Komponente unabhängig.
+ */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+
+  --grid-flaeche: var(--color-surface);
+  --grid-kopf-bg: var(--color-surface-soft);
+  --grid-kopf-ink: var(--color-ink-secondary);
+  --grid-ink: var(--color-ink);
+  --grid-ink-leise: var(--color-ink-muted);
+  --grid-linie: var(--color-line);
+  --grid-linie-stark: var(--color-line-strong);
+  --grid-zebra: color-mix(in srgb, var(--color-ink) 2%, transparent);
+  --grid-hover: color-mix(in srgb, var(--color-accent) 7%, transparent);
+  --grid-gruppe-bg: color-mix(in srgb, var(--color-accent) 5%, var(--color-surface));
+  --grid-akzent: var(--color-accent);
+  --grid-akzent-weich: color-mix(in srgb, var(--color-accent) 13%, transparent);
+}
+
+/* --- Kopfbalken ------------------------------------------------------------------ */
+
+.topbar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 0 var(--space-4);
+  height: 50px;
+  background: var(--color-ink);
+  color: var(--color-canvas);
+}
+
+.marke {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.markePunkt {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--color-accent);
+}
+
+.topbarSub {
+  font-size: 0.75rem;
+  opacity: 0.6;
+  font-variant-numeric: tabular-nums;
+}
+
+.spacer {
+  flex: 1;
+}
+
+.schliessen {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9375rem;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.schliessen:hover {
+  background: rgb(255 255 255 / 0.14);
+}
+
+/* --- Reiter ----------------------------------------------------------------------- */
+
+.reiter {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 2px;
+  padding: 0 var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.reiterKnopf {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+  transition: color 0.12s ease;
+}
+
+.reiterKnopf:hover {
+  color: var(--color-ink);
+}
+
+.reiterAktiv,
+.reiterAktiv:hover {
+  color: var(--color-ink);
+  font-weight: 600;
+  border-bottom-color: var(--color-accent);
+}
+
+.reiterZaehler {
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--color-surface-sunken);
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* --- Werkzeugleiste ---------------------------------------------------------------- */
+
+.werkzeugleiste {
+  flex: 0 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px var(--space-4);
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.sucheWrap {
+  position: relative;
+  flex: 1 1 300px;
+  max-width: 440px;
+}
+
+.sucheIcon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.875rem;
+  color: var(--color-ink-muted);
+  pointer-events: none;
+}
+
+.suche {
+  width: 100%;
+  height: 30px;
+  padding: 0 10px 0 28px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 7px;
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.suche:focus {
+  outline: 0;
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+.filterReset {
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-ink-muted);
+  cursor: pointer;
+}
+
+.filterReset:hover {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink);
+}
+
+.trefferzahl {
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.primaer {
+  height: 30px;
+  padding: 0 13px;
+  border: 1px solid var(--color-accent);
+  border-radius: 7px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font: inherit;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.primaer:hover {
+  background: var(--color-accent-hover);
+}
+
+.primaer:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+/* --- Gitterfläche ------------------------------------------------------------------ */
+
+.gitterFlaeche {
+  flex: 1 1 auto;
+  overflow: auto;
+  background: var(--color-surface);
+}
+
+/* --- Zeilen-Zustände ---------------------------------------------------------------- */
+
+.zeileGeaendert td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-accent);
+}
+
+.zeileGesperrt td {
+  background: color-mix(in srgb, var(--color-danger) 7%, transparent) !important;
+}
+
+.zeileEntwurf td {
+  background: color-mix(in srgb, #b8860b 10%, transparent) !important;
+}
+
+/* --- Gruppenzeile im Preisblatt ------------------------------------------------------ */
+
+.gruppe {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+}
+
+.gruppeNr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78125rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--color-ink);
+}
+
+.gruppeName {
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.gruppeMeta {
+  color: var(--color-ink-muted);
+}
+
+.gruppeAchsen {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.achsenTag {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  padding: 1px 8px;
+  border: 1px solid var(--color-line);
+  border-radius: 999px;
+  background: var(--color-surface);
+  font-size: 0.6875rem;
+  color: var(--color-ink-muted);
+}
+
+.achsenTag b {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* --- Statusleiste --------------------------------------------------------------------- */
+
+.statusleiste {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 7px var(--space-4);
+  background: var(--color-surface-soft);
+  border-top: 1px solid var(--color-line);
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+.statusleiste code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.6875rem;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: var(--color-surface-sunken);
+}
+
+.statusRechts {
+  margin-left: auto;
+  text-align: right;
+}
+
+/* --- Meldungen (Import/Export, Duplizieren) --------------------------------------- */
+
+.meldungInfo,
+.meldungFehler {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px var(--space-4);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.meldungInfo {
+  background: color-mix(in srgb, var(--color-accent) 9%, transparent);
+  color: var(--color-ink);
+}
+
+.meldungFehler {
+  background: color-mix(in srgb, var(--color-danger) 11%, transparent);
+  color: var(--color-ink);
+}
+
+.meldungZu {
+  margin-left: auto;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--color-ink-muted);
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.meldungZu:hover {
+  background: rgb(0 0 0 / 0.08);
+  color: var(--color-ink);
+}
+
+/* --- Werkzeugbalken-Knöpfe --------------------------------------------------------- */
+
+.topbarButton {
+  height: 28px;
+  padding: 0 11px;
+  border: 1px solid rgb(255 255 255 / 0.26);
+  border-radius: 7px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+
+.topbarButton:hover {
+  background: rgb(255 255 255 / 0.14);
+  border-color: rgb(255 255 255 / 0.44);
+}
+
+.topbarButton:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 1px;
+}
+
+.dirtyBadge {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: var(--color-accent-contrast);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* --- Statusleiste: Tastenkürzel ------------------------------------------------------ */
+
+.statusleiste kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--color-line-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-surface);
+  font-family: inherit;
+  font-size: 0.6875rem;
+}

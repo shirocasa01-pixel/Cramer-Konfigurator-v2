@@ -1,0 +1,107 @@
+# Projekt: CRAMER PLANER - Zentrale Material-, Farb- & Preisgruppenmatrix
+
+## ROLLE & ZIEL
+Dieses Dokument dient als das zentrale "Gehirn" für alle Oberflächen, Materialien und Farben des Konfigurators. Jedes Mal, wenn in Phase 4 (Korpus) oder Phase 5 (Fronten/Schübe) ein Dropdown für `Decoboard`, `Mattlack`, `Furnier`, `Glas` oder `Xtreme Plus` geladen wird, greift das System auf diese Daten zurück. Jedes Material ist fest einer **Preisgruppe (PG 1 bis PG 4)** zugeordnet, um die spätere Preiskalkulation vorzubereiten.
+
+---
+
+## 1. PREISGRUPPEN-DEFINTION (Kalkulations-Basis)
+
+* **PREISGRUPPE 1 (PG 1):** Cramer Decoboard (Holzdekore & Unifarben)
+* **PREISGRUPPE 2 (PG 2):** Cramer Mattlack (Standardlacke der Cramer-Kollektion)
+* **PREISGRUPPE 3 (PG 3):** Standard-Furniere (Eiche, Kirsche, Nussbaum etc.), Glas (4 mm) & Standard-Sonderlacke (Andere RAL-Lacke)
+* **PREISGRUPPE 4 (PG 4):** Premium-Lacke (Sikkens, NCS, RAL Design), Premium-Hölzer (Wengé), Multiplex (MPX), Corian (6 mm) & Xtreme Plus-Oberflächen
+
+---
+
+## 2. GRANULARE MATERIAL- & FARBLISTEN (Dropdown-Inhalte)
+
+### Materialgruppe: Decoboard (Zugeordnet zu PG 1)
+*Diese Werte erscheinen im Dropdown, wenn "Decoboard" gewählt wird. Aufgeteilt in Holz- und Unifarben:*
+
+* **Decoboard Holzdekore:**
+  - Eiche Milano (R20095NW)
+  - Sonoma Eiche hell (R2012BRU)
+  - Okapi Walnut (R30135NW)
+* **Decoboard Unifarben:**
+  - Interior White (W10100SD)
+  - Delphingrau (U12044SD)
+  - Platingrau (U12115SD)
+  - Anthrazitgrau (U12290SD)
+  - Kaschmirgrau (U12168SD)
+  - Congo (U16002SD)
+  - Schwarz (U190VL)
+
+### Materialgruppe: Mattlack (Zugeordnet zu PG 2)
+*Standardlacke der Cramer-Kollektion:*
+* Verkehrsweiß (RAL 9016)
+* Reinweiß (RAL 9010)
+* Grauweiß (RAL 9002)
+* Seidengrau (RAL 7044)
+* Staubgrau (RAL 7037)
+* Cremeweiß (RAL 9001)
+* Graubeige (RAL 1019)
+* Beigegrau (RAL 7006)
+* Quarzgrau (RAL 7039)
+* Basaltgrau (RAL 7012)
+* Graphitgrau (RAL 7024)
+* Schwarzgrau (RAL 7021)
+* Schwarz (RAL 9005)
+
+### Materialgruppe: Furnier / Echtholz (Zugeordnet zu PG 3 / *Ausnahme Wengé in PG 4*)
+* Standard-Furniere (**PG 3**):
+  - Eiche lackiert/geölt
+  - Eiche Puro (geölt)
+  - Eiche Weißöl
+  - Kirsche lackiert/geölt
+  - Europäischer Nussbaum lackiert/geölt (mit Farbspiel Splint/Kernholz)
+  - Amerikanischer Nussbaum lackiert/geölt
+  - Amerikanischer Nussbaum Weißöl
+  - Eiche Molteni grau (lackiert)
+  - Eiche Schwarzöl
+  - *Standardfurniere laut Katalog:* Esche, Ahorn, Buche
+* Premium-Edelholz (**PG 4**):
+  - Wengé dunkel (lackiert)
+
+### Materialgruppe: Glas / Rauchglas (4 mm) (Zugeordnet zu PG 3)
+* Weiß optiwhite
+* Latte Macchiato
+* Stone
+* Earth
+* Wood
+* Volcano
+* Schwarz
+* Pure white noprint
+* Satinato Spiegel
+* Silver grey
+* Silver bronze
+* Black satina
+* Rauchglas grau
+* Rauchglas dark grey
+
+### Materialgruppe: Xtreme Plus (Zugeordnet zu PG 4)
+* Kreide (U11102XP)
+* Delphingrau (U12044XP)
+* Platingrau (U12115XP)
+* Anthrazitgrau (U12290XP)
+* Vulkanschwarz (U12000XP)
+* Kaschmirgrau (U12168XP)
+
+### Materialgruppe: Sonstiges / Sonderwerkstoffe (Zugeordnet zu PG 4)
+* Multiplex glattweiß 18 mm
+* Linoleum schwarz auf MPX
+* Corian 6 mm Cameo white
+
+### Materialgruppe: Akustikpaneele (Spezial-Option)
+* Amerikanischer Nussbaum geölt
+* Eiche geölt
+
+---
+
+## 3. INTERKONNEKTIVITÄTS- & LOGIK-REGELN FÜR CLAUDE
+
+1. **Automatische PG-Zuweisung im Hintergrund:** Wenn der Berater beispielsweise bei *Front 1* unter *Drehtür -> Classic* das Material `Mattlack -> Verkehrsweiß (RAL 9016)` auswählt, muss das Datenobjekt dieses Elements im Hintergrund automatisch mit `preisgruppe: "PG 2"` markiert werden. 
+2. **Kombinierbarkeit & Fallback "anders":** Wie in den vorherigen Dokumenten definiert, schaltet die Option `anders` in jedem Menü ein manuelles Freitextfeld frei. Wird hier eine kundenspezifische Sonderfarbe (z. B. ein spezieller RAL-Ton) eingetragen, greift automatisch folgende Zuweisung:
+   - Kundenspezifischer Sonderlack (Sikkens, NCS, RAL Design) -> **PG 4**
+   - Andere kundenspezifische Standard-RAL-Lacke -> **PG 3**
+3. **Globale Verfügbarkeit:** Jede Komponente der Web-App (ob Korpus-Boden, Abdeckplatte, Drehtür oder Schubladenfront) greift auf exakt dieselben Arrays dieser Datei zu. Dadurch wird Code-Duplizierung vermieden und eine einheitliche Datenbasis garantiert.

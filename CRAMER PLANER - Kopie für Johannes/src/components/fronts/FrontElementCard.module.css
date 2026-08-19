@@ -1,0 +1,229 @@
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.typeBadge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+  padding: 3px 12px;
+}
+
+.remove {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--color-danger);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+
+.remove:hover {
+  background: rgba(178, 59, 59, 0.08);
+}
+
+.sizeRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1.4fr;
+  gap: var(--space-3);
+}
+
+.styleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.blockLabel {
+  font-size: 0.82rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.styleChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.chip {
+  min-height: 42px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  transition: border-color 0.16s ease, background-color 0.16s ease, color 0.16s ease;
+}
+
+.chip:hover {
+  border-color: var(--color-ink);
+}
+
+.chipActive,
+.chipActive:hover {
+  background: var(--color-accent);
+  border-color: var(--color-accent);
+  color: var(--color-accent-contrast);
+}
+
+.openNote {
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}
+
+.fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-line);
+}
+
+.matField {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.matLabel {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+/* Live-Einzelpreis (Phase 8) */
+.priceLine {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--color-surface-soft);
+  border-radius: var(--radius-sm);
+}
+
+.priceLabel {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.priceValue {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  font-weight: 700;
+  color: var(--color-ink);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.priceHint {
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}
+
+.priceOnRequest {
+  font-size: 0.82rem;
+  font-style: italic;
+  color: var(--color-ink-muted);
+  text-align: right;
+}
+
+/* Griff-Optionen (Phase 9b) */
+.handleBlock {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--color-line);
+}
+
+.handleChecks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 20px;
+  height: 20px;
+  accent-color: var(--color-ink);
+  cursor: pointer;
+}
+
+.warning {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-danger);
+  background: rgba(178, 59, 59, 0.08);
+  border: 1px solid rgba(178, 59, 59, 0.3);
+  border-radius: var(--radius-sm);
+}
+
+/* Phase A – „Werte übernehmen" + gegenseitig ausschließende Griff-Optionen */
+.copyBtn {
+  align-self: flex-start;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-accent-contrast);
+  background: var(--color-accent);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  transition: opacity 0.16s ease;
+}
+
+.copyBtn:hover {
+  opacity: 0.88;
+}
+
+.checkDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.handleHint {
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+  margin-top: calc(-1 * var(--space-1));
+}
+
+@media (max-width: 640px) {
+  .sizeRow {
+    grid-template-columns: 1fr 1fr;
+  }
+}
