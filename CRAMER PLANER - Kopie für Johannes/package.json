@@ -22,6 +22,7 @@
     "mass:test": "node scripts/check-masse.js"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.4",
     "fflate": "^0.8.3",
     "jspdf": "^2.5.2",
     "qrcode": "^1.5.4",

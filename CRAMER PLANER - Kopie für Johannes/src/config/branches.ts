@@ -1,4 +1,4 @@
-import { filialen as stammFilialen, getFiliale } from '../lib/stammdaten'
+import { getFiliale, getFilialenAuswahl, type Filiale } from '../lib/stammdaten'
 import type { Branch } from '../types'
 
 /**
@@ -11,15 +11,28 @@ import type { Branch } from '../types'
  * Im UI wird ausschließlich `name` angezeigt; die übrigen Felder bleiben intern
  * verfügbar (AV-PDF, Angebote, spätere ERP-Anbindung).
  */
-export const branches: Branch[] = stammFilialen.map((f) => ({
-  id: f.filialnr,
-  name: f.name,
-  street: f.strasse,
-  postalCode: f.plz,
-  city: f.ort,
-  phone: f.telefon || undefined,
-  email: f.email || undefined,
-}))
+function alsBranch(f: Filiale): Branch {
+  return {
+    id: f.filialnr,
+    name: f.name,
+    street: f.strasse,
+    postalCode: f.plz,
+    city: f.ort,
+    phone: f.telefon || undefined,
+    email: f.email || undefined,
+  }
+}
+
+/**
+ * Auswählbare Filialen für die Dropdowns (Dashboard-Filter, neuer Entwurf).
+ *
+ * Eine FUNKTION, keine Konstante: Eine in der Verwaltung auf „gesperrt" gesetzte Filiale
+ * muss sofort aus der Auswahl verschwinden — als Konstante wäre die Liste beim Laden des
+ * Moduls eingefroren gewesen und hätte die Sperrung nie mitbekommen.
+ */
+export function getBranches(): Branch[] {
+  return getFilialenAuswahl().map(alsBranch)
+}
 
 /**
  * Filiale per ID (Kopfzeile, Zusammenfassung, AV-PDF).
@@ -27,11 +40,12 @@ export const branches: Branch[] = stammFilialen.map((f) => ({
  * Löst auch die früheren Code-IDs auf (`cramer-wohnvilla-hamburg` → `F-002`): sie stehen
  * als Spalte `Alt-ID` in der Mappe. Ohne das würden bereits gespeicherte Entwürfe ihre
  * Filiale verlieren, weil `Draft.branchId` dort noch den alten Slug trägt.
+ *
+ * Sucht bewusst über ALLE Filialen, auch gesperrte: Ein altes Angebot muss seine Filiale
+ * mit Namen und Anschrift behalten, auch wenn der Standort inzwischen geschlossen ist.
  */
 export function getBranch(id: string | undefined): Branch | undefined {
   if (!id) return undefined
-  const treffer = branches.find((b) => b.id === id)
-  if (treffer) return treffer
-  const ueberAltId = getFiliale(id)
-  return ueberAltId ? branches.find((b) => b.id === ueberAltId.filialnr) : undefined
+  const treffer = getFiliale(id)
+  return treffer ? alsBranch(treffer) : undefined
 }

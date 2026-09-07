@@ -1,3 +1,4 @@
+import { ALLE_MATERIALGRUPPEN } from './materialMatrix'
 import type { ProductSeries } from './productCatalog'
 
 /**
@@ -30,7 +31,9 @@ export interface KorpusArea {
 export type KorpusMode = 'komplett' | 'getrennt'
 
 // Für Außen & Abdeckplatte identische Materialzulassung (laut Korpus-Doku).
-const AUSSEN_ABDECKPLATTE_GROUPS = ['decoboard', 'mattlack', 'furnier', 'glas', 'xtreme-plus']
+// Platzhalter statt Aufzählung: eine in der Verwaltung neu angelegte Oberflächenkategorie
+// steht damit ohne Code-Änderung auch am Außenkorpus und an der Abdeckplatte zur Wahl.
+const AUSSEN_ABDECKPLATTE_GROUPS = [ALLE_MATERIALGRUPPEN]
 
 /**
  * Punkt 5.3 — Dietmars Beispiel: „Korpi mittel (teilweise offen) >> Korpus innen
@@ -87,6 +90,41 @@ const abdeckplatteArea: KorpusArea = {
 
 /** Rückwände (innen/außen) – volle Katalog-Auswahl inkl. Furnier (Phase B). */
 export const RUECKWAND_GROUPS = AUSSEN_ABDECKPLATTE_GROUPS
+
+/**
+ * Materialgruppen des Abschlusssets (Seitenset, 10 mm).
+ *
+ * „Überarbeitung 2", S. 4: „Gläser nicht möglich." Ein 10 mm starkes Seitenset lässt
+ * sich nicht in Glas ausführen — die Gruppe fehlt hier deshalb bewusst.
+ * „anders" bleibt erlaubt und trägt Freitext samt Preisgruppe (Punkt 5.11).
+ */
+export const ABSCHLUSSSET_GROUPS = ['decoboard', 'mattlack', 'furnier', 'xtreme-plus']
+
+/**
+ * SICHTBARKEIT DES INNENAUSBAU-BLOCKS — Rückmeldung „Überarbeitung 2", S. 5.
+ *
+ * Der Block „Korpus Innen" fragte Rückwand, Lochreihe und Einlegeböden global ab,
+ * bevor es zu den Fronten ging. Er ist an jeder Stelle doppelt und an einer sogar
+ * schädlich:
+ *
+ *   Einlegeböden   werden je Segment hinter der Front erfasst UND dort korrekt
+ *                  bepreist; die globale Angabe rechnete pauschal mit der Breite
+ *                  von Segment 1.
+ *   Kleiderstange  erzeugte global nur eine Info-Meldung, gezählt wird je Segment.
+ *   Lochreihe      steht bereits je Korpus im Schritt „Maße".
+ *   Rückwand innen hat kein Gegenstück — soll laut Entscheidung aber ebenfalls
+ *                  zunächst nicht abgefragt werden, damit das Kundengespräch
+ *                  schlank bleibt.
+ *
+ * Deshalb zwei getrennte Schalter statt gelöschtem Code: Der Block lässt sich
+ * jederzeit wieder einblenden, ohne ihn neu zu bauen — die Datenstruktur
+ * `Draft.korpusInnen` und die Auswertung in der Kalkulation bleiben unberührt,
+ * damit bereits gespeicherte Entwürfe ihre Angaben behalten.
+ */
+export const KORPUS_INNEN_SICHTBAR: boolean = false
+
+/** Eigener Schalter, damit die Rückwand auch bei wieder aktivem Block aus bleibt. */
+export const RUECKWAND_INNEN_SICHTBAR: boolean = false
 
 /**
  * Außen-Rückwand (Phase B) – nur relevant, wenn „Sicht-Rückwand?" aktiv ist.

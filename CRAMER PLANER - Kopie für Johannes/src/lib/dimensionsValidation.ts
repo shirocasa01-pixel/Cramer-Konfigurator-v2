@@ -72,7 +72,7 @@ export function tiefenWarnung(tiefeCm: number | undefined): string | undefined {
   if (tiefeCm == null) return undefined
   const { min, max } = MASS_GRENZEN.tiefeCm
   if (tiefeCm < min || tiefeCm > max) {
-    return `${tiefeCm} cm liegt außerhalb der Standardtiefen (${min}–${max} cm) – als Sonderanfertigung möglich, bitte mit der AV abstimmen.`
+    return `${tiefeCm} cm liegt außerhalb der Standardtiefen (${min}–${max} cm) – bitte mit der AV abstimmen.`
   }
   return undefined
 }
@@ -82,7 +82,7 @@ export function breitenWarnung(breiteCm: number | undefined): string | undefined
   if (breiteCm == null) return undefined
   const { min, max } = MASS_GRENZEN.korpusbreiteCm
   if (breiteCm < min || breiteCm > max) {
-    return `${breiteCm} cm liegt außerhalb der Standardbreiten (${min}–${max} cm) – als Sonderanfertigung möglich, bitte mit der AV abstimmen.`
+    return `${breiteCm} cm liegt außerhalb der Standardbreiten (${min}–${max} cm) – bitte mit der AV abstimmen.`
   }
   return undefined
 }

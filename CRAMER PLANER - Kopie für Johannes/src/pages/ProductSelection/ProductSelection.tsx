@@ -72,7 +72,7 @@ export default function ProductSelectionPage() {
   }
 
   function handleContinue() {
-    if (canContinue) navigate('/korpus')
+    if (canContinue) navigate('/dimensions')
   }
 
   return (
@@ -160,7 +160,7 @@ export default function ProductSelectionPage() {
             Zurück
           </Button>
           <Button onClick={handleContinue} disabled={!canContinue}>
-            Weiter zur Konfiguration
+            Weiter zu den Maßen
           </Button>
           {!canContinue ? (
             <span className={styles.actionHint}>Bitte Produktgruppe und Serie wählen.</span>

@@ -1,6 +1,5 @@
 import { TextField } from '../ui/TextField'
 import { Textarea } from '../ui/Textarea'
-import { Select } from '../ui/Select'
 import { makeId } from '../../lib/frontsHelpers'
 import {
   berechneAussenmass,
@@ -12,7 +11,7 @@ import {
 import { breitenWarnung, hoehenWarnung, tiefenWarnung } from '../../lib/dimensionsValidation'
 import { frontAufteilung, mmZuCm } from '../../lib/frontbreiten'
 import { formatMassZahl } from '../../lib/format'
-import type { KorpusEinheit, KorpusGrunddaten, PriceGroup } from '../../types'
+import type { KorpusEinheit, KorpusGrunddaten } from '../../types'
 import styles from './KorpusMasseSection.module.css'
 
 const HEIGHT_MODES: Array<{ key: KorpusGrunddaten['heightMode']; label: string }> = [
@@ -25,19 +24,6 @@ const BREITE_MODES: Array<{ key: KorpusEinheit['breiteMode']; label: string }> =
   { key: '60', label: '60er' },
   { key: '100', label: '100er' },
   { key: 'custom', label: 'anders' },
-]
-const ABSCHLUSS_MATERIALS = [
-  { value: 'decoboard', label: '10 mm Decoboard' },
-  { value: 'furnier', label: '10 mm Furnier' },
-  { value: 'mattlack', label: '10 mm Mattlack' },
-  { value: 'xtreme-plus', label: '10 mm Xtreme Plus' },
-  { value: 'anders', label: 'anders (Freitext + Preisgruppe)' },
-]
-const PREISGRUPPEN = [
-  { value: 'PG1', label: 'Preisgruppe 1' },
-  { value: 'PG2', label: 'Preisgruppe 2' },
-  { value: 'PG3', label: 'Preisgruppe 3' },
-  { value: 'PG4', label: 'Preisgruppe 4' },
 ]
 const ABSCHLUSS_POSITIONS: Array<{ key: NonNullable<KorpusGrunddaten['abschlussSet']>['position']; label: string }> = [
   { key: 'keine', label: 'kein Abschlussset' },
@@ -229,9 +215,9 @@ export function KorpusMasseSection({ value, onChange }: Props) {
               <p className={styles.derived}>
                 Daraus folgt:{' '}
                 <strong>
-                  {aufteilung.anzahl === 1
-                    ? `1 Front à ${formatMassZahl(mmZuCm(aufteilung.frontMm))} cm`
-                    : `${aufteilung.anzahl} Fronten à ${formatMassZahl(mmZuCm(aufteilung.frontMm))} cm`}
+                  z. B. {aufteilung.anzahl}{' '}
+                  {aufteilung.anzahl === 1 ? 'Drehtür' : 'Drehtüren'} à{' '}
+                  {formatMassZahl(mmZuCm(aufteilung.frontMm))} cm
                 </strong>
                 {aufteilung.bestaetigt ? null : ' · Wert noch nicht bestätigt'}
               </p>
@@ -260,40 +246,11 @@ export function KorpusMasseSection({ value, onChange }: Props) {
           ))}
         </div>
         {abschluss.position !== 'keine' ? (
-          <>
-            <div className={styles.customRow}>
-              <Select
-                label="Material (10 mm)"
-                placeholder="Bitte wählen"
-                options={ABSCHLUSS_MATERIALS}
-                value={abschluss.material ?? ''}
-                onChange={(e) => patch({ abschlussSet: { ...abschluss, material: e.target.value } })}
-              />
-            </div>
-            {abschluss.material === 'anders' ? (
-              <div className={styles.customRow}>
-                <TextField
-                  label="Sonderausführung (Freitext)"
-                  placeholder="z. B. Linoleum schwarz auf MPX"
-                  value={abschluss.materialFreitext ?? ''}
-                  onChange={(e) => patch({ abschlussSet: { ...abschluss, materialFreitext: e.target.value } })}
-                />
-                <Select
-                  label="Preisgruppe (für die Kalkulation)"
-                  placeholder="Bitte wählen"
-                  options={PREISGRUPPEN}
-                  value={abschluss.preisgruppe ?? ''}
-                  onChange={(e) =>
-                    patch({ abschlussSet: { ...abschluss, preisgruppe: e.target.value as PriceGroup } })
-                  }
-                />
-              </div>
-            ) : null}
-            <p className={styles.note}>
-              Das Abschlussset trägt 10 mm je Seite und liegt jeweils hinter einer 3-mm-Fuge – beides
-              ist im Außenmaß unten berücksichtigt.
-            </p>
-          </>
+          <p className={styles.note}>
+            Das Abschlussset trägt 10 mm je Seite und liegt jeweils hinter einer 3-mm-Fuge – beides
+            ist im Außenmaß unten berücksichtigt. Das Material wird im nächsten Schritt
+            „Material" zusammen mit den übrigen Materialien festgelegt.
+          </p>
         ) : null}
       </section>
 
@@ -367,15 +324,15 @@ export function KorpusMasseSection({ value, onChange }: Props) {
               Ihr Kleiderschrank hat ein Maß von{' '}
               <strong>{formatKorpusMass(masse.gesamthoeheCm)}</strong> (Gesamthöhe),{' '}
               <strong>{formatKorpusMass(masse.gesamtbreiteCm)}</strong> (Gesamtbreite) und{' '}
-              <strong>{formatKorpusMass(masse.korpustiefeCm)}</strong> (Korpustiefe ohne Fronten).
+              <strong>{formatKorpusMass(masse.gesamttiefeCm ?? masse.korpustiefeCm)}</strong>{' '}
+              {masse.gesamttiefeCm != null
+                ? '(Korpustiefe ohne Fronten, inkl. Fußleistenausschnitt).'
+                : '(Korpustiefe ohne Fronten).'}
             </p>
             <p className={styles.rechenweg}>{masse.rechenweg}</p>
             <p className={styles.note}>
-              Die Breite ergibt sich aus den Frontbreiten – Fugen (3 mm) und Abschlusssets (10 mm)
-              sind berücksichtigt. Verblendungen und die Frontstärke sind es nicht.
-              {masse.gesamttiefeCm != null
-                ? ` Mit dem Fußleistenausschnitt beträgt die Gesamttiefe ca. ${formatMassZahl(masse.gesamttiefeCm)} cm.`
-                : ''}
+              Die Breite ergibt sich aus den Frontbreiten und Fugen (3 mm), und Abschlusssets
+              (10 mm) sind berücksichtigt. Verblendungen und die Frontstärke sind es nicht.
             </p>
             {masse.hinweise.map((h, i) => (
               <p key={i} className={styles.warn} role="status">

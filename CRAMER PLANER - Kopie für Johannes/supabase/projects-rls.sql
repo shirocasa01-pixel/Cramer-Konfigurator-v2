@@ -1,0 +1,58 @@
+-- ---------------------------------------------------------------------------
+-- Row-Level-Security für public.projects
+--
+-- STAND: Lesen (select) ist erlaubt, Schreiben nicht — Supabase antwortet beim
+-- Speichern mit: new row violates row-level security policy for table "projects".
+-- Ohne eine INSERT/UPDATE-Policy kann der Planer nichts ablegen.
+--
+-- Es gibt zwei Wege. BITTE BEWUSST ENTSCHEIDEN, nicht beides ausführen.
+-- Ausführen im Supabase-Dashboard unter SQL Editor.
+-- ---------------------------------------------------------------------------
+
+
+-- === Variante A — Prototyp/interner Test ====================================
+--
+-- ACHTUNG, SICHERHEIT: Der ANON-Key steht im ausgelieferten Browser-Bundle und
+-- ist damit öffentlich. Diese Policies erlauben JEDEM, der den Key hat, sämtliche
+-- Entwürfe zu lesen, zu ändern und zu löschen — inklusive Kundennamen und Preisen.
+-- Nur vertretbar, solange die App ausschließlich lokal/intern läuft und in der
+-- Tabelle keine echten Kundendaten liegen. Vor einem Produktiveinsatz durch
+-- Variante B ersetzen.
+--
+-- create policy "prototyp_anon_lesen"     on public.projects for select using (true);
+-- create policy "prototyp_anon_schreiben" on public.projects for insert with check (true);
+-- create policy "prototyp_anon_aendern"   on public.projects for update using (true) with check (true);
+-- create policy "prototyp_anon_loeschen"  on public.projects for delete using (true);
+--
+-- NACHTRAG: Die DELETE-Policy fehlte zunächst. Ohne sie schlägt das Löschen nicht
+-- hörbar fehl, sondern still: RLS filtert die Zeile heraus, PostgREST meldet keinen
+-- Fehler und löscht 0 Zeilen. Wer nur die ersten drei Policies angelegt hat, muss
+-- diese eine Zeile nachziehen:
+--
+--     create policy "prototyp_anon_loeschen" on public.projects for delete using (true);
+
+
+-- === Variante B — Produktion ================================================
+--
+-- Setzt voraus, dass die Anmeldung auf Supabase Auth umgestellt wird (heute läuft
+-- der Login als Prototyp über localStorage, siehe src/context/AuthContext.tsx).
+-- Dann gilt: jeder Berater sieht und schreibt nur seine eigenen Entwürfe, plus
+-- die, die für ihn freigegeben wurden (Spalte shared_with, siehe
+-- projects-zusatzspalten.sql).
+--
+-- create policy "berater_liest_eigene" on public.projects
+--   for select to authenticated
+--   using (created_by_user_id = auth.uid()::text or auth.uid()::text = any (shared_with));
+--
+-- create policy "berater_legt_an" on public.projects
+--   for insert to authenticated
+--   with check (created_by_user_id = auth.uid()::text);
+--
+-- create policy "berater_aendert_eigene" on public.projects
+--   for update to authenticated
+--   using (created_by_user_id = auth.uid()::text)
+--   with check (created_by_user_id = auth.uid()::text);
+--
+-- create policy "berater_loescht_eigene" on public.projects
+--   for delete to authenticated
+--   using (created_by_user_id = auth.uid()::text);

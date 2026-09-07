@@ -7,8 +7,6 @@ import { TextField } from '../../components/ui/TextField'
 import { KorpusMasseSection, makeDefaultGrunddaten } from '../../components/korpus/KorpusMasseSection'
 import { useDraft } from '../../context/DraftContext'
 import { getProductGroup, getSeries } from '../../config/productCatalog'
-import { getVisibleKorpusAreas } from '../../config/korpus'
-import { isKorpusComplete } from '../../lib/korpusValidation'
 import {
   MAX_SEGMENTS,
   isDimensionsValid,
@@ -59,9 +57,6 @@ export default function DimensionsPage() {
 
   if (!draft) return <Navigate to="/" replace />
   if (!group || !series) return <Navigate to="/products" replace />
-  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) {
-    return <Navigate to="/korpus" replace />
-  }
 
   const currentFronts = draft.fronts
   const masse = computeKorpusMasse(draft)
@@ -86,8 +81,9 @@ export default function DimensionsPage() {
     if (!useRaster) setTouched({ heightCm: true, widthCm: true, depthCm: true, segments: true })
     if (!valid || segments < 1) return
     updateDraft({ fronts: syncColumns(currentFronts, segments) })
-    // Refugium: erst Ausstattung-Vorauswahl (Schritt 6), dann Fronten. Andere Serien direkt zu den Fronten.
-    navigate(series?.korpusRaster ? '/ausstattung' : '/fronts')
+    // Die Maße stehen jetzt VOR dem Korpus – erst dadurch ist bekannt, wie viele Korpi
+    // es gibt, und das Material lässt sich je Korpus wählen.
+    navigate('/korpus')
   }
 
   const legacySegments = dimensions?.segments ?? 0
@@ -203,10 +199,10 @@ export default function DimensionsPage() {
         )}
 
         <div className={styles.actions}>
-          <Button variant="ghost" onClick={() => navigate('/korpus')}>
+          <Button variant="ghost" onClick={() => navigate('/products')}>
             Zurück
           </Button>
-          <Button onClick={handleContinue}>Weiter zu den Fronten</Button>
+          <Button onClick={handleContinue}>Weiter zum Material</Button>
           {!valid ? (
             <span className={styles.hint}>
               {useRaster

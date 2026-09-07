@@ -111,8 +111,13 @@ Stil-Linie „Glatt"               ─┘`}
             Preiszeile — sie braucht nur die richtige Preisgruppe in der Farbmatrix.
           </p>
           <p className={styles.hinweis}>
-            Die Farbmatrix liegt derzeit noch im Code (<code>config/materialMatrix.ts</code>), weil
-            sie nicht Teil der Stammdatenmappe ist. Sie ist der nächste Kandidat für die Übernahme.
+            Die Farbmatrix wird im Reiter <strong>Oberflächen</strong> gepflegt — zwei Ebenen:
+            die <em>Kategorie</em> (Mattlack, Decoboard, Gläser …) trägt die Preisgruppe, die
+            einzelne <em>Oberfläche</em> (Verkehrsweiß RAL 9016 …) verweist auf ihre Kategorie und
+            erbt deren Preisgruppe. Eine neue Farbe ist damit ein Datensatz, keine Code-Änderung:
+            sie steht sofort in den Material-Dropdowns von Korpus und Fronten. Nur wenn eine
+            einzelne Farbe teurer ist als ihre Gruppe (Beispiel Wengé), trägt sie eine eigene
+            Preisgruppe. Grundstand ist <code>data/farbmatrix.ts</code>; „Zurücksetzen" stellt ihn wieder her.
           </p>
         </section>
 

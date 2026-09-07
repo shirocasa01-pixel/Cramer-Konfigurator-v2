@@ -12,17 +12,59 @@
  */
 
 import type { Artikel, Filiale, Mitarbeiter, Preiszeile } from '../data/stammdaten.generated.ts'
+import type { Oberflaeche, Oberflaechenkategorie } from '../types/index.ts'
+import {
+  pruefeArtikel,
+  pruefeBlattSchema,
+  pruefeFiliale,
+  pruefeKategorie,
+  pruefeMitarbeiter,
+  pruefeOberflaeche,
+  pruefePreiszeile,
+} from './stammdatenValidierung.ts'
 import { parseDezimal } from './format.ts'
 import { leseXlsx, schreibeXlsx, ladeHerunter, type GelesenesBlatt, type XlsxBlatt } from './xlsxBrowser.ts'
-import type { Achsenwerte } from './stammdatenStore.ts'
+import { preisSchluessel, type Achsenwerte } from './stammdatenStore.ts'
 
-/** Blattnamen — identisch zur Stammdatenmappe. */
+/**
+ * Blattnamen — ein Blatt je Reiter der Stammdatenverwaltung.
+ *
+ * Der Export bildet damit die Verwaltung 1:1 ab: Wer die Mappe öffnet, findet unten
+ * dieselben Reiter wieder, die er im Konfigurator sieht. Der Reiter „Oberflächen" führt
+ * zwei Ebenen mit verschiedenen Spalten und wird deshalb auf zwei Blätter aufgeteilt.
+ */
 export const BLATT = {
-  artikel: '10 Artikel',
-  preise: '20 Preise',
-  mitarbeiter: '40 Mitarbeiter',
-  filialen: '41 Filialen',
+  artikel: 'Artikelstamm',
+  preise: 'Preisblatt & Achsen',
+  kategorien: 'Oberflächenkategorien',
+  oberflaechen: 'Oberflächen',
+  mitarbeiter: 'Berater',
+  filialen: 'Filialen',
 } as const
+
+/**
+ * Frühere Blattnamen (die der Stammdatenmappe `Cramer-Stammdaten.xlsx`).
+ *
+ * Der Import akzeptiert beide Schreibweisen: eine unveränderte Original-Mappe lässt sich
+ * genauso einspielen wie ein Export aus dieser Anwendung. Sonst wäre der Umstieg auf die
+ * Reiter-Namen ein Bruch für jede Datei, die schon im Umlauf ist.
+ */
+const BLATT_ALIAS: Record<string, string> = {
+  '10 Artikel': BLATT.artikel,
+  '20 Preise': BLATT.preise,
+  '40 Mitarbeiter': BLATT.mitarbeiter,
+  '41 Filialen': BLATT.filialen,
+}
+
+/** Spalten, ohne die ein Blatt nicht verarbeitbar ist. */
+const PFLICHTSPALTEN: Record<string, string[]> = {
+  [BLATT.artikel]: ['Artikelnummer', 'Bezeichnung'],
+  [BLATT.preise]: ['Artikel', 'Preis'],
+  [BLATT.kategorien]: ['ID', 'Bezeichnung'],
+  [BLATT.oberflaechen]: ['ID', 'Kategorie', 'Bezeichnung'],
+  [BLATT.mitarbeiter]: ['Personalnr', 'Name'],
+  [BLATT.filialen]: ['Filialnr', 'Name'],
+}
 
 // ---------------------------------------------------------------------------
 // Spaltenzuordnung
@@ -98,6 +140,28 @@ const FILIAL_SPALTEN: [string, (f: Filiale) => string][] = [
   ['Alt-ID', (f) => f.altId],
 ]
 
+const KATEGORIE_SPALTEN: [string, (k: Oberflaechenkategorie) => string][] = [
+  ['ID', (k) => k.id],
+  ['Bezeichnung', (k) => k.bezeichnung],
+  ['Preisgruppe', (k) => k.preisgruppe ?? ''],
+  ['Standardauswahl', (k) => (k.standardauswahl ? 'J' : 'N')],
+  ['Sortierung', (k) => String(k.sortierung ?? '')],
+  ['Status', (k) => k.status],
+  ['Bemerkung', (k) => k.bemerkung],
+]
+
+const OBERFLAECHEN_SPALTEN: [string, (o: Oberflaeche) => string][] = [
+  ['ID', (o) => o.id],
+  ['Kategorie', (o) => o.kategorie],
+  ['Bezeichnung', (o) => o.bezeichnung],
+  ['Abweichende Preisgruppe', (o) => o.preisgruppe ?? ''],
+  ['Freitextfeld', (o) => (o.freitext ? 'J' : 'N')],
+  ['Freitext-Beschriftung', (o) => o.freitextLabel],
+  ['Sortierung', (o) => String(o.sortierung ?? '')],
+  ['Status', (o) => o.status],
+  ['Bemerkung', (o) => o.bemerkung],
+]
+
 function baueBlatt<T, E>(
   name: string,
   spalten: [string, (eintrag: T, extra: E) => string][],
@@ -122,6 +186,8 @@ export interface ExportDaten {
   preise: readonly Preiszeile[]
   mitarbeiter: readonly Mitarbeiter[]
   filialen: readonly Filiale[]
+  oberflaechenkategorien: readonly Oberflaechenkategorie[]
+  oberflaechen: readonly Oberflaeche[]
 }
 
 /**
@@ -131,9 +197,12 @@ export interface ExportDaten {
 export function exportiereXlsx(daten: ExportDaten, dateiname?: string): string {
   const artikelNach = new Map(daten.artikel.map((a) => [a.artikelnummer, a]))
 
+  // Reihenfolge wie die Reiter der Verwaltung — die Mappe liest sich wie das Programm.
   const blaetter: XlsxBlatt[] = [
     baueBlatt(BLATT.artikel, ARTIKEL_SPALTEN, daten.artikel, () => undefined as never),
     baueBlatt(BLATT.preise, PREIS_SPALTEN, daten.preise, (p) => artikelNach.get(p.artikel)),
+    baueBlatt(BLATT.kategorien, KATEGORIE_SPALTEN, daten.oberflaechenkategorien, () => undefined as never),
+    baueBlatt(BLATT.oberflaechen, OBERFLAECHEN_SPALTEN, daten.oberflaechen, () => undefined as never),
     baueBlatt(BLATT.mitarbeiter, MITARBEITER_SPALTEN, daten.mitarbeiter, () => undefined as never),
     baueBlatt(BLATT.filialen, FILIAL_SPALTEN, daten.filialen, () => undefined as never),
   ]
@@ -148,14 +217,29 @@ export function exportiereXlsx(daten: ExportDaten, dateiname?: string): string {
 // Import
 // ---------------------------------------------------------------------------
 
+/** Ein importierter Datensatz, der die Regeln nicht erfüllt — übernommen, aber markiert. */
+export interface ImportProblem {
+  bereich: 'artikel' | 'preise' | 'oberflaechen' | 'berater' | 'filialen'
+  /** Zeilen-ID im Gitter des Bereichs — Sprungziel für „zur Änderung". */
+  zeilenId: string
+  titel: string
+  probleme: string[]
+}
+
 export interface ImportErgebnis {
   artikel?: Artikel[]
   preise?: Preiszeile[]
   mitarbeiter?: Mitarbeiter[]
   filialen?: Filiale[]
+  oberflaechenkategorien?: Oberflaechenkategorie[]
+  oberflaechen?: Oberflaeche[]
   /** Was gelesen wurde und was auffiel — wird dem Benutzer gezeigt. */
   meldungen: string[]
+  /** Übernommene, aber unvollständige/fehlerhafte Datensätze. */
+  probleme: ImportProblem[]
 }
+
+const jaNein = (v: string | undefined) => (v ?? '').trim().toUpperCase() === 'J'
 
 const achsenWert = (roh: string) => roh.trim()
 
@@ -214,12 +298,21 @@ function lesePreisBlatt(blatt: GelesenesBlatt, meldungen: string[]): Preiszeile[
   return preise
 }
 
-/** Liest eine hochgeladene Mappe. Fehlende Blätter bleiben schlicht unberührt. */
+/**
+ * Liest eine hochgeladene Mappe — Blatt für Blatt, Zeile für Zeile geprüft.
+ *
+ * Der Import bricht NICHT ab. Ein Blatt, dem Pflichtspalten fehlen, wird übersprungen und
+ * gemeldet; eine Zeile, die die Regeln verletzt, wird übernommen und in `probleme`
+ * vermerkt. Die Verwaltung markiert sie danach im Gitter, sodass sie per Doppelklick
+ * nachgearbeitet werden kann — statt dass eine 1.500-Zeilen-Datei am ersten Tippfehler
+ * scheitert.
+ */
 export async function importiereXlsx(datei: File): Promise<ImportErgebnis> {
   const puffer = await datei.arrayBuffer()
   const blaetter = leseXlsx(puffer)
   const meldungen: string[] = []
-  const ergebnis: ImportErgebnis = { meldungen }
+  const probleme: ImportProblem[] = []
+  const ergebnis: ImportErgebnis = { meldungen, probleme }
 
   if (blaetter.length === 0) {
     meldungen.push('Die Datei enthält kein lesbares Tabellenblatt.')
@@ -227,12 +320,52 @@ export async function importiereXlsx(datei: File): Promise<ImportErgebnis> {
   }
 
   for (const blatt of blaetter) {
-    switch (blatt.name) {
+    const name = BLATT_ALIAS[blatt.name] ?? blatt.name
+    const pflicht = PFLICHTSPALTEN[name]
+    if (!pflicht) {
+      meldungen.push(`Blatt „${blatt.name}" übersprungen — kein bekannter Blattname.`)
+      continue
+    }
+    const schemaFehler = pruefeBlattSchema(blatt.name, blatt.kopf, pflicht)
+    if (schemaFehler) {
+      meldungen.push(schemaFehler)
+      continue
+    }
+
+    switch (name) {
       case BLATT.artikel:
         ergebnis.artikel = leseArtikelBlatt(blatt, meldungen)
         break
       case BLATT.preise:
         ergebnis.preise = lesePreisBlatt(blatt, meldungen)
+        break
+      case BLATT.kategorien:
+        ergebnis.oberflaechenkategorien = blatt.zeilen
+          .filter((z) => (z['ID'] ?? '').trim())
+          .map((z) => ({
+            id: (z['ID'] ?? '').trim(),
+            bezeichnung: z['Bezeichnung'] ?? '',
+            preisgruppe: (z['Preisgruppe'] ?? '').trim() as Oberflaechenkategorie['preisgruppe'],
+            standardauswahl: jaNein(z['Standardauswahl']),
+            sortierung: parseDezimal(z['Sortierung']) ?? 0,
+            status: (z['Status'] ?? 'aktiv') as Oberflaechenkategorie['status'],
+            bemerkung: z['Bemerkung'] ?? '',
+          }))
+        break
+      case BLATT.oberflaechen:
+        ergebnis.oberflaechen = blatt.zeilen
+          .filter((z) => (z['ID'] ?? '').trim())
+          .map((z) => ({
+            id: (z['ID'] ?? '').trim(),
+            kategorie: (z['Kategorie'] ?? '').trim(),
+            bezeichnung: z['Bezeichnung'] ?? '',
+            preisgruppe: (z['Abweichende Preisgruppe'] ?? '').trim() as Oberflaeche['preisgruppe'],
+            freitext: jaNein(z['Freitextfeld']),
+            freitextLabel: z['Freitext-Beschriftung'] ?? '',
+            sortierung: parseDezimal(z['Sortierung']) ?? 0,
+            status: (z['Status'] ?? 'aktiv') as Oberflaeche['status'],
+            bemerkung: z['Bemerkung'] ?? '',
+          }))
         break
       case BLATT.mitarbeiter:
         ergebnis.mitarbeiter = blatt.zeilen
@@ -262,21 +395,56 @@ export async function importiereXlsx(datei: File): Promise<ImportErgebnis> {
             altId: z['Alt-ID'] ?? '',
           }))
         break
-      default:
-        meldungen.push(`Blatt „${blatt.name}" übersprungen — kein bekannter Blattname.`)
     }
   }
 
-  // Referenzintegrität prüfen, solange sich noch etwas ändern lässt.
-  if (ergebnis.preise && ergebnis.artikel) {
-    const nummern = new Set(ergebnis.artikel.map((a) => a.artikelnummer))
-    const verwaist = ergebnis.preise.filter((p) => !nummern.has(p.artikel))
-    if (verwaist.length > 0) {
-      meldungen.push(
-        `${verwaist.length} Preiszeile(n) verweisen auf einen Artikel, den es im Import nicht gibt (z. B. ${verwaist[0].artikel}) — sie wären nicht auffindbar.`,
-      )
-    }
-  }
-
+  pruefeImportZeilen(ergebnis)
   return ergebnis
+}
+
+/**
+ * Prüft jeden eingelesenen Datensatz gegen das Regelwerk und sammelt die Verstöße.
+ *
+ * Verweise werden gegen den IMPORT geprüft, nicht gegen den laufenden Bestand: Wer eine
+ * Mappe einspielt, will wissen, ob SIE in sich stimmig ist.
+ */
+function pruefeImportZeilen(ergebnis: ImportErgebnis) {
+  const artikelnummern = ergebnis.artikel ? new Set(ergebnis.artikel.map((a) => a.artikelnummer)) : undefined
+  const kategorien = ergebnis.oberflaechenkategorien
+    ? new Set(ergebnis.oberflaechenkategorien.map((k) => k.id))
+    : undefined
+
+  const sammle = (
+    bereich: ImportProblem['bereich'],
+    zeilenId: string,
+    titel: string,
+    probleme: string[],
+  ) => {
+    if (probleme.length > 0) ergebnis.probleme.push({ bereich, zeilenId, titel, probleme })
+  }
+
+  for (const a of ergebnis.artikel ?? []) {
+    sammle('artikel', a.artikelnummer, `${a.artikelnummer} · ${a.bezeichnung}`, pruefeArtikel(a))
+  }
+  for (const p of ergebnis.preise ?? []) {
+    const achsen = p.a.filter(Boolean).join(' · ') || 'ohne Achsenwerte'
+    sammle('preise', preisSchluessel(p), `${p.artikel} · ${achsen}`, pruefePreiszeile(p, artikelnummern))
+  }
+  for (const k of ergebnis.oberflaechenkategorien ?? []) {
+    sammle('oberflaechen', `kat:${k.id}`, `Kategorie ${k.bezeichnung || k.id}`, pruefeKategorie(k))
+  }
+  for (const o of ergebnis.oberflaechen ?? []) {
+    sammle(
+      'oberflaechen',
+      `obf:${o.kategorie}::${o.id}`,
+      `${o.bezeichnung || o.id} (${o.kategorie})`,
+      pruefeOberflaeche(o, kategorien),
+    )
+  }
+  for (const m of ergebnis.mitarbeiter ?? []) {
+    sammle('berater', m.personalnr, `${m.personalnr} · ${m.name}`, pruefeMitarbeiter(m as Mitarbeiter))
+  }
+  for (const f of ergebnis.filialen ?? []) {
+    sammle('filialen', f.filialnr, `${f.filialnr} · ${f.name}`, pruefeFiliale(f as Filiale))
+  }
 }

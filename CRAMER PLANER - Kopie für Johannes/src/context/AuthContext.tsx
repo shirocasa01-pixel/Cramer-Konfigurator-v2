@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { consultants as seedConsultants } from '../data/consultants'
+import { getConsultants } from '../data/consultants'
 import { SEED_ROOT_ADMIN } from '../data/seedAdmin'
 import { appConfig } from '../config/appConfig'
 import { isValidEmail } from '../lib/validation'
@@ -68,10 +68,21 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
 
+/**
+ * Stamm-Filiale eines Beraters aus Blatt „40 Mitarbeiter".
+ *
+ * Geschlüsselt über die Personalnummer — sie ist die Identität des Mitarbeiters und
+ * zugleich die `id` des angemeldeten Nutzers. Fehlt die Zuordnung, bleibt das
+ * Filialfeld im Entwurf schlicht leer; der Berater wählt dann wie bisher selbst.
+ */
+function heimatFiliale(personalnr: string): string | undefined {
+  return getMitarbeiterListe().find((m) => m.personalnr === personalnr)?.filiale || undefined
+}
+
 function defaultStore(): UserStore {
   return {
     admins: [],
-    consultants: [...seedConsultants],
+    consultants: getConsultants(),
     settings: { enforceCramerEmail: false, maintenanceMode: false },
     rootActivationToken: null,
   }
@@ -84,7 +95,7 @@ function loadStore(): UserStore {
       const parsed = JSON.parse(raw) as Partial<UserStore>
       return {
         admins: parsed.admins ?? [],
-        consultants: parsed.consultants ?? [...seedConsultants],
+        consultants: parsed.consultants ?? getConsultants(),
         settings: {
           enforceCramerEmail: Boolean(parsed.settings?.enforceCramerEmail),
           maintenanceMode: Boolean(parsed.settings?.maintenanceMode),
@@ -181,7 +192,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         (c) => c.email.toLowerCase() === id && c.password === password && !hatZugang(c.id),
       )
       if (consultant) {
-        setUser({ id: consultant.id, name: consultant.name, email: consultant.email, role: 'consultant' })
+        setUser({
+          id: consultant.id,
+          name: consultant.name,
+          email: consultant.email,
+          role: 'consultant',
+          branchId: heimatFiliale(consultant.id),
+        })
         return { ok: true, isAdmin: false }
       }
 
@@ -197,6 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           name: mitarbeiter.name,
           email: mitarbeiter.email,
           role: mitarbeiter.rolle === 'admin' ? 'admin' : 'consultant',
+          branchId: mitarbeiter.filiale || undefined,
         })
         return { ok: true, isAdmin: mitarbeiter.rolle === 'admin' }
       }

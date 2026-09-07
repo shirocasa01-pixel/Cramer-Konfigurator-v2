@@ -6,7 +6,14 @@ import { getProductGroup, getSeries } from '../config/productCatalog'
 import { getVisibleKorpusAreas } from '../config/korpus'
 import { getFrontType, getStyleLine } from '../config/frontCatalog'
 import { PRICE_GROUP_LABEL, describeMaterialSelection } from './materialFormat'
-import { ABSCHLUSS_UNTEN_LABEL, describeFrontField, describeHandleConfig, describeOben } from './frontsFormat'
+import {
+  ABSCHLUSS_UNTEN_LABEL,
+  describeFrontExtras,
+  describeFrontField,
+  describeHandleConfig,
+  describeOben,
+} from './frontsFormat'
+import { isFrontFieldVisible } from './frontsHelpers'
 import { describeAusstattungAuswahl, describeColumnEquipment } from './ausstattungFormat'
 import { formatVkPreis } from './pricing'
 import { caPrefix, formatDimensions } from './massFormat'
@@ -127,7 +134,7 @@ export function buildPdf(draft: Draft): jsPDF {
     describeKorpusGrunddatenZeilen(draft.korpusGrunddaten).forEach((z) => kv(z.label, z.value))
   }
 
-  section('Korpus')
+  section('Material')
   if (series) {
     for (const area of getVisibleKorpusAreas(series, draft.korpusMode)) {
       const selection = draft.korpus?.[area.id]
@@ -190,12 +197,16 @@ export function buildPdf(draft: Draft): jsPDF {
       if (element.widthCm || element.heightCm) {
         meta.push(`Maße ${caPrefix()}${element.widthCm ?? '?'}×${element.heightCm ?? '?'} cm`)
       }
+      const extras = describeFrontExtras(element)
+      if (extras) meta.push(extras)
       if (meta.length) bullet(meta.join(' · '))
       if (styleLine) {
-        styleLine.fields.forEach((field) => {
-          const line = describeFrontField(field, element.fieldValues?.[field.id])
-          if (line) bullet(line)
-        })
+        styleLine.fields
+          .filter((field) => isFrontFieldVisible(field, element))
+          .forEach((field) => {
+            const line = describeFrontField(field, element.fieldValues?.[field.id])
+            if (line) bullet(line)
+          })
       }
       const handleLine = describeHandleConfig(element)
       if (handleLine) bullet(handleLine)

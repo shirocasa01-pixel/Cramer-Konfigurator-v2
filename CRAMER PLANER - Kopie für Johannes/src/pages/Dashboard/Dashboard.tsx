@@ -6,7 +6,7 @@ import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
-import { branches, getBranch } from '../../config/branches'
+import { getBranch, getBranches } from '../../config/branches'
 import { getProductGroup, getSeries } from '../../config/productCatalog'
 import { getVisibleKorpusAreas } from '../../config/korpus'
 import { isKorpusComplete } from '../../lib/korpusValidation'
@@ -25,8 +25,9 @@ function resumeRoute(draft: Draft): string {
   if (draft.isVerification) return '/summary' // Referenz-Entwürfe direkt zur Auswertung
   const series = getSeries(draft.productGroupId, draft.seriesId)
   if (!getProductGroup(draft.productGroupId) || !series) return '/products'
-  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) return '/korpus'
+  // Reihenfolge wie im Workflow: Maße vor Korpus.
   if (!isDimensionsValid(draft.dimensions)) return '/dimensions'
+  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) return '/korpus'
   if (!isFrontsComplete(draft.fronts)) return '/fronts'
   return '/summary'
 }
@@ -38,7 +39,16 @@ function resumeRoute(draft: Draft): string {
  */
 export default function DashboardPage() {
   const { user } = useAuth()
-  const { savedDrafts, startNewDraft, loadDraft, deleteDraft, duplicateDraft } = useDraft()
+  const {
+    savedDrafts,
+    draftsLoading,
+    draftsError,
+    refreshDrafts,
+    startNewDraft,
+    loadDraft,
+    deleteDraft,
+    duplicateDraft,
+  } = useDraft()
   const navigate = useNavigate()
 
   const [query, setQuery] = useState('')
@@ -84,17 +94,18 @@ export default function DashboardPage() {
   const gruppen = useMemo(() => gruppiereVarianten(filtered, savedDrafts), [filtered, savedDrafts])
 
   function handleNew() {
-    if (user) startNewDraft({ id: user.id, name: user.name })
+    if (user) startNewDraft({ id: user.id, name: user.name, branchId: user.branchId })
     navigate('/new')
   }
 
-  function handleOpen(draft: Draft) {
-    loadDraft(draft.id)
-    navigate(resumeRoute(draft))
+  // Erst laden, dann navigieren: Der Entwurf kommt jetzt aus Supabase, und ohne das
+  // Abwarten stünde die Zielseite kurz ohne Entwurf da und leitete zurück.
+  async function handleOpen(draft: Draft) {
+    if (await loadDraft(draft.id)) navigate(resumeRoute(draft))
   }
 
-  function handleDuplicate(source: Draft) {
-    const copy = duplicateDraft(source.id)
+  async function handleDuplicate(source: Draft) {
+    const copy = await duplicateDraft(source.id)
     if (copy) navigate(resumeRoute(copy))
   }
 
@@ -130,7 +141,7 @@ export default function DashboardPage() {
           <div className={styles.filterCol}>
             <Select
               label="Filiale"
-              options={[{ value: '', label: 'Alle Filialen' }, ...branches.map((b) => ({ value: b.id, label: b.name }))]}
+              options={[{ value: '', label: 'Alle Filialen' }, ...getBranches().map((b) => ({ value: b.id, label: b.name }))]}
               value={branchId}
               onChange={(event) => setBranchId(event.target.value)}
             />
@@ -158,7 +169,18 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {filtered.length === 0 ? (
+        {draftsError ? (
+          <div className={styles.loadError} role="alert">
+            <span>{draftsError}</span>
+            <Button variant="ghost" onClick={() => void refreshDrafts()}>
+              Erneut laden
+            </Button>
+          </div>
+        ) : null}
+
+        {draftsLoading && filtered.length === 0 ? (
+          <div className={styles.empty}>Entwürfe werden geladen …</div>
+        ) : filtered.length === 0 ? (
           <div className={styles.empty}>
             {savedDrafts.length === 0
               ? 'Noch keine gespeicherten Entwürfe. Legen Sie einen neuen Entwurf an.'
@@ -181,7 +203,7 @@ export default function DashboardPage() {
                     const variante = variantenName(draft)
                     return (
                       <li key={draft.id} className={styles.row}>
-                        <button type="button" className={styles.rowMain} onClick={() => handleOpen(draft)}>
+                        <button type="button" className={styles.rowMain} onClick={() => void handleOpen(draft)}>
                           <div className={styles.rowTop}>
                             <span className={styles.rowId}>{draft.id}</span>
                             {draft.isVerification ? (
@@ -204,7 +226,7 @@ export default function DashboardPage() {
                         <button
                           type="button"
                           className={styles.duplicate}
-                          onClick={() => handleDuplicate(draft)}
+                          onClick={() => void handleDuplicate(draft)}
                           aria-label={`Entwurf ${draft.id} duplizieren`}
                           title="Als neue Variante duplizieren"
                         >
@@ -219,7 +241,8 @@ export default function DashboardPage() {
                             type="button"
                             className={styles.delete}
                             onClick={() => {
-                              if (window.confirm(`Entwurf ${draft.id} löschen?`)) deleteDraft(draft.id)
+                              if (window.confirm(`Entwurf ${draft.id} endgültig löschen? Er wird aus der Datenbank entfernt.`))
+                                void deleteDraft(draft.id)
                             }}
                             aria-label={`Entwurf ${draft.id} löschen`}
                           >

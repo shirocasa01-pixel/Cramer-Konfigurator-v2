@@ -1,5 +1,12 @@
 import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../types'
-import { EQUIPMENT_ELIGIBLE_FRONT_TYPES } from '../config/equipment'
+import {
+  EQUIPMENT_ELIGIBLE_FRONT_TYPES,
+  equipmentChoiceDefaults,
+  getEquipmentOption,
+} from '../config/equipment'
+import { LINE_AUFKANTUNG_GROUPS, getFrontType, type FrontField } from '../config/frontCatalog'
+import { MATERIAL_CUSTOM_ID, getMaterialGroup } from '../config/materialMatrix'
+import { FRONT_OFFSET_MM, frontRaster, hoeheFuerRaster } from './raster'
 
 /** Front-Typ der zweiläufigen Schiebetür (exklusiv – Schritt 7). */
 export const ZWEILAEUFIG_TYPE_ID = 'schiebetuer-zwei'
@@ -79,13 +86,150 @@ export function naechsteKennzeichnung(fronts: FrontsData | undefined, typeId: st
  * Korpusbreite abgeleiteten Frontbreite (7.5) auf den Bildschirm.
  */
 export function makeElement(typeId: string, fronts?: FrontsData, breiteCm?: number): FrontElement {
-  return {
+  const element: FrontElement = {
     id: makeId('el'),
     typeId,
     label: fronts ? naechsteKennzeichnung(fronts, typeId) : '',
     widthCm: breiteCm != null ? String(breiteCm) : undefined,
     fieldValues: {},
   }
+  // Überarbeitung 3: Beim Griffprofil der zweiläufigen Schiebetür ist nur noch „Edge"
+  // möglich — es wird deshalb direkt vorgewählt.
+  if (getFrontType(typeId)?.griffProfil) element.griffProfil = 'edge'
+  return element
+}
+
+// ---------------------------------------------------------------------------
+// Überarbeitung 3 – Türhöhe der Drehtür (drei exklusive Optionen)
+// ---------------------------------------------------------------------------
+
+/** Zulässige Rasterspanne für die Eingabe „Höhe (Raster)" (Vorgabe: 3 bis 21 Raster). */
+export const DREHTUER_RASTER_MIN = 3
+export const DREHTUER_RASTER_MAX = 21
+
+/**
+ * Fronthöhe (cm) aus einer Rasterangabe — EINBAHNSTRASSE Raster → cm.
+ *
+ *     1 Raster  = 12,5 cm Fronthöhe, zwischen zwei Rasterfronten liegen 3 mm Fuge
+ *     n Raster  = n × 12,5 + (n − 1) × 0,3   ⇔   (n × 128 − 3) mm
+ *
+ * Die zweite Schreibweise ist die, die `hoeheFuerRaster` bereits rechnet
+ * (`RASTER_MM` = 128, `FRONT_OFFSET_MM` = −3); beide Formeln sind identisch:
+ * 3 R ⇒ 38,1 cm · 14 R ⇒ 178,9 cm · 21 R ⇒ 268,5 cm — exakt die Höhenübersicht der Vorlage.
+ * Es gibt bewusst KEINE Rückrechnung cm → Raster in der Eingabemaske.
+ */
+export function frontHoeheAusRaster(raster: number): number {
+  return hoeheFuerRaster(raster, FRONT_OFFSET_MM)
+}
+
+/** Rastereingabe parsen (Komma erlaubt); ungültig/leer ⇒ `undefined`. */
+export function parseRasterEingabe(text: string | undefined): number | undefined {
+  if (!text || !text.trim()) return undefined
+  const n = Number(text.replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+function hoeheCmVonElement(element: FrontElement): number | undefined {
+  const n = Number((element.heightCm ?? '').replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+/**
+ * Resthöhe für „Höhe bis Korpusoberkante": das Korpusraster minus die Rasterstufen der
+ * übrigen Fronten derselben Spalte.
+ *
+ * Vorlage: „wenn darunter z. B. 2 Schubladen à 2 Raster sind und der Schrank eine Höhe
+ * von 18 Rastern hat, würde sich daraus automatisch die Türhöhe von 14 Rastern ergeben".
+ *
+ * `undefined`, wenn das Korpusraster unbekannt ist, eine andere Front der Spalte keine
+ * verwertbare Höhe hat oder rechnerisch nichts übrig bleibt — dann bleibt die Höhe offen
+ * und wird in der AV geklärt, statt einen falschen Wert zu erfinden.
+ */
+export function restRasterBisKorpusoberkante(
+  column: FrontColumn,
+  elementId: string,
+  korpusRaster: number | undefined,
+): number | undefined {
+  if (korpusRaster == null || korpusRaster <= 0) return undefined
+  let summe = 0
+  for (const el of column.elements) {
+    if (el.id === elementId) continue
+    // Eine zweite „bis Oberkante"-Front macht die Rechnung mehrdeutig.
+    if (el.hoeheModus === 'korpusoberkante') return undefined
+    const cm = hoeheCmVonElement(el)
+    if (cm == null) return undefined
+    summe += frontRaster(cm)
+  }
+  const rest = korpusRaster - summe
+  return rest >= 1 ? rest : undefined
+}
+
+// ---------------------------------------------------------------------------
+// Überarbeitung 3 – „Line": Frontscheibe / Aufkantung
+// ---------------------------------------------------------------------------
+
+/** Materialgruppe des Frontscheiben-Feldes eines Line-Elements. */
+export function frontMaterialGroupId(element: FrontElement): string | undefined {
+  return element.fieldValues?.material?.material?.materialGroupId
+}
+
+/**
+ * Ist ein Stil-Linien-Feld für dieses Element sichtbar? Eine Quelle für UI, Validierung,
+ * Zusammenfassung und AV-PDF — sonst verlangt die Validierung Felder, die niemand sieht.
+ */
+export function isFrontFieldVisible(field: FrontField, element: FrontElement): boolean {
+  if (!field.visibleWhen) return true
+  const gruppe = frontMaterialGroupId(element)
+  const getrennt = element.lineAufkantungGleich === false
+  switch (field.visibleWhen) {
+    case 'nichtBeiAnders':
+      return gruppe != null && gruppe !== MATERIAL_CUSTOM_ID
+    case 'lineGetrennt':
+      return getrennt && gruppe != null && gruppe !== MATERIAL_CUSTOM_ID
+    case 'lineGetrenntFurnierMattlack':
+      return getrennt && (gruppe === 'furnier' || gruppe === 'mattlack')
+  }
+}
+
+/**
+ * Wählbare Materialgruppen für die Aufkantung.
+ *
+ * Vorlage: „Wenn bei Furnier ‚Nein‘ gewählt wird, muss das Dropdown für die Aufkantung
+ * nicht nur Furniere, sondern alle Furniere, Gläser und Mattlacke auflisten." Bei Glas
+ * und Mattlack bleibt es bei derselben Gruppe.
+ */
+export function aufkantungGroupIds(element: FrontElement): string[] {
+  const gruppe = frontMaterialGroupId(element)
+  if (gruppe === 'furnier') return LINE_AUFKANTUNG_GROUPS
+  return gruppe ? [gruppe] : LINE_AUFKANTUNG_GROUPS
+}
+
+/** Trennzeichen im Optionswert des Aufkantungs-Dropdowns (`gruppe::option`). */
+const AUFKANTUNG_SEP = '::'
+
+export function encodeAufkantungValue(groupId: string, optionId: string): string {
+  return `${groupId}${AUFKANTUNG_SEP}${optionId}`
+}
+
+export function decodeAufkantungValue(value: string): { groupId: string; optionId: string } | undefined {
+  const [groupId, optionId] = value.split(AUFKANTUNG_SEP)
+  return groupId && optionId ? { groupId, optionId } : undefined
+}
+
+/**
+ * Optionen des Aufkantungs-Dropdowns. Bei mehreren Gruppen wird die Gruppe dem Label
+ * vorangestellt, damit „Eiche geölt" (Furnier) und „Stone" (Glas) unterscheidbar bleiben.
+ */
+export function aufkantungOptions(groupIds: string[]): Array<{ value: string; label: string }> {
+  const mehrere = groupIds.length > 1
+  return groupIds.flatMap((groupId) => {
+    const group = getMaterialGroup(groupId)
+    if (!group) return []
+    return group.options.map((option) => ({
+      value: encodeAufkantungValue(group.id, option.id),
+      label: mehrere ? `${group.label} – ${option.label}` : option.label,
+    }))
+  })
 }
 
 // ---------------------------------------------------------------------------
@@ -201,9 +345,19 @@ export function isColumnEquipmentEligible(column: FrontColumn): boolean {
   return eligibleEquipmentFrontTypes(column).length > 0
 }
 
-/** Neues, leeres Ausstattungs-Element (Schritt 8). */
+/**
+ * Neues Ausstattungs-Element (Schritt 8) mit den Vorgaben aus dem Katalog:
+ * Standard-Auswahlen (z. B. Kleiderstange „Chrom") und – wo eine Höhe erfasst wird –
+ * eine erste Zeile im Raster-Modus. Beides kommt aus `config/equipment.ts`, damit hier
+ * keine zweite Stelle entsteht, an der Vorgaben gepflegt werden müssten.
+ */
 export function makeEquipmentItem(optionId: string): SegmentEquipmentItem {
-  return { id: makeId('eq'), optionId, qty: 1 }
+  const option = getEquipmentOption(optionId)
+  const item: SegmentEquipmentItem = { id: makeId('eq'), optionId, qty: 1 }
+  const choices = equipmentChoiceDefaults(option)
+  if (Object.keys(choices).length > 0) item.choices = choices
+  if (option?.heightMode && option.heightMode !== 'keine') item.hoehen = [{ modus: 'raster' }]
+  return item
 }
 
 /**
@@ -215,6 +369,11 @@ export function copyableFrontValues(src: FrontElement): Partial<FrontElement> {
   return {
     widthCm: src.widthCm,
     heightCm: src.heightCm,
+    hoeheModus: src.hoeheModus,
+    hoeheRaster: src.hoeheRaster,
+    // Der Türanschlag wird BEWUSST nicht übernommen: bei zwei Türen nebeneinander ist
+    // einer rechts und einer links angeschlagen – ein kopierter Wert wäre halb falsch.
+    lineAufkantungGleich: src.lineAufkantungGleich,
     styleLineId: src.styleLineId,
     fieldValues: src.fieldValues
       ? (JSON.parse(JSON.stringify(src.fieldValues)) as FrontElement['fieldValues'])

@@ -586,13 +586,14 @@ export function ArtikelDetailModal({
 
         <footer className={styles.fuss}>
           <span className={styles.fussHinweis}>
-            Änderungen wirken erst nach dem Speichern — und dann sofort in Kalkulation und Auswahlfeldern.
+            Übernimmt Artikel und Preiszeilen in den Bearbeitungsstand. Verbindlich werden sie
+            mit „Speichern" oben im Kopf.
           </span>
           <button type="button" className={styles.abbrechen} onClick={onClose}>
             Abbrechen
           </button>
           <button type="button" className={styles.speichern} onClick={speichern}>
-            {anlegen ? 'Artikel anlegen' : 'Änderungen speichern'}
+            {anlegen ? 'Artikel anlegen' : 'Speichern'}
           </button>
         </footer>
       </div>

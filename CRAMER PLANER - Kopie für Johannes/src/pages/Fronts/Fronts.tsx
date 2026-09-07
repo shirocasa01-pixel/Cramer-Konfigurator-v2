@@ -11,10 +11,17 @@ import { getProductGroup, getSeries } from '../../config/productCatalog'
 import { getVisibleKorpusAreas } from '../../config/korpus'
 import { isKorpusComplete } from '../../lib/korpusValidation'
 import { isDimensionsValid } from '../../lib/dimensionsValidation'
-import { berechneAussenmass, isSondertiefeDepth, resolveKorpusBreiteCm } from '../../lib/korpusMass'
+import {
+  berechneAussenmass,
+  isSondertiefeDepth,
+  resolveHeightCm,
+  resolveKorpusBreiteCm,
+} from '../../lib/korpusMass'
 import { frontAufteilung, mmZuCm } from '../../lib/frontbreiten'
+import { korpusOffsetMm, rasterFuerHoehe } from '../../lib/raster'
 import { formatDimensions } from '../../lib/massFormat'
-import { getAvailableFrontTypes } from '../../config/frontCatalog'
+import { KLEIDERSCHRANK_GROUP_ID, getAvailableFrontTypes } from '../../config/frontCatalog'
+import type { SegmentMasse } from '../../config/equipment'
 import { getFrontsIssues, isFrontsComplete } from '../../lib/frontsValidation'
 import {
   canAddFrontType,
@@ -23,6 +30,7 @@ import {
   hasZweilaeufigeSchiebetuer,
   isColumnEquipmentEligible,
   makeElement,
+  restRasterBisKorpusoberkante,
   pruefeSchiebetuerAnzahl,
   schiebetuerAnzahlOptions,
   SCHIEBETUER_MAX_CM,
@@ -30,7 +38,7 @@ import {
   SCHIEBETUER_MIN_CM,
   ZWEILAEUFIG_TYPE_ID,
 } from '../../lib/frontsHelpers'
-import type { FrontElement, FrontsData, SegmentEquipmentItem } from '../../types'
+import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../../types'
 import styles from './Fronts.module.css'
 
 /**
@@ -49,8 +57,8 @@ export default function FrontsPage() {
   const group = getProductGroup(draft.productGroupId)
   const series = getSeries(draft.productGroupId, draft.seriesId)
   if (!group || !series) return <Navigate to="/products" replace />
-  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) return <Navigate to="/korpus" replace />
   if (!isDimensionsValid(draft.dimensions)) return <Navigate to="/dimensions" replace />
+  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) return <Navigate to="/korpus" replace />
   if (!draft.fronts || draft.fronts.columns.length === 0) return <Navigate to="/dimensions" replace />
 
   const fronts: FrontsData = draft.fronts
@@ -72,6 +80,37 @@ export default function FrontsPage() {
   }
   const aussenbreiteCm = grunddaten ? berechneAussenmass(grunddaten).gesamtbreiteCm : undefined
   const anzahlPruefung = pruefeSchiebetuerAnzahl(aussenbreiteCm, anzahlOptions)
+
+  /**
+   * Überarbeitung 3 („Höhe bis Korpusoberkante"): Rasterstufe des Korpus. Sie ist die
+   * Obergrenze, von der die übrigen Fronten des Segments abgezogen werden — und seit
+   * Überarbeitung 2_2 auch die Obergrenze der Einbauhöhen in der Ausstattung.
+   */
+  const korpusRaster: number | undefined = (() => {
+    if (!grunddaten) return undefined
+    if (grunddaten.heightMode === '18R') return 18
+    if (grunddaten.heightMode === '21R') return 21
+    const hoehe = resolveHeightCm(grunddaten)
+    const offset = korpusOffsetMm(series.id)
+    return hoehe != null && offset != null ? rasterFuerHoehe(hoehe, offset) : undefined
+  })()
+
+  /**
+   * Maße eines Segments für die Ausstattungs-Regeln (Überarbeitung 2_2): Die
+   * Korpus-Nennbreite entscheidet über Rollkorb und Kleiderlift, die schmalste Front über
+   * den Innenspiegel, das Korpusraster über die wählbaren Einbauhöhen.
+   */
+  function segmentMasse(index: number, column: FrontColumn): SegmentMasse {
+    const korpus = grunddaten?.korpusse[index]
+    const frontBreiten = column.elements
+      .map((el) => Number((el.widthCm ?? '').replace(',', '.')))
+      .filter((n) => Number.isFinite(n) && n > 0)
+    return {
+      korpusBreiteCm: korpus ? resolveKorpusBreiteCm(korpus) : undefined,
+      frontBreiteCm: frontBreiten.length ? Math.min(...frontBreiten) : undefined,
+      korpusRaster,
+    }
+  }
 
   function updateFronts(patch: Partial<FrontsData>) {
     updateDraft({ fronts: { ...fronts, ...patch } })
@@ -129,7 +168,8 @@ export default function FrontsPage() {
   }
 
   const dim = draft.dimensions
-  const availableTypes = getAvailableFrontTypes(series.id)
+  const istKleiderschrank = group.id === KLEIDERSCHRANK_GROUP_ID
+  const availableTypes = getAvailableFrontTypes(series.id, group.id)
   const selectedEquipment = draft.ausstattung?.selected ?? []
 
   return (
@@ -228,6 +268,11 @@ export default function FrontsPage() {
                       onRemove={() => removeElement(column.id, element.id)}
                       onCopyValues={canCopy ? () => applyCopyFromFirst(column.id, element.id) : undefined}
                       copyFromLabel="Front 1"
+                      restRasterBisOberkante={
+                        element.hoeheModus === 'korpusoberkante'
+                          ? restRasterBisKorpusoberkante(column, element.id, korpusRaster)
+                          : undefined
+                      }
                     />
                   )
                 })}
@@ -265,6 +310,7 @@ export default function FrontsPage() {
                 eligibleFrontTypes={eligibleEquipmentFrontTypes(column)}
                 selectedOptionIds={selectedEquipment}
                 sondertiefe={sondertiefe}
+                masse={segmentMasse(index, column)}
                 equipment={column.equipment}
                 onChange={(items) => updateColumnEquipment(column.id, items)}
               />
@@ -272,15 +318,19 @@ export default function FrontsPage() {
           </section>
         ))}
 
-        <section className={styles.extra} aria-label="Ergänzende Komponenten">
-          <h2 className={styles.sectionTitle}>Ergänzende Komponenten</h2>
-          <FinishesSection
-            grifffarbe={fronts.grifffarbe}
-            abschlussOben={fronts.abschlussOben}
-            abschlussUnten={fronts.abschlussUnten}
-            onChange={(patch) => updateFronts(patch)}
-          />
-        </section>
+        {/* Überarbeitung 3: „Abfrage ergänzende Komponenten wird bei Kleiderschränken nicht
+            benötigt." Die Sonderausstattung (Notizen) darunter bleibt erhalten. */}
+        {istKleiderschrank ? null : (
+          <section className={styles.extra} aria-label="Ergänzende Komponenten">
+            <h2 className={styles.sectionTitle}>Ergänzende Komponenten</h2>
+            <FinishesSection
+              grifffarbe={fronts.grifffarbe}
+              abschlussOben={fronts.abschlussOben}
+              abschlussUnten={fronts.abschlussUnten}
+              onChange={(patch) => updateFronts(patch)}
+            />
+          </section>
+        )}
 
         <section className={styles.extra} aria-label="Sonderausstattung">
           <h2 className={styles.sectionTitle}>Sonderausstattung</h2>
@@ -293,7 +343,7 @@ export default function FrontsPage() {
         </section>
 
         <div className={styles.actions}>
-          <Button variant="ghost" onClick={() => navigate(isRefugium ? '/ausstattung' : '/dimensions')}>
+          <Button variant="ghost" onClick={() => navigate(isRefugium ? '/ausstattung' : '/korpus')}>
             Zurück
           </Button>
           <Button onClick={handleContinue} disabled={!complete}>

@@ -60,6 +60,9 @@ export function DatensatzModal<T extends object>({
   const [entwurf, setEntwurf] = useState<T>(() => ({ ...(datensatz ?? leerwert()) }))
   const [fehler, setFehler] = useState<string | null>(null)
   const [speichert, setSpeichert] = useState(false)
+  function aendere(feld: keyof T & string, wert: string) {
+    setEntwurf((v) => ({ ...v, [feld]: wert }))
+  }
 
   useEffect(() => {
     const beiEsc = (e: KeyboardEvent) => {
@@ -113,7 +116,11 @@ export function DatensatzModal<T extends object>({
                     <select
                       className={styles.input}
                       value={String((entwurf as Record<string, unknown>)[f.feld] ?? '')}
-                      onChange={(e) => setEntwurf((v) => ({ ...v, [f.feld]: e.target.value }))}
+                      // Schlüsselfelder sind auch als Auswahlliste nur beim Anlegen
+                      // beschreibbar — sonst ließe sich eine Identität ändern, die der
+                      // Store beim Speichern ohnehin verwirft (stille Wirkungslosigkeit).
+                      disabled={f.schluessel && !anlegen}
+                      onChange={(e) => aendere(f.feld, e.target.value)}
                     >
                       {f.optionen.map((o) => (
                         <option key={o.wert} value={o.wert}>
@@ -126,7 +133,7 @@ export function DatensatzModal<T extends object>({
                       className={[styles.input, f.mono ? styles.mono : ''].filter(Boolean).join(' ')}
                       value={String((entwurf as Record<string, unknown>)[f.feld] ?? '')}
                       readOnly={f.schluessel && !anlegen}
-                      onChange={(e) => setEntwurf((v) => ({ ...v, [f.feld]: e.target.value }))}
+                      onChange={(e) => aendere(f.feld, e.target.value)}
                     />
                   )}
                   {f.hinweis ? <span className={styles.feldHinweis}>{f.hinweis}</span> : null}
@@ -140,13 +147,19 @@ export function DatensatzModal<T extends object>({
 
         <footer className={styles.fuss}>
           <span className={styles.fussHinweis}>
-            Änderungen wirken erst nach dem Speichern — und dann sofort im Konfigurator.
+            Übernimmt die Änderung in den Bearbeitungsstand. Verbindlich wird sie mit
+            „Speichern" oben im Kopf.
           </span>
           <button type="button" className={styles.abbrechen} onClick={onClose} disabled={speichert}>
             Abbrechen
           </button>
-          <button type="button" className={styles.speichern} onClick={() => void speichern()} disabled={speichert}>
-            {speichert ? 'Speichert …' : anlegen ? 'Anlegen' : 'Änderungen speichern'}
+          <button
+            type="button"
+            className={styles.speichern}
+            onClick={() => void speichern()}
+            disabled={speichert}
+          >
+            {speichert ? 'Speichert …' : anlegen ? 'Anlegen' : 'Speichern'}
           </button>
         </footer>
       </div>

@@ -10,11 +10,10 @@ import styles from './ActionMenu.module.css'
  * Entwurf speichern · Entwurf zurücksetzen · Stammdaten & Artikelverwaltung · Hilfe & Notfall.
  */
 export function ActionMenu() {
-  const { draft, saveDraft, startNewDraft } = useDraft()
+  const { draft, saveDraft, cloudSaving, startNewDraft } = useDraft()
   const [open, setOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [stammdatenOpen, setStammdatenOpen] = useState(false)
-  const [saved, setSaved] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -26,12 +25,11 @@ export function ActionMenu() {
     return () => document.removeEventListener('mousedown', onDocMouseDown)
   }, [open])
 
-  function handleSave() {
+  async function handleSave() {
     setOpen(false)
     if (!draft) return
-    saveDraft()
-    setSaved(true)
-    window.setTimeout(() => setSaved(false), 2400)
+    // Rückmeldung (Erfolg wie Fehler) kommt aus dem DraftContext als Toast.
+    await saveDraft()
   }
 
   function handleReset() {
@@ -45,7 +43,7 @@ export function ActionMenu() {
 
   return (
     <div className={styles.root} ref={rootRef}>
-      {saved ? <span className={styles.savedNote}>Gespeichert ✓</span> : null}
+      {cloudSaving ? <span className={styles.savedNote}>Speichert …</span> : null}
 
       <button
         type="button"
@@ -64,8 +62,14 @@ export function ActionMenu() {
 
       {open ? (
         <div className={styles.menu} role="menu">
-          <button type="button" role="menuitem" className={styles.item} onClick={handleSave}>
-            Entwurf speichern
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.item}
+            onClick={() => void handleSave()}
+            disabled={cloudSaving}
+          >
+            {cloudSaving ? 'Speichert …' : 'Entwurf speichern'}
           </button>
           <button type="button" role="menuitem" className={styles.item} onClick={handleReset}>
             Entwurf zurücksetzen

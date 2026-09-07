@@ -1,6 +1,6 @@
 import { MaterialSelect } from '../material/MaterialSelect'
 import { TextField } from '../ui/TextField'
-import { RUECKWAND_GROUPS } from '../../config/korpus'
+import { RUECKWAND_GROUPS, RUECKWAND_INNEN_SICHTBAR } from '../../config/korpus'
 import type { KorpusInnen } from '../../types'
 import styles from './KorpusInnenSection.module.css'
 
@@ -40,7 +40,9 @@ export function KorpusInnenSection({ value, onChange }: Props) {
         detailgenaue Aufteilung der einzelnen Segmente erfolgt im nächsten Schritt unter 'Fronten'.
       </p>
 
-      {/* A) Rückwand Innen */}
+      {/* A) Rückwand Innen – eigener Schalter (Punkt 5), damit sie auch dann aus
+          bleibt, wenn der Block insgesamt wieder eingeblendet wird. */}
+      {RUECKWAND_INNEN_SICHTBAR ? (
       <div className={styles.item}>
         <label className={styles.check}>
           <input
@@ -64,6 +66,7 @@ export function KorpusInnenSection({ value, onChange }: Props) {
           </div>
         ) : null}
       </div>
+      ) : null}
 
       {/* B) Lochreihe */}
       <div className={styles.item}>

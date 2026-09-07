@@ -1,7 +1,8 @@
 import type { FrontColumn, FrontElement, FrontsData } from '../types'
 import { getFrontType, getStyleLine } from '../config/frontCatalog'
+import { MATERIAL_CUSTOM_ID } from '../config/materialMatrix'
 import { isMaterialSelectionComplete } from './materialRules'
-import { hasZweilaeufigeSchiebetuer } from './frontsHelpers'
+import { frontMaterialGroupId, hasZweilaeufigeSchiebetuer, isFrontFieldVisible } from './frontsHelpers'
 
 /**
  * Element gültig, wenn:
@@ -18,16 +19,40 @@ export function exceedsMaxHeight(element: FrontElement): boolean {
   return Number.isFinite(h) && h > max
 }
 
+/**
+ * Überarbeitung 3: Der Türanschlag ist bei Drehtüren immer anzugeben („Unabhängig von der
+ * Position der Drehtür im Schrank muss es immer eine Auswahl für den Türanschlag geben").
+ */
+export function fehlenderTuerAnschlag(element: FrontElement): boolean {
+  return Boolean(getFrontType(element.typeId)?.tuerAnschlag) && !element.tuerAnschlag
+}
+
+/**
+ * Überarbeitung 3 („Line"): Die Frage „(Glas der) Frontscheibe und der Aufkantung gleich?"
+ * muss beantwortet sein, sobald eine echte Materialgruppe gewählt ist. Bei „anders"
+ * beschreibt der Freitext die Ausführung – dann entfällt die Frage.
+ */
+export function offeneLineAbfrage(element: FrontElement): boolean {
+  const styleLine = getStyleLine(element.typeId, element.styleLineId)
+  if (!styleLine?.frontscheibeAufkantung) return false
+  const gruppe = frontMaterialGroupId(element)
+  if (gruppe == null || gruppe === MATERIAL_CUSTOM_ID) return false
+  return element.lineAufkantungGleich == null
+}
+
 export function isFrontElementValid(element: FrontElement): boolean {
   if (!element.label.trim()) return false
   if (exceedsMaxHeight(element)) return false
+  if (fehlenderTuerAnschlag(element)) return false
   const type = getFrontType(element.typeId)
   if (!type || type.styleLines.length === 0) return true
   if (!element.styleLineId) return false
   const styleLine = getStyleLine(element.typeId, element.styleLineId)
   if (!styleLine) return false
+  if (offeneLineAbfrage(element)) return false
+  // Nur SICHTBARE Material-Felder sind Pflicht – die Aufkantung z. B. nur bei „Nein".
   return styleLine.fields
-    .filter((field) => field.kind === 'material')
+    .filter((field) => field.kind === 'material' && isFrontFieldVisible(field, element))
     .every((field) => isMaterialSelectionComplete(element.fieldValues?.[field.id]?.material))
 }
 
@@ -58,6 +83,10 @@ export function getFrontsIssues(fronts: FrontsData | undefined): string[] {
         issues.push(`${pos} · ${name}: Stil-Linie wählen.`)
       } else if (exceedsMaxHeight(element)) {
         issues.push(`${pos} · ${name}: ${type?.label} max. ${type?.maxHeightCm} cm Höhe!`)
+      } else if (fehlenderTuerAnschlag(element)) {
+        issues.push(`${pos} · ${name}: Türanschlag rechts oder links wählen.`)
+      } else if (offeneLineAbfrage(element)) {
+        issues.push(`${pos} · ${name}: Frage „Frontscheibe und Aufkantung gleich?" beantworten.`)
       } else if (!isFrontElementValid(element)) {
         issues.push(`${pos} · ${name}: Material auswählen.`)
       }

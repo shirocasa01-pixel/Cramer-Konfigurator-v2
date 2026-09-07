@@ -16,6 +16,7 @@
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
+import { resolvePriceGroup } from '../lib/materialRules.ts'
 import type { PriceGroup } from '../types/index.ts'
 
 // ---------------------------------------------------------------------------
@@ -260,6 +261,21 @@ export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
 /** Varianten-Bezeichnung des Basis-Containers → Rasterstufe im Preisblatt. */
 export const containerRaster: Record<string, number> = { '4,5R': 4.5, '6R': 6 }
 
+/**
+ * Rasterstufe aus einer Varianten-Bezeichnung („1,5R" ⇒ 1,5).
+ *
+ * Die Innenschublade führt ihre BAUHÖHE als Variante (1R · 1,5R · 2R) — und genau die ist
+ * ihr Preisschlüssel. Vor Überarbeitung 2_2 wurde sie stattdessen aus dem Freitext der
+ * Einbauhöhe geraten (`schubRasterFuerHoehe(zahl(heightNote))`); „auf 120 cm" ergab damit
+ * die teuerste Stufe, obwohl 120 cm die Montagehöhe war und nicht die Schubladenhöhe.
+ * Seit die Einbauhöhe strukturiert erfasst wird, ist die Verwechslung ausgeschlossen.
+ */
+export function rasterAusVariante(variante: string | undefined): number | undefined {
+  if (!variante) return undefined
+  const treffer = /^(\d+(?:[.,]\d+)?)\s*R$/i.exec(variante.trim())
+  return treffer ? Number(treffer[1].replace(',', '.')) : undefined
+}
+
 /** Aufpreis Deckplatte Rauchglas (Container) — eigener Artikel, keine Achse. */
 export const CONTAINER_RAUCHGLAS_ARTIKEL = '40-40-20-0018'
 
@@ -304,23 +320,10 @@ export function leitePreisgruppeAb(
   materialGroupId: string | undefined,
   optionId: string | undefined,
 ): PriceGroup | undefined {
-  if (!materialGroupId) return undefined
-  switch (materialGroupId) {
-    case 'decoboard':
-      return 'PG1'
-    case 'mattlack':
-      if (!optionId) return 'PG2'
-      if (optionId === 'ral-classic') return 'PG3'
-      if (optionId === 'ncs' || optionId === 'ral-design' || optionId === 'sikkens') return 'PG4'
-      return 'PG2'
-    case 'furnier':
-      return optionId === 'wenge-dunkel' ? 'PG4' : 'PG3'
-    case 'glas':
-      return 'PG3'
-    case 'xtreme-plus':
-    case 'sonstiges':
-      return 'PG4'
-    default:
-      return undefined
-  }
+  // Seit dem Oberflächen-Modul steht die Zuordnung NICHT mehr hier, sondern in den
+  // Stammdaten: die Kategorie trägt die Preisgruppe, eine einzelne Oberfläche darf sie
+  // überschreiben (z. B. Wengé PG 4 in der PG-3-Gruppe Furnier). Diese Funktion ist
+  // damit nur noch der Einstiegspunkt — eine zweite, hartcodierte Wahrheit wäre die
+  // sichere Quelle für stille Preisabweichungen.
+  return resolvePriceGroup(materialGroupId, optionId)
 }

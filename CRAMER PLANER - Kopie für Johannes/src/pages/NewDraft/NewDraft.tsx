@@ -8,7 +8,7 @@ import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
-import { branches } from '../../config/branches'
+import { getBranches } from '../../config/branches'
 import { validateDraftForm, type DraftFormErrors } from '../../lib/draftValidation'
 import styles from './NewDraft.module.css'
 
@@ -124,7 +124,7 @@ export default function NewDraftPage() {
           <Select
             label="Ort / Filiale *"
             placeholder="Bitte wählen"
-            options={branches.map((b) => ({ value: b.id, label: b.name }))}
+            options={getBranches().map((b) => ({ value: b.id, label: b.name }))}
             value={draft.branchId}
             onChange={(event) => {
               updateDraft({ branchId: event.target.value })

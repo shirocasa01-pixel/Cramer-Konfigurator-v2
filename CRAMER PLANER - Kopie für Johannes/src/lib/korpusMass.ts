@@ -297,11 +297,12 @@ export function describeKorpusGrunddatenZeilen(g: KorpusGrunddaten): KorpusGrund
   const a = g.abschlussSet
   if (a && a.position !== 'keine') {
     const posLabel = a.position === 'beide' ? 'links & rechts' : a.position === 'links' ? 'nur links' : 'nur rechts'
-    const material =
-      a.material === 'anders'
-        ? `anders: ${a.materialFreitext?.trim() || '(ohne Angabe)'}${a.preisgruppe ? ` · ${a.preisgruppe}` : ''}`
-        : a.material
-    rows.push({ label: 'Abschlussset', value: `${posLabel}${material ? ` · ${material}` : ''}` })
+    rows.push({ label: 'Abschlussset', value: posLabel })
+    // Das Material wird im Schritt „Korpus" gewählt und dort auch beschrieben;
+    // hier stehen nur die Angaben aus den Grunddaten.
+    if (a.materialGetrennt) {
+      rows.push({ label: 'Abschlussset Material', value: 'links und rechts getrennt gewählt' })
+    }
   }
 
   if (g.fussleiste?.enabled) {

@@ -63,7 +63,7 @@ export default function App() {
       <Route path="/new" element={<RequireAuth><NewDraftPage /></RequireAuth>} />
       {/* Phase 3 – Produktgruppen- & Serien-Auswahl */}
       <Route path="/products" element={<RequireAuth><ProductSelectionPage /></RequireAuth>} />
-      {/* Phase 4 – Korpus-Konfiguration */}
+      {/* Schritt 4 – Material (Route bleibt /korpus) */}
       <Route path="/korpus" element={<RequireAuth><KorpusPage /></RequireAuth>} />
       {/* Phase 4.5 – Maße & Segmente */}
       <Route path="/dimensions" element={<RequireAuth><DimensionsPage /></RequireAuth>} />

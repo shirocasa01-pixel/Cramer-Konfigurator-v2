@@ -15,7 +15,7 @@ import type { Draft } from '../types'
  */
 const mattlackSchwarzgrau = {
   materialGroupId: 'mattlack',
-  optionId: 'schwarzgrau',
+  optionId: 'schwarzgrau-ral-7021',
   priceGroup: 'PG2' as const,
 }
 
@@ -29,8 +29,8 @@ export const demoEntwurf: Draft = {
   productGroupId: 'kleiderschraenke',
   seriesId: 'refugium',
   korpus: {
-    innen: { materialGroupId: 'decoboard', optionId: 'interior-white', priceGroup: 'PG1' },
-    aussen: { materialGroupId: 'mattlack', optionId: 'graubeige', priceGroup: 'PG2' },
+    innen: { materialGroupId: 'decoboard', optionId: 'interior-white-w10100sd', priceGroup: 'PG1' },
+    aussen: { materialGroupId: 'mattlack', optionId: 'graubeige-ral-1019', priceGroup: 'PG2' },
   },
   korpusGrunddaten: {
     heightMode: 'custom',
@@ -42,7 +42,10 @@ export const demoEntwurf: Draft = {
       { id: 'k3', breiteMode: '60', lochreihe: true },
       { id: 'k4', breiteMode: 'custom', breiteCm: '70', lochreihe: true },
     ],
-    abschlussSet: { position: 'beide', material: 'mattlack' },
+    abschlussSet: {
+      position: 'beide',
+      material: { materialGroupId: 'mattlack', optionId: 'graubeige-ral-1019', priceGroup: 'PG2' },
+    },
   },
   dimensions: { heightCm: '200', widthCm: '250', depthCm: '60', segments: 4 },
   fronts: {
@@ -52,6 +55,7 @@ export const demoEntwurf: Draft = {
         elements: [
           {
             id: 'e1', typeId: 'drehtuer', label: 'D1', widthCm: '60', heightCm: '195',
+            hoeheModus: 'cm', tuerAnschlag: 'links',
             styleLineId: 'glatt', pto: true,
             fieldValues: { material: { material: mattlackSchwarzgrau } },
           },
@@ -66,6 +70,7 @@ export const demoEntwurf: Draft = {
         elements: [
           {
             id: 'e2', typeId: 'drehtuer', label: 'D2', widthCm: '60', heightCm: '195',
+            hoeheModus: 'cm', tuerAnschlag: 'rechts',
             styleLineId: 'glatt', pto: true,
             fieldValues: { material: { material: mattlackSchwarzgrau } },
           },
@@ -92,7 +97,9 @@ export const demoEntwurf: Draft = {
         elements: [
           {
             id: 'e6', typeId: 'drehtuer', label: 'D3', widthCm: '70', heightCm: '195',
-            styleLineId: 'glatt', griff: true, griffId: 'nr127',
+            hoeheModus: 'cm', tuerAnschlag: 'rechts',
+            // Nr. 127 ist seit Überarbeitung 3 auf Glossy/Less beschränkt (klebt nur auf Glas).
+            styleLineId: 'glatt', griff: true, griffId: 'nr121',
             fieldValues: { material: { material: mattlackSchwarzgrau } },
           },
         ],

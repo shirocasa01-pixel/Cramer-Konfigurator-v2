@@ -1,9 +1,10 @@
 import { useMemo } from 'react'
-import { berechneEntwurf, type KalkPosition, type Schwere } from '../../lib/kalkulation'
+import { type Schwere } from '../../lib/kalkulation'
+import { aufgeloestePreise } from '../../lib/pricingSnapshot'
 import { formatEuro } from '../../lib/pricing'
 import { useStammdaten } from '../../lib/useStammdaten'
 import { Button } from '../ui/Button'
-import type { Draft } from '../../types'
+import type { Draft, PricingSnapshotPosition } from '../../types'
 import styles from './KalkulationsPanel.module.css'
 
 /**
@@ -23,7 +24,7 @@ import styles from './KalkulationsPanel.module.css'
  * zwischen einem Werkzeug, dem der Berater vertraut, und einer Blackbox.
  */
 
-const HERKUNFT_LABEL: Record<KalkPosition['herkunft'], string> = {
+const HERKUNFT_LABEL: Record<PricingSnapshotPosition['herkunft'], string> = {
   gewaehlt: 'gewählt',
   abgeleitet: 'abgeleitet',
   zuschlag: 'Zuschlag',
@@ -42,7 +43,7 @@ export interface KalkulationsPanelProps {
 }
 
 /** Artikel-Kontext einer Position: Nummer, Kurzzeichen, Teileart, Produktgruppe. */
-function ArtikelKontext({ position }: { position: KalkPosition }) {
+function ArtikelKontext({ position }: { position: PricingSnapshotPosition }) {
   if (!position.artikelnummer) return null
   const klassifikation = [position.teileart, position.produktgruppe, position.artikelgruppe]
     .filter(Boolean)
@@ -59,7 +60,7 @@ function ArtikelKontext({ position }: { position: KalkPosition }) {
 }
 
 /** Die Achsen A1–A5, über die der Preis gefunden wurde — mit ihrer Bedeutung. */
-function Achsen({ position }: { position: KalkPosition }) {
+function Achsen({ position }: { position: PricingSnapshotPosition }) {
   const belegt = position.achsen.filter((a) => a.wert !== '')
   if (belegt.length === 0) return null
   return (
@@ -76,14 +77,19 @@ function Achsen({ position }: { position: KalkPosition }) {
 }
 
 export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPanelProps) {
-  // Die Kalkulation hängt an zwei Eingängen: am Entwurf UND am Stammdaten-Stand. Ohne
-  // die Version im Abhängigkeits-Array bliebe eine Preisänderung aus der Verwaltung so
-  // lange unsichtbar, bis der Entwurf zufällig neu gesetzt wird.
+  // Zwei Eingänge: der Entwurf UND der Stammdaten-Stand. Ohne die Version im
+  // Abhängigkeits-Array bliebe eine Preisänderung aus der Verwaltung so lange
+  // unsichtbar, bis der Entwurf zufällig neu gesetzt wird.
+  //
+  // Für einen ABGESCHLOSSENEN Auftrag ist genau das umgekehrt gewollt: `aufgeloestePreise`
+  // liefert dann den eingefrorenen Stand, und die Stammdaten-Version läuft ins Leere —
+  // eine Preispflege verändert den Auftrag nicht mehr.
   const stand = useStammdaten()
-  const ergebnis = useMemo(() => berechneEntwurf(draft), [draft, stand.version])
+  const ergebnis = useMemo(() => aufgeloestePreise(draft), [draft, stand.version])
+  const eingefroren = ergebnis.herkunft === 'snapshot'
 
   const gruppiert = useMemo(() => {
-    const map = new Map<string, KalkPosition[]>()
+    const map = new Map<string, PricingSnapshotPosition[]>()
     for (const p of ergebnis.positionen) {
       const key = p.segment ? `Segment ${p.segment}` : 'Möbelübergreifend'
       const liste = map.get(key) ?? []
@@ -102,11 +108,14 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPan
         <div>
           <h2 className={styles.title}>Kalkulation</h2>
           <p className={styles.sub}>
-            Berechnet aus dem Preisblatt {ergebnis.gueltigkeit} · VK inkl. 19 % MwSt. · jede
-            Position mit Artikelnummer und Achsen belegt
+            {eingefroren
+              ? `Eingefrorener Preisstand vom ${new Date(ergebnis.frozenAt as string).toLocaleDateString('de-DE')}`
+              : `Berechnet aus dem Preisblatt ${ergebnis.gueltigkeit}`}{' '}
+            · VK inkl. 19 % MwSt. · jede Position mit Artikelnummer und Achsen belegt
           </p>
         </div>
         <div className={styles.headRight}>
+          {eingefroren ? <span className={styles.badgeFrozen}>Auftrag · Preise eingefroren</span> : null}
           <span className={ergebnis.vollstaendig ? styles.badgeOk : styles.badgeOpen}>
             {ergebnis.vollstaendig
               ? 'vollständig kalkuliert'
@@ -188,6 +197,22 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPan
         </div>
       )}
 
+      {eingefroren ? (
+        <p className={styles.frozenNote}>
+          Dieser Auftrag ist abgeschlossen. Die Beträge stammen aus dem beim Abschluss
+          eingefrorenen Preisstand — spätere Änderungen in der Artikelverwaltung wirken
+          sich nicht mehr auf ihn aus.
+        </p>
+      ) : null}
+
+      {ergebnis.snapshotFehlt ? (
+        <p className={styles.frozenWarn}>
+          Dieser Auftrag ist abgeschlossen, trägt aber keinen eingefrorenen Preisstand
+          (angelegt vor Einführung des Snapshots). Die Beträge sind daher LIVE gerechnet
+          und können vom tatsächlichen Auftragspreis abweichen.
+        </p>
+      ) : null}
+
       {ergebnis.meldungen.length > 0 ? (
         <ul className={styles.messages}>
           {ergebnis.meldungen.map((m, i) => (
@@ -199,7 +224,7 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPan
         </ul>
       ) : null}
 
-      {onSummeUebernehmen && ergebnis.positionen.length > 0 ? (
+      {onSummeUebernehmen && !eingefroren && ergebnis.positionen.length > 0 ? (
         <div className={styles.actions}>
           <Button variant="ghost" onClick={() => onSummeUebernehmen(ergebnis.gesamt)}>
             Berechneten Preis übernehmen

@@ -1,13 +1,18 @@
 import { useState } from 'react'
+import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
 import { makeEquipmentItem } from '../../lib/frontsHelpers'
 import {
+  equipmentMaxRaster,
+  equipmentSperrgrund,
   getEquipmentOption,
   isEquipmentAvailableInSondertiefe,
+  type EquipmentChoice,
   type EquipmentOption,
+  type SegmentMasse,
 } from '../../config/equipment'
-import { EQUIPMENT_FIELD_LABEL } from '../../lib/ausstattungFormat'
-import type { SegmentEquipmentItem } from '../../types'
+import { EQUIPMENT_FIELD_LABEL, beschreibeHoehe } from '../../lib/ausstattungFormat'
+import type { EquipmentHoehe, SegmentEquipmentItem } from '../../types'
 import styles from './AusstattungHinterFrontSection.module.css'
 
 interface Props {
@@ -17,25 +22,35 @@ interface Props {
   selectedOptionIds: string[]
   /** Sondertiefe (< 60 cm) ⇒ nur Einlegeböden. */
   sondertiefe: boolean
+  /** Korpus- und Frontmaße dieses Segments – Grundlage der Katalog-Regeln. */
+  masse: SegmentMasse
   equipment: SegmentEquipmentItem[] | undefined
   onChange: (items: SegmentEquipmentItem[]) => void
 }
 
 /**
- * SCHRITT 8 – „Ausstattung hinter Fronten" je Segment (Refugium). Angeboten werden
- * ausschließlich die in Schritt 6 vorausgewählten Optionen, gefiltert nach den
- * Front-Typen des Segments (z. B. Innenspiegel nur bei Drehtür) und – bei Sondertiefe –
- * auf Einlegeböden beschränkt. Detailfelder je Option datengetrieben aus `equipment.ts`.
+ * SCHRITT 8 – „Ausstattung hinter Fronten" je Segment (Refugium).
+ *
+ * Angeboten werden ausschließlich die in Schritt 6 vorausgewählten Optionen, gefiltert
+ * nach den Front-Typen des Segments und – bei Sondertiefe – auf Einlegeböden beschränkt.
+ *
+ * Überarbeitung 2_2: Die Einbauhöhe wird vorrangig in RASTERN erfasst (cm nur als
+ * Ausnahme, „am Korpusboden" wo der Katalog es vorsieht), Einlegeböden bekommen je Stück
+ * eine eigene Höhe, und Regeln wie „Rollkorb nur 50/60/100er" oder „kein Kleiderlift unter
+ * 45er" kommen aus dem Katalog statt aus Sonderfällen in dieser Komponente. Diese Datei
+ * rendert nur, was `config/equipment.ts` beschreibt.
  */
 export function AusstattungHinterFrontSection({
   eligibleFrontTypes,
   selectedOptionIds,
   sondertiefe,
+  masse,
   equipment,
   onChange,
 }: Props) {
   const items = equipment ?? []
   const [open, setOpen] = useState(items.length > 0)
+  const maxRaster = equipmentMaxRaster(masse.korpusRaster)
 
   // Verfügbare Optionen: vorausgewählt ∧ (kein Front-Typ-Filter ODER Schnittmenge) ∧ Sondertiefe-Regel.
   const options: EquipmentOption[] = selectedOptionIds
@@ -46,13 +61,51 @@ export function AusstattungHinterFrontSection({
 
   const itemFor = (optionId: string) => items.find((i) => i.optionId === optionId)
 
-  function toggleOption(optionId: string) {
-    const existing = itemFor(optionId)
-    if (existing) onChange(items.filter((i) => i.optionId !== optionId))
-    else onChange([...items, makeEquipmentItem(optionId)])
+  /** Im Segment konfigurierte Teile, auf die sich ein Bezug richten darf. */
+  function bezugsZiele(option: EquipmentOption): SegmentEquipmentItem[] {
+    const erlaubt = new Set(option.bezug?.optionIds ?? [])
+    return items.filter((i) => erlaubt.has(i.optionId))
+  }
+
+  function toggleOption(option: EquipmentOption) {
+    const existing = itemFor(option.id)
+    if (existing) {
+      // Ein entferntes Teil darf kein Bezugsziel bleiben – sonst zeigt die Unterteilung
+      // auf eine Schublade, die es nicht mehr gibt.
+      onChange(
+        items
+          .filter((i) => i.optionId !== option.id)
+          .map((i) => (i.bezugId === existing.id ? { ...i, bezugId: undefined } : i)),
+      )
+    } else {
+      onChange([...items, makeEquipmentItem(option.id)])
+    }
   }
   function patchItem(id: string, patch: Partial<SegmentEquipmentItem>) {
     onChange(items.map((i) => (i.id === id ? { ...i, ...patch } : i)))
+  }
+
+  /** Höhenliste auf die Stückzahl bringen (je Stück eine Höhe). */
+  function hoehenFuer(item: SegmentEquipmentItem, option: EquipmentOption): EquipmentHoehe[] {
+    const anzahl = option.heightPerPiece ? Math.max(1, item.qty ?? 1) : 1
+    const vorhanden = item.hoehen ?? []
+    return Array.from({ length: anzahl }, (_, i) => vorhanden[i] ?? { modus: 'raster' })
+  }
+  function setHoehe(item: SegmentEquipmentItem, option: EquipmentOption, index: number, hoehe: EquipmentHoehe) {
+    const liste = hoehenFuer(item, option)
+    liste[index] = hoehe
+    patchItem(item.id, { hoehen: liste })
+  }
+
+  function setChoice(item: SegmentEquipmentItem, choice: EquipmentChoice, wert: string) {
+    patchItem(item.id, { choices: { ...item.choices, [choice.id]: wert } })
+  }
+  function setChoiceText(item: SegmentEquipmentItem, choice: EquipmentChoice, text: string) {
+    patchItem(item.id, { choiceTexte: { ...item.choiceTexte, [choice.id]: text } })
+  }
+
+  function setSeite(item: SegmentEquipmentItem, links: boolean, rechts: boolean) {
+    patchItem(item.id, { seiten: { links, rechts } })
   }
 
   return (
@@ -83,18 +136,38 @@ export function AusstattungHinterFrontSection({
           ) : (
             options.map((option) => {
               const item = itemFor(option.id)
+              const sperrgrund = equipmentSperrgrund(option, masse)
+              const ziele = bezugsZiele(option)
+              // Pflicht-Bezug ohne Ziel: die Option ist fachlich nicht montierbar.
+              const fehlenderBezug =
+                option.bezug?.pflicht && ziele.length === 0
+                  ? `Erst möglich, wenn ${option.bezug.optionIds
+                      .map((id) => getEquipmentOption(id)?.label ?? id)
+                      .join(' oder ')} im Segment geplant ist.`
+                  : null
+              const gesperrt = sperrgrund ?? fehlenderBezug
+
               return (
                 <div key={option.id} className={styles.option}>
-                  <label className={styles.optionHead}>
+                  <label
+                    className={[styles.optionHead, gesperrt && !item ? styles.optionGesperrt : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
                     <input
                       type="checkbox"
                       className={styles.checkbox}
                       checked={Boolean(item)}
-                      onChange={() => toggleOption(option.id)}
+                      disabled={Boolean(gesperrt) && !item}
+                      onChange={() => toggleOption(option)}
                     />
                     <span className={styles.optionText}>
                       <span className={styles.optionLabel}>{option.label}</span>
-                      {option.hint ? <span className={styles.optionHint}>{option.hint}</span> : null}
+                      {gesperrt ? (
+                        <span className={styles.optionSperre}>{gesperrt}</span>
+                      ) : option.hint ? (
+                        <span className={styles.optionHint}>{option.hint}</span>
+                      ) : null}
                     </span>
                   </label>
 
@@ -122,7 +195,10 @@ export function AusstattungHinterFrontSection({
                       <div className={styles.fields}>
                         {option.detailFields?.includes('qty') ? (
                           <div className={styles.stepperField}>
-                            <span className={styles.fieldLabel}>{EQUIPMENT_FIELD_LABEL.qty}</span>
+                            <span className={styles.fieldLabel}>
+                              {EQUIPMENT_FIELD_LABEL.qty}
+                              {option.maxAnzahl ? ` (max. ${option.maxAnzahl})` : ''}
+                            </span>
                             <div className={styles.stepper}>
                               <button
                                 type="button"
@@ -138,6 +214,7 @@ export function AusstattungHinterFrontSection({
                                 type="button"
                                 className={styles.stepBtn}
                                 onClick={() => patchItem(item.id, { qty: (item.qty ?? 1) + 1 })}
+                                disabled={option.maxAnzahl != null && (item.qty ?? 1) >= option.maxAnzahl}
                                 aria-label="Menge erhöhen"
                               >
                                 +
@@ -146,14 +223,6 @@ export function AusstattungHinterFrontSection({
                           </div>
                         ) : null}
 
-                        {option.detailFields?.includes('height') ? (
-                          <TextField
-                            label={EQUIPMENT_FIELD_LABEL.height}
-                            placeholder="z. B. auf 120 cm, verstellbar"
-                            value={item.heightNote ?? ''}
-                            onChange={(e) => patchItem(item.id, { heightNote: e.target.value })}
-                          />
-                        ) : null}
                         {option.detailFields?.includes('format') ? (
                           <TextField
                             label={EQUIPMENT_FIELD_LABEL.format}
@@ -165,7 +234,7 @@ export function AusstattungHinterFrontSection({
                         {option.detailFields?.includes('position') ? (
                           <TextField
                             label={EQUIPMENT_FIELD_LABEL.position}
-                            placeholder="z. B. links, oben"
+                            placeholder={option.positionPlaceholder ?? 'z. B. links, oben'}
                             value={item.positionNote ?? ''}
                             onChange={(e) => patchItem(item.id, { positionNote: e.target.value })}
                           />
@@ -182,12 +251,124 @@ export function AusstattungHinterFrontSection({
                         {option.detailFields?.includes('note') ? (
                           <TextField
                             label={EQUIPMENT_FIELD_LABEL.note}
-                            placeholder="Freitext"
+                            placeholder="z. B. Sonderausstattung, Griff …"
                             value={item.note ?? ''}
                             onChange={(e) => patchItem(item.id, { note: e.target.value })}
                           />
                         ) : null}
                       </div>
+
+                      {/* Einbauhöhe – Raster als Regelfall (Überarbeitung 2_2). */}
+                      {option.heightMode && option.heightMode !== 'keine' ? (
+                        <div className={styles.hoehenBlock}>
+                          <span className={styles.fieldLabel}>
+                            {option.heightPerPiece ? 'Einbauhöhe je Stück' : 'Einbauhöhe'}
+                          </span>
+                          {hoehenFuer(item, option).map((hoehe, index) => (
+                            <HoehenZeile
+                              key={index}
+                              nummer={option.heightPerPiece ? index + 1 : undefined}
+                              hoehe={hoehe}
+                              maxRaster={maxRaster}
+                              mitBoden={option.heightMode === 'raster-oder-boden'}
+                              onChange={(neu) => setHoehe(item, option, index, neu)}
+                            />
+                          ))}
+                          <span className={styles.hoehenHinweis}>
+                            Raster 1–{maxRaster}
+                            {masse.korpusRaster
+                              ? ` (Korpus ${masse.korpusRaster} Raster – der oberste ist der Korpusdeckel)`
+                              : ''}
+                            . Zentimeter nur als Sonderhöhe.
+                          </span>
+                        </div>
+                      ) : null}
+
+                      {/* Zusatz-Auswahlen aus dem Katalog (Kleiderstange, Glasart, Seite, Breite). */}
+                      {option.choices?.map((choice) => {
+                        const wert = item.choices?.[choice.id] ?? choice.standard ?? ''
+                        return (
+                          <div key={choice.id} className={styles.fields}>
+                            <Select
+                              label={choice.label}
+                              placeholder={choice.standard ? undefined : 'Bitte wählen'}
+                              options={choice.options.map((o) => ({ value: o.value, label: o.label }))}
+                              value={wert}
+                              onChange={(e) => setChoice(item, choice, e.target.value)}
+                            />
+                            {choice.freitextBei && wert === choice.freitextBei.wert ? (
+                              <TextField
+                                label={choice.freitextBei.label}
+                                placeholder={choice.freitextBei.platzhalter}
+                                value={item.choiceTexte?.[choice.id] ?? ''}
+                                onChange={(e) => setChoiceText(item, choice, e.target.value)}
+                              />
+                            ) : null}
+                          </div>
+                        )
+                      })}
+
+                      {/* Bezug auf ein anderes Teil des Segments. */}
+                      {option.bezug ? (
+                        <div className={styles.fields}>
+                          <Select
+                            label={option.bezug.label}
+                            placeholder="Bitte wählen"
+                            options={ziele.map((z, i) => ({
+                              value: z.id,
+                              label: `${getEquipmentOption(z.optionId)?.label ?? z.optionId}${
+                                ziele.filter((x) => x.optionId === z.optionId).length > 1 ? ` (${i + 1})` : ''
+                              }`,
+                            }))}
+                            value={item.bezugId ?? ''}
+                            onChange={(e) => patchItem(item.id, { bezugId: e.target.value })}
+                          />
+                        </div>
+                      ) : null}
+
+                      {/* Position als Kästchen statt Freitext. */}
+                      {option.positionSeiten ? (
+                        <div className={styles.hoehenBlock}>
+                          <span className={styles.fieldLabel}>{EQUIPMENT_FIELD_LABEL.position}</span>
+                          <div className={styles.chips}>
+                            {[
+                              { label: 'Links & rechts', links: true, rechts: true },
+                              { label: 'links', links: true, rechts: false },
+                              { label: 'rechts', links: false, rechts: true },
+                            ].map((w) => {
+                              const aktiv =
+                                Boolean(item.seiten?.links) === w.links && Boolean(item.seiten?.rechts) === w.rechts
+                              return (
+                                <label key={w.label} className={aktiv ? styles.chipActive : styles.chip}>
+                                  <input
+                                    type="checkbox"
+                                    className={styles.checkbox}
+                                    checked={aktiv}
+                                    onChange={() =>
+                                      aktiv ? setSeite(item, false, false) : setSeite(item, w.links, w.rechts)
+                                    }
+                                  />
+                                  {w.label}
+                                </label>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ) : null}
+
+                      {option.preisAusKorpusbreite ? (
+                        <p className={styles.hoehenHinweis}>
+                          Preis ergibt sich automatisch aus der Korpusbreite
+                          {masse.korpusBreiteCm ? ` (${masse.korpusBreiteCm}er Korpus)` : ''} — keine Auswahl nötig.
+                        </p>
+                      ) : null}
+
+                      {/* Altbestand: vor der Umstellung erfasste Freitext-Höhe sichtbar halten. */}
+                      {item.heightNote?.trim() ? (
+                        <p className={styles.hoehenHinweis}>
+                          Frühere Höhenangabe (Freitext): ca. {item.heightNote.trim()}
+                        </p>
+                      ) : null}
 
                       {option.detailFields?.includes('rauchglas') ? (
                         <label className={styles.check}>
@@ -208,6 +389,77 @@ export function AusstattungHinterFrontSection({
           )}
         </div>
       ) : null}
+    </div>
+  )
+}
+
+/**
+ * Eine Einbauhöhe: Modus-Chips (Raster · Sonderhöhe cm · am Korpusboden) und das dazu
+ * passende Eingabefeld. „Raster" ist vorausgewählt, weil die AV in Rastern plant.
+ */
+function HoehenZeile({
+  nummer,
+  hoehe,
+  maxRaster,
+  mitBoden,
+  onChange,
+}: {
+  nummer?: number
+  hoehe: EquipmentHoehe
+  maxRaster: number
+  mitBoden: boolean
+  onChange: (hoehe: EquipmentHoehe) => void
+}) {
+  const modi: { wert: EquipmentHoehe['modus']; label: string }[] = [
+    { wert: 'raster', label: 'Rasterhöhe' },
+    { wert: 'cm', label: 'Sonderhöhe (cm)' },
+    ...(mitBoden ? [{ wert: 'boden' as const, label: 'am Korpusboden' }] : []),
+  ]
+
+  return (
+    <div className={styles.hoehenZeile}>
+      {nummer ? <span className={styles.hoehenNummer}>{nummer}.</span> : null}
+      <div className={styles.chips}>
+        {modi.map((m) => (
+          <button
+            key={m.wert}
+            type="button"
+            className={hoehe.modus === m.wert ? styles.chipActive : styles.chip}
+            onClick={() => onChange({ modus: m.wert })}
+            aria-pressed={hoehe.modus === m.wert}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      {hoehe.modus === 'raster' ? (
+        <select
+          className={styles.rasterSelect}
+          aria-label={`Rasterhöhe${nummer ? ` ${nummer}` : ''}`}
+          value={hoehe.raster ?? ''}
+          onChange={(e) => onChange({ modus: 'raster', raster: Number(e.target.value) })}
+        >
+          <option value="" disabled>
+            Raster wählen
+          </option>
+          {Array.from({ length: maxRaster }, (_, i) => i + 1).map((r) => (
+            <option key={r} value={r}>
+              {r} Raster
+            </option>
+          ))}
+        </select>
+      ) : hoehe.modus === 'cm' ? (
+        <input
+          className={styles.cmInput}
+          inputMode="decimal"
+          aria-label={`Sonderhöhe in cm${nummer ? ` ${nummer}` : ''}`}
+          placeholder="ca. cm"
+          value={hoehe.cm ?? ''}
+          onChange={(e) => onChange({ modus: 'cm', cm: e.target.value })}
+        />
+      ) : (
+        <span className={styles.hoehenFest}>{beschreibeHoehe(hoehe)}</span>
+      )}
     </div>
   )
 }

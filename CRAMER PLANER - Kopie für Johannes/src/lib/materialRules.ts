@@ -3,8 +3,8 @@ import {
   getMaterialOption,
   MATERIAL_CUSTOM_ID,
   MATERIAL_NONE_ID,
-} from '../config/materialMatrix'
-import type { MaterialSelection, PriceGroup } from '../types'
+} from '../config/materialMatrix.ts'
+import type { MaterialSelection, PriceGroup } from '../types/index.ts'
 
 /**
  * Automatische Preisgruppen-Zuweisung für eine Standard-Materialauswahl

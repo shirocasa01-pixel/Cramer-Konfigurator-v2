@@ -450,3 +450,20 @@
   line-height: 1.4;
   color: var(--grid-ink-leise);
 }
+
+/* Sprungziel aus der Änderungsliste — kurz auffällig, dann ruhig. */
+.zeileFokus > td,
+.zeileFokus > th {
+  background: rgba(198, 154, 61, 0.22) !important;
+  animation: fokusPuls 1.6s ease-out 1;
+}
+
+@keyframes fokusPuls {
+  0%,
+  40% {
+    background: rgba(198, 154, 61, 0.55);
+  }
+  100% {
+    background: rgba(198, 154, 61, 0.22);
+  }
+}

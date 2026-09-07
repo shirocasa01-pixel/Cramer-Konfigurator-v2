@@ -18,9 +18,7 @@ import {
   SERIEN_CODES,
   artikelgruppen as alleArtikelgruppen,
   artikelnummerLogik,
-  filialen as alleFilialen,
   meta,
-  mitarbeiter as alleMitarbeiter,
   produktgruppen as alleProduktgruppen,
   serien,
   type Artikel,
@@ -39,7 +37,12 @@ import {
 } from '../data/stammdaten.generated.ts'
 import { istSonderanfertigung, modusErlaubt, parseModus } from './modus.ts'
 import { getArtikelNr } from './preisLookup.ts'
-import { getArtikelListe, getPreisListe } from './stammdatenStore.ts'
+import {
+  getArtikelListe,
+  getFilialenListe,
+  getMitarbeiterListe,
+  getPreisListe,
+} from './stammdatenStore.ts'
 
 export type {
   Artikel,
@@ -234,38 +237,62 @@ export function sucheNachPraefix(praefix: string): Artikel[] {
 // Berater & Filialen
 // ---------------------------------------------------------------------------
 
+/**
+ * Berater und Filialen kommen aus dem ARBEITSSTAND, nicht aus dem generierten Grundstand.
+ *
+ * Bis dahin waren es Modul-Konstanten über `stammdaten.generated.ts` — eine Sperrung in
+ * der Verwaltung erreichte den Konfigurator damit überhaupt nicht, auch nicht nach einem
+ * Neuladen. Seit „Löschen" durch den Status ersetzt ist, MUSS „gesperrt" wirken; deshalb
+ * sind es Funktionen über dem Store, die bei jedem Aufruf den aktuellen Stand lesen.
+ */
+
 /** Nur aktive Berater — das Berater-Dropdown und die Anmeldung. */
-export const berater: readonly Mitarbeiter[] = alleMitarbeiter.filter(
-  (m) => m.rolle === 'berater' && m.status === 'aktiv',
-)
-
-export const administratoren: readonly Mitarbeiter[] = alleMitarbeiter.filter(
-  (m) => m.rolle === 'admin' && m.status === 'aktiv',
-)
-
-export const mitarbeiter: readonly Mitarbeiter[] = alleMitarbeiter
-
-export function getMitarbeiter(personalnr: string | undefined): Mitarbeiter | undefined {
-  return personalnr ? alleMitarbeiter.find((m) => m.personalnr === personalnr) : undefined
+export function getBerater(): Mitarbeiter[] {
+  return getMitarbeiterListe().filter((m) => m.rolle === 'berater' && m.status === 'aktiv')
 }
 
+export function getAdministratoren(): Mitarbeiter[] {
+  return getMitarbeiterListe().filter((m) => m.rolle === 'admin' && m.status === 'aktiv')
+}
+
+/** Alle Mitarbeiter, auch gesperrte — für die Verwaltung und die Auflösung alter Entwürfe. */
+export function getAlleMitarbeiter(): Mitarbeiter[] {
+  return getMitarbeiterListe()
+}
+
+/**
+ * Mitarbeiter per Personalnummer — bewusst OHNE Statusfilter: Ein gesperrter Berater
+ * verschwindet aus den Auswahllisten, sein Name muss auf einem alten Angebot aber
+ * weiterhin auflösbar bleiben.
+ */
+export function getMitarbeiter(personalnr: string | undefined): Mitarbeiter | undefined {
+  return personalnr ? getMitarbeiterListe().find((m) => m.personalnr === personalnr) : undefined
+}
+
+/** Anmeldung: gesperrte Konten werden hier absichtlich NICHT gefunden. */
 export function getMitarbeiterByEmail(email: string | undefined): Mitarbeiter | undefined {
   const gesucht = email?.trim().toLowerCase()
-  return gesucht ? alleMitarbeiter.find((m) => m.email.toLowerCase() === gesucht) : undefined
+  if (!gesucht) return undefined
+  return getMitarbeiterListe().find((m) => m.email.toLowerCase() === gesucht && m.status === 'aktiv')
 }
 
-export const filialen: readonly Filiale[] = alleFilialen.filter((f) => f.status !== 'gesperrt')
+/** Auswählbare Filialen — gesperrte fallen heraus. */
+export function getFilialenAuswahl(): Filiale[] {
+  return getFilialenListe().filter((f) => f.status !== 'gesperrt')
+}
 
 /**
  * Filiale per Filialnummer — oder per früherer Code-ID (Spalte `Alt-ID`).
  *
  * Gespeicherte Entwürfe tragen in `Draft.branchId` noch Slugs wie
  * `cramer-wohnvilla-hamburg`. Die Zuordnung steht in der Mappe, nicht im Code.
+ * Auch hier ohne Statusfilter — eine gesperrte Filiale muss auf alten Angeboten
+ * weiterhin mit Namen und Anschrift erscheinen.
  */
 export function getFiliale(idOderAltId: string | undefined): Filiale | undefined {
   if (!idOderAltId) return undefined
+  const alle = getFilialenListe()
   return (
-    alleFilialen.find((f) => f.filialnr === idOderAltId) ??
-    alleFilialen.find((f) => f.altId === idOderAltId)
+    alle.find((f) => f.filialnr === idOderAltId) ?? alle.find((f) => f.altId === idOderAltId)
   )
 }

@@ -17,11 +17,21 @@ import { berechneEntwurf } from '../src/lib/kalkulation.ts'
 import { demoEntwurf } from '../src/data/demoEntwurf.ts'
 
 /** Sollwerte aus dem Vorgänger-Tool (Refugium 250 × 200 × 60, 4 Segmente). */
+/**
+ * Sollwerte des Vorgänger-Tools für den Demo-Entwurf.
+ *
+ * Überarbeitung 3 (09/2026): Der Demo-Entwurf trug an „D3" den Griff Nr. 127 (60 €).
+ * Dieser Griff ist seither auf Glossy/Less beschränkt — er wird auf das Glas geklebt und
+ * ist an einer glatten Mattlack-Front nicht mehr wählbar. Die Demo führt dort jetzt
+ * Nr. 121 (50 €); Möbelpreis, Montage und Gesamt sind deshalb um 10 € bzw. 1 € und 11 €
+ * niedriger als in der Vorgänger-Referenz. Alle übrigen Positionen sind unverändert —
+ * die Parität der Preis-Engine bleibt damit geprüft.
+ */
 const REFERENZ = {
   positionen: 17,
-  moebelpreis: 5043.0,
-  montage: 504.3,
-  gesamt: 5547.3,
+  moebelpreis: 5033.0,
+  montage: 503.3,
+  gesamt: 5536.3,
   offen: 1,
   /** label → Einzelbetrag; `null` = auf Anfrage. */
   betraege: [
@@ -37,7 +47,7 @@ const REFERENZ = {
     ['Schublade „S1"', 346.0],
     ['Schublade „S2"', 346.0],
     ['Drehtür „D3"', null],
-    ['Griff Nr. 127', 60.0],
+    ['Griff Nr. 121', 50.0],
     ['Einlegeboden', 180.0],
     ['Kleiderstange', 60.0],
     ['LED-Band', 1000.0],

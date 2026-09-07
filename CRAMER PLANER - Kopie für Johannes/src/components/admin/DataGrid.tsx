@@ -265,6 +265,14 @@ export interface DataGridProps<T> {
   gruppenKopf?: (zeile: T, vorherige: T | undefined) => ReactNode
   leerText?: string
   maxZeilen?: number
+  /**
+   * Zeilen-ID, die angesprungen werden soll („zur Änderung" aus der Änderungsliste).
+   * Die Zeile wird sichtbar gescrollt und kurz hervorgehoben — und, falls sie hinter
+   * `maxZeilen` läge, in ein Fenster um sie herum geholt statt abgeschnitten.
+   */
+  fokusZeile?: string
+  /** Zaehler, der bei jedem Sprungbefehl hochzaehlt — auch bei gleicher Zeile. */
+  fokusLauf?: number
 }
 
 export function DataGrid<T>({
@@ -280,8 +288,22 @@ export function DataGrid<T>({
   gruppenKopf,
   leerText = 'Keine Daten.',
   maxZeilen = 300,
+  fokusZeile,
+  fokusLauf,
 }: DataGridProps<T>) {
-  const sichtbare = zeilen.slice(0, maxZeilen)
+  const fokusIndex = useMemo(
+    () => (fokusZeile ? zeilen.findIndex((z) => zeilenId(z) === fokusZeile) : -1),
+    // `zeilenId` ist bei jedem Aufrufer ein Inline-Closure und wechselt pro Render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [fokusZeile, zeilen],
+  )
+  /**
+   * Ab `maxZeilen` wird abgeschnitten (1509 Preiszeilen bremsen den Browser sonst aus).
+   * Liegt das Sprungziel dahinter, verschiebt sich das Fenster auf die Zeile — sonst
+   * führte „zur Änderung" ins Leere, und zwar ausgerechnet in den großen Beständen.
+   */
+  const fensterStart = fokusIndex >= maxZeilen ? Math.max(0, fokusIndex - Math.floor(maxZeilen / 2)) : 0
+  const sichtbare = zeilen.slice(fensterStart, fensterStart + maxZeilen)
   const ziehtRef = useRef<{ id: string; startX: number; startBreite: number } | null>(null)
   const [auswahl, setAuswahl] = useState<Auswahl | null>(null)
   /**
@@ -292,6 +314,14 @@ export function DataGrid<T>({
   const waehltRef = useRef(false)
   const [kopiert, setKopiert] = useState(false)
   const wurzelRef = useRef<HTMLDivElement>(null)
+
+  // Sprungziel in den sichtbaren Bereich holen. `fokusZeile` trägt bei jedem Klick in der
+  // Änderungsliste einen neuen Wert (auch bei derselben Zeile), damit der Effekt erneut läuft.
+  useEffect(() => {
+    if (!fokusZeile) return
+    const ziel = wurzelRef.current?.querySelector(`[data-zeilenid="${CSS.escape(fokusZeile)}"]`)
+    ziel?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  }, [fokusZeile, fokusLauf, sichtbare.length])
 
   // --- Breite ziehen ---------------------------------------------------------------
   const beiPointerDown = (e: React.PointerEvent, id: string, standardBreite: number) => {
@@ -487,14 +517,19 @@ export function DataGrid<T>({
                       </td>
                     </tr>
                   ) : null}
-                  <tr className={zeilenKlasse?.(zeile)}>
+                  <tr
+                    data-zeilenid={zeilenId(zeile)}
+                    className={[zeilenKlasse?.(zeile), zeilenId(zeile) === fokusZeile ? styles.zeileFokus : '']
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
                     <th
                       className={styles.nrZelle}
                       scope="row"
                       onClick={() => waehleZeile(zi)}
                       title="Zeile markieren"
                     >
-                      {zi + 1}
+                      {fensterStart + zi + 1}
                     </th>
 
                     {spalten.map((s, si) => (

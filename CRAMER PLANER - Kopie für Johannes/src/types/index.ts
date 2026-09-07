@@ -48,6 +48,15 @@ export interface AuthUser {
   name: string
   email: string
   role: UserRole
+  /**
+   * Stamm-Filiale des Beraters aus Blatt „40 Mitarbeiter" (Spalte `Filiale`).
+   *
+   * „Überarbeitung 2", S. 1: „Grundsätzlich ist jeder Verkäufer fix an ein
+   * Verkaufshaus gebunden. Diese Filiale sollte auch standardmäßig vorausgewählt
+   * sein." Sie ist eine VORBELEGUNG, keine Sperre — bei einer Urlaubsvertretung
+   * bleibt das Dropdown im Entwurf frei änderbar.
+   */
+  branchId?: string
 }
 
 /**
@@ -95,6 +104,63 @@ export interface MaterialGroup {
   options: MaterialOption[]
 }
 
+// ---------------------------------------------------------------------------
+// Oberflächen-Stammdaten (Reiter „Oberflächen") — die pflegbare Fassung der Farbmatrix
+// ---------------------------------------------------------------------------
+
+/**
+ * Preisgruppe als Stammdatenfeld. Leer heißt „offen": bei einer Kategorie klärt die AV
+ * den Preis, bei einer Oberfläche gilt die Preisgruppe ihrer Kategorie.
+ */
+export type PreisgruppenFeld = PriceGroup | ''
+
+/** Datensatz-Status im Stammdaten-Gitter — wie bei Artikeln, Beratern und Filialen. */
+export type StammdatenStatus = 'aktiv' | 'gesperrt'
+
+/**
+ * EBENE 1 — Oberflächenkategorie (Mattlack, Decoboard, Gläser, Furnier …).
+ *
+ * Die Kategorie trägt die Preisgruppe; alle Oberflächen darunter erben sie, sofern sie
+ * keine eigene führen. Aus einer Kategorie wird im Konfigurator ein Material-Chip.
+ */
+export interface Oberflaechenkategorie {
+  /** Identität — Verweisziel von `Oberflaeche.kategorie` und von den Bereichs-/Front-Regeln. */
+  id: string
+  bezeichnung: string
+  preisgruppe: PreisgruppenFeld
+  /**
+   * Wird die Kategorie bei Fronten angeboten, wenn dort „alle Materialien" zulässig sind?
+   * Sonderwerkstoffe („nur über anders") und Akustikpaneele stehen deshalb auf `false`.
+   */
+  standardauswahl: boolean
+  sortierung: number
+  status: StammdatenStatus
+  bemerkung: string
+}
+
+/**
+ * EBENE 2 — konkrete Oberfläche/Farbe (Schwarz RAL 9005, Eiche Milano …).
+ *
+ * `id` ist nur INNERHALB der Kategorie eindeutig — „schwarz" gibt es in Decoboard,
+ * Mattlack und Gläsern. Der Schlüssel über den ganzen Bestand ist `kategorie::id`;
+ * gespeicherte Entwürfe halten beides getrennt (`materialGroupId` + `optionId`) und
+ * bleiben damit unverändert lesbar.
+ */
+export interface Oberflaeche {
+  id: string
+  /** Verweis auf `Oberflaechenkategorie.id`. */
+  kategorie: string
+  bezeichnung: string
+  /** Abweichende Preisgruppe; leer ⇒ die der Kategorie (z. B. Wengé PG 4 in der PG-3-Gruppe). */
+  preisgruppe: PreisgruppenFeld
+  /** Bei Auswahl öffnet sich ein Freitextfeld für die genaue Bezeichnung. */
+  freitext: boolean
+  freitextLabel: string
+  sortierung: number
+  status: StammdatenStatus
+  bemerkung: string
+}
+
 /**
  * Eine Material-Auswahl – wiederverwendet in Korpus (Phase 4) und Fronten (Phase 5).
  * Sonderfälle über `materialGroupId`: `'anders'` (Freitext) und `'keine'` (z. B. keine Abdeckplatte).
@@ -139,6 +205,31 @@ export interface FrontElement {
   /** Werte der Stil-Linien-Felder (fieldId -> Wert). */
   fieldValues?: Record<string, FrontFieldValue>
 
+  // --- Überarbeitung 3: Drehtür-Höhe & Türanschlag ---
+  /**
+   * Wie die Türhöhe erfasst wurde – die drei Optionen schließen sich gegenseitig aus:
+   *   `korpusoberkante` – Tür läuft bis zur Oberkante des Schrankes (Resthöhe wird
+   *                       aus Korpusraster minus den übrigen Fronten der Spalte errechnet),
+   *   `raster`          – Eingabe in Rastern, `heightCm` wird daraus berechnet (Einbahn),
+   *   `cm`              – freie Höheneingabe in `heightCm`.
+   * `undefined` = Altbestand/andere Front-Typen: `heightCm` ist die einzige Quelle.
+   */
+  hoeheModus?: 'korpusoberkante' | 'raster' | 'cm'
+  /** Eingabe „Höhe (Raster)“ – nur bei `hoeheModus === 'raster'`; 3–21 Raster. */
+  hoeheRaster?: string
+  /**
+   * Türanschlag einer Drehtür. Laut Überarbeitung 3 unabhängig von der Position der Tür
+   * im Schrank immer abzufragen.
+   */
+  tuerAnschlag?: 'rechts' | 'links'
+  /**
+   * Stil-Linie „Line“: Antwort auf „(Glas der) Frontscheibe und der Aufkantung gleich?“.
+   * `false` teilt die Ausführung in Frontscheibe (`fieldValues.material`) und Aufkantung
+   * (`fieldValues.aufkantung`) und blendet bei Furnier/Mattlack die „Alulisene gepulvert in“
+   * ein. `undefined` = noch nicht beantwortet.
+   */
+  lineAufkantungGleich?: boolean
+
   // --- Phase 9b: Griff-Logik (Glatt/Less/Glossy) ---
   /** Push-to-Open aktiv (unabhängig von Griff wählbar). */
   pto?: boolean
@@ -170,6 +261,20 @@ export interface SegmentInterior {
 }
 
 /**
+ * Einbauhöhe eines Ausstattungsteils (Überarbeitung 2_2).
+ *
+ * `raster` ist der Regelfall — die AV plant in Rastern. `cm` ist die ausdrückliche
+ * Ausnahme („Sonderhöhe ca."), `boden` steht für „am Korpusboden" und braucht keinen Wert.
+ */
+export interface EquipmentHoehe {
+  modus: 'raster' | 'cm' | 'boden'
+  /** Rasterstufe (1 … Korpusraster − 1); nur bei `modus === 'raster'`. */
+  raster?: number
+  /** Sonderhöhe in cm (Freitext, per Konvention „ca."); nur bei `modus === 'cm'`. */
+  cm?: string
+}
+
+/**
  * Schritt 8 – ein konkret hinter einer Front konfiguriertes Ausstattungs-Element
  * (Refugium). Verweist auf den zentralen Ausstattungs-Katalog (`config/equipment.ts`);
  * die Detailfelder werden je Katalog-Option eingeblendet. Vollständig JSON-serialisierbar
@@ -184,8 +289,31 @@ export interface SegmentEquipmentItem {
   qty?: number
   /** Gewählte Variante (z. B. Container-Höhe „6R", Conero-Modell „D", Craft „A"). */
   variant?: string
-  /** Höhenangabe – Freitext, per Konvention „ca." (z. B. „auf 120 cm"). */
+  /**
+   * Höhenangabe – Freitext, per Konvention „ca." (z. B. „auf 120 cm").
+   *
+   * ALTBESTAND: Seit Überarbeitung 2_2 wird die Einbauhöhe strukturiert in `hoehen`
+   * erfasst (Raster als Regelfall). Das Feld bleibt, damit vor der Umstellung
+   * gespeicherte Entwürfe ihre Angabe behalten und weiterhin angezeigt werden.
+   */
   heightNote?: string
+  /**
+   * Einbauhöhen — bei `heightPerPiece` eine je Stück (Einlegeböden), sonst genau eine.
+   * Die Rasterstufe ist der Regelfall; cm bleibt die Ausnahme, „am Korpusboden" gibt es
+   * nur, wo der Katalog `raster-oder-boden` vorsieht.
+   */
+  hoehen?: EquipmentHoehe[]
+  /** Werte der Zusatz-Auswahlen (`EquipmentChoice.id` → Wert), z. B. `glasart`. */
+  choices?: Record<string, string>
+  /** Freitext zu einer Auswahl (z. B. Wunschbreite in cm), je `EquipmentChoice.id`. */
+  choiceTexte?: Record<string, string>
+  /** Position als Kästchen (Verblendung, LED-Band, Revisionsklappe …). */
+  seiten?: { links?: boolean; rechts?: boolean }
+  /**
+   * Instanz-ID des Bezugselements im selben Segment — „für welche Schublade" bzw.
+   * „auf welchen Einlegeboden".
+   */
+  bezugId?: string
   /** Positionsangabe – Freitext (z. B. „links, oben"). */
   positionNote?: string
   /** Format – Freitext (z. B. Innenspiegel „40 × 120 cm", Sonderformat). */
@@ -323,21 +451,28 @@ export interface KorpusEinheit {
 }
 
 /**
- * Außen-Abschlussset links/rechts (Schritt 4).
+ * Außen-Abschlussset links/rechts.
  *
- * Punkt 5.11: Als einziger Bauteil-Bereich trägt das Seitenset die Auswahl „anders"
- * mit Freitext UND Preisgruppe — sonst käme es ohne Preis in die Kalkulation.
- * Fußleistenausschnitt, Sonderformen und Sonderausstattung bekommen das
- * ausdrücklich NICHT (Dietmar zu 5.11).
+ * Die POSITION wird im Schritt „Maße" gewählt, weil sie das Außenmaß verändert
+ * (10 mm je Seite plus eine 3-mm-Fuge). Das MATERIAL steht dagegen im Schritt
+ * „Korpus" bei allen übrigen Materialien — vorher wurde es an beiden Stellen
+ * abgefragt („Überarbeitung 2", S. 3).
+ *
+ * Punkt 5.11 bleibt gültig: Das Seitenset ist der einzige Bereich mit „anders"
+ * inklusive Preisgruppe — das steckt in `MaterialSelection` und gilt damit auch
+ * für die getrennte Wahl links/rechts.
  */
 export interface AbschlussSet {
   position: 'keine' | 'links' | 'rechts' | 'beide'
-  /** Material des 10-mm-Abschlusssets (Verweis auf materialMatrix-Gruppen-ID oder `anders`). */
-  material?: string
-  /** Nur bei `material === 'anders'`: Bezeichnung der Sonderausführung. */
-  materialFreitext?: string
-  /** Nur bei `material === 'anders'`: manuell gewählte Preisgruppe für die Kalkulation. */
-  preisgruppe?: PriceGroup
+  /** Material beider Seiten. Gilt, solange `materialGetrennt` nicht gesetzt ist. */
+  material?: MaterialSelection
+  /**
+   * true ⇒ links und rechts werden getrennt gewählt („Überarbeitung 2", S. 4:
+   * „Material für Abschlusset links und rechts getrennt wählen").
+   */
+  materialGetrennt?: boolean
+  materialLinks?: MaterialSelection
+  materialRechts?: MaterialSelection
 }
 
 /** Fußleistenausschnitt (Schritt 4) – erhöht die Gesamttiefe. */
@@ -390,6 +525,96 @@ export interface KorpusGrunddaten {
 export interface AusstattungAuswahl {
   /** IDs der vorausgewählten Ausstattungs-Optionen. */
   selected: string[]
+}
+
+// ---------------------------------------------------------------------------
+// Preis-Snapshot – abgeschlossene Aufträge von den Stammdaten entkoppeln
+// ---------------------------------------------------------------------------
+
+/** Woher eine Preisposition stammt — entscheidend für die Transparenz zum Berater. */
+export type PositionsHerkunft = 'gewaehlt' | 'abgeleitet' | 'zuschlag'
+
+/** „auf-anfrage" ⇒ es gab keine Preiszeile; der Betrag wurde NIE geschätzt. */
+export type PositionsStatus = 'berechnet' | 'auf-anfrage'
+
+/**
+ * Eine aufgelöste Preis-Achse (A1–A5), wie sie zum Einfrier-Zeitpunkt gegriffen hat.
+ *
+ * Strukturgleich zu `AufgelloesteAchse` aus `lib/preisLookup.ts`, aber bewusst ohne
+ * Import: die Entwurfs-Typen sollen nicht an der Lookup-Schicht hängen. `code` ist
+ * hier `string` statt der engeren Achsen-Union — beim Zuweisen passt das, und beim
+ * Zurücklesen aus JSON wäre die engere Angabe ohnehin nicht überprüfbar.
+ */
+export interface PricingSnapshotAchse {
+  code: string
+  /** Spaltenname im Preisblatt (A1–A5). */
+  spalte: string
+  /** Klartext-Bedeutung aus Blatt „35 Achsen". */
+  bedeutung: string
+  wert: string
+}
+
+/** Eine eingefrorene Preisposition — Bezeichnung, Menge, Einzelpreis, Betrag. */
+export interface PricingSnapshotPosition {
+  id: string
+  herkunft: PositionsHerkunft
+  bucket: PriceBucket
+  /** 1-basierte Segmentnummer, falls die Position zu einem Segment gehört. */
+  segment?: number
+  label: string
+  artikelnummer?: string
+  kurzzeichen?: string
+  teileart?: string
+  produktgruppe?: string
+  artikelgruppe?: string
+  achsen: PricingSnapshotAchse[]
+  einheit?: string
+  /** Seite der gedruckten Preisliste. */
+  seite?: string
+  menge: number
+  einzelpreis: number | null
+  gesamt: number | null
+  status: PositionsStatus
+  hinweis?: string
+}
+
+/**
+ * EINGEFRORENER PREISSTAND eines abgeschlossenen Auftrags.
+ *
+ * Kernregel des Auftragsarchivs: Ein abgeschlossener Auftrag ist ein Dokument, kein
+ * Live-Report. Ändert die Artikelverwaltung morgen einen Preis, darf sich der gestern
+ * abgeschlossene Auftrag NICHT rückwirkend verändern — sonst stimmt das, was der Kunde
+ * unterschrieben hat, nicht mehr mit dem überein, was das System zeigt.
+ *
+ * Deshalb wird der Snapshot GENAU EINMAL geschrieben: beim Finalisieren. Danach bleibt
+ * er unangetastet (siehe `friereBeimSpeichernEin` in `lib/pricingSnapshot.ts`). Offene
+ * Entwürfe tragen bewusst keinen Snapshot — sie rechnen bei jedem Laden neu.
+ *
+ * Der Schlüssel heißt absichtlich `pricing_snapshot` (snake_case, abweichend vom
+ * restlichen Entwurf): So heißt er auch in der Supabase-Spalte `configuration` und ist
+ * dort direkt auffindbar.
+ */
+export interface PricingSnapshot {
+  /** ISO-8601 — Zeitpunkt des Einfrierens (= Finalisierung). */
+  frozenAt: string
+  /** Interne Version des Stammdaten-Stands, aus dem gerechnet wurde. */
+  stammdatenVersion: number
+  /** Gültigkeitsangabe des Preisblatts (Preisstand). */
+  gueltigkeit: string
+  waehrung: string
+  positionen: PricingSnapshotPosition[]
+  zuschlaege: PricingSnapshotPosition[]
+  /** Summe der Bauteil-Positionen (ohne Zuschläge). */
+  moebelpreis: number
+  /** Möbelpreis + alle Zuschläge. */
+  gesamt: number
+  offenePositionen: number
+  /** false ⇒ beim Einfrieren waren Positionen offen; der Betrag stand unter Vorbehalt. */
+  vollstaendig: boolean
+  /** Manuell gesetzter VK-Preis (Rohtext, de-DE) zum Einfrier-Zeitpunkt. */
+  vkPreis?: string
+  /** Derselbe VK-Preis als Zahl — erspart späteres Neuparsen. */
+  vkPreisNumerisch: number | null
 }
 
 // ---------------------------------------------------------------------------
@@ -504,6 +729,12 @@ export interface Draft {
    * `pricingOptions` bleiben als Metadaten erhalten, erzeugen aber keinen Preis.
    */
   vkPreis?: string
+
+  /**
+   * Eingefrorener Preisstand. Wird beim Finalisieren genau einmal gesetzt und danach
+   * nie wieder angefasst; offene Entwürfe tragen ihn nicht. Siehe `PricingSnapshot`.
+   */
+  pricing_snapshot?: PricingSnapshot
 
   /** true => fest hinterlegter Demo-/Verifizierungs-Entwurf (nicht löschbar, Referenz). */
   isVerification?: boolean

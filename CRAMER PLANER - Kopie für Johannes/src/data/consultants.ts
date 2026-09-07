@@ -1,4 +1,4 @@
-import { berater } from '../lib/stammdaten'
+import { getBerater } from '../lib/stammdaten'
 import type { Consultant } from '../types'
 
 /**
@@ -18,9 +18,15 @@ import type { Consultant } from '../types'
  */
 export const PROTOTYP_PASSWORT = 'cramer2026'
 
-export const consultants: Consultant[] = berater.map((m) => ({
-  id: m.personalnr,
-  name: m.name,
-  email: m.email,
-  password: PROTOTYP_PASSWORT,
-}))
+/**
+ * Funktion statt Konstante: Ein in der Verwaltung gesperrter Berater soll auch aus der
+ * Anmeldung verschwinden — eine beim Modulstart eingefrorene Liste hätte ihn behalten.
+ */
+export function getConsultants(): Consultant[] {
+  return getBerater().map((m) => ({
+    id: m.personalnr,
+    name: m.name,
+    email: m.email,
+    password: PROTOTYP_PASSWORT,
+  }))
+}

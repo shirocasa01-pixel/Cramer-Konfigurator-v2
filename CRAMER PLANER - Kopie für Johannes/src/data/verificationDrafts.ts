@@ -31,8 +31,8 @@ const referenzEntwuerfe: Draft[] = [
     dimensions: { widthCm: '300', heightCm: '236', depthCm: '60', segments: 3 },
     vkPreis: '9.009,00',
     korpus: {
-      innen: { materialGroupId: 'decoboard', optionId: 'eiche-milano', priceGroup: 'PG1' },
-      aussen: { materialGroupId: 'mattlack', optionId: 'beigegrau', priceGroup: 'PG2' },
+      innen: { materialGroupId: 'decoboard', optionId: 'eiche-milano-r20095nw', priceGroup: 'PG1' },
+      aussen: { materialGroupId: 'mattlack', optionId: 'beigegrau-ral-7006', priceGroup: 'PG2' },
       abdeckplatte: { materialGroupId: 'keine' },
     },
     fronts: { columns: [] },
@@ -61,8 +61,8 @@ const referenzEntwuerfe: Draft[] = [
     dimensions: { widthCm: '190', heightCm: '235', depthCm: '60', segments: 3 },
     vkPreis: '6.297,00',
     korpus: {
-      innen: { materialGroupId: 'decoboard', optionId: 'okapi-walnut', priceGroup: 'PG1' },
-      aussen: { materialGroupId: 'decoboard', optionId: 'okapi-walnut', priceGroup: 'PG1' },
+      innen: { materialGroupId: 'decoboard', optionId: 'okapi-walnut-r30135nw', priceGroup: 'PG1' },
+      aussen: { materialGroupId: 'decoboard', optionId: 'okapi-walnut-r30135nw', priceGroup: 'PG1' },
       abdeckplatte: { materialGroupId: 'keine' },
     },
     fronts: { columns: [] },

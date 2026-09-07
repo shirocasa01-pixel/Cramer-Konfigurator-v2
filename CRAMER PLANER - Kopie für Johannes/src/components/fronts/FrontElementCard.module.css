@@ -227,3 +227,22 @@
     grid-template-columns: 1fr 1fr;
   }
 }
+
+/* Überarbeitung 3 – Türhöhe der Drehtür (Raster / cm nebeneinander) */
+.hoeheRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-3);
+}
+
+/* Maßzeile ohne Höhenfeld (zweiläufige Schiebetür, Drehtür mit Höhen-Modi) */
+.sizeRowSingle {
+  grid-template-columns: 1fr;
+  max-width: 240px;
+}
+
+@media (max-width: 640px) {
+  .hoeheRow {
+    grid-template-columns: 1fr;
+  }
+}

@@ -35,6 +35,7 @@ import {
   ausstattungOhnePreis,
   containerLookups,
   containerRaster,
+  rasterAusVariante,
   frontLookups,
   getSerienRegel,
   liniePgAchsenwert,
@@ -47,16 +48,24 @@ import { meta } from '../data/stammdaten.generated.ts'
 import { resolveDepthCm, resolveHeightCm, resolveKorpusBreiteCm } from './korpusMass.ts'
 import { findePreis, getArtikelNr, verfuegbareRaster, type AufgelloesteAchse } from './preisLookup.ts'
 import { korpusOffsetMm, loeseRasterAuf } from './raster.ts'
-import type { Draft, FrontElement, MaterialSelection, PriceBucket, PriceGroup } from '../types/index.ts'
+import type {
+  Draft,
+  FrontElement,
+  MaterialSelection,
+  PositionsHerkunft,
+  PositionsStatus,
+  PriceBucket,
+  PriceGroup,
+} from '../types/index.ts'
+
+// Beide Aufzählungen liegen zentral in `types/index.ts`, weil der Preis-Snapshot
+// (eingefrorene Aufträge) dieselben Werte trägt. Re-Export, damit bestehende
+// Importe aus diesem Modul unverändert weiterlaufen.
+export type { PositionsHerkunft, PositionsStatus }
 
 // ---------------------------------------------------------------------------
 // Ergebnis-Typen
 // ---------------------------------------------------------------------------
-
-/** Woher eine Position stammt — entscheidend für die Transparenz gegenüber dem Berater. */
-export type PositionsHerkunft = 'gewaehlt' | 'abgeleitet' | 'zuschlag'
-
-export type PositionsStatus = 'berechnet' | 'auf-anfrage'
 
 export interface KalkPosition {
   id: string
@@ -635,10 +644,13 @@ function baueAusstattungsPositionen(
       }
 
       const breiteCm = lookup.breiteAusKorpushoehe ? kontext.hoeheCm : segmentBreite
+      // Die Rasterstufe ist die BAUHÖHE des Teils (Container-/Schubladenhöhe), nicht seine
+      // Einbauhöhe im Schrank — sie steht deshalb in der Variante. Nur wo keine Variante
+      // gewählt ist, bleibt der Rückfall auf die alte Freitext-Höhe (Altbestand).
       const raster = lookup.nutztRaster
-        ? item.variant
-          ? containerRaster[item.variant] ?? schubRasterFuerHoehe(zahl(item.heightNote))
-          : schubRasterFuerHoehe(zahl(item.heightNote))
+        ? (containerRaster[item.variant ?? ''] ??
+            rasterAusVariante(item.variant) ??
+            schubRasterFuerHoehe(zahl(item.heightNote)))
         : undefined
 
       positionen.push(

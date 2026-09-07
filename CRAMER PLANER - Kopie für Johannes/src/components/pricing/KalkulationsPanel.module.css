@@ -34,7 +34,8 @@
 }
 
 .badgeOk,
-.badgeOpen {
+.badgeOpen,
+.badgeFrozen {
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: var(--tracking-label);
@@ -52,6 +53,30 @@
 .badgeOpen {
   background: #fdf0e6;
   color: #8a4b12;
+}
+
+/* Abgeschlossener Auftrag: Preise kommen aus dem eingefrorenen Stand. */
+.badgeFrozen {
+  background: var(--color-surface-sunken);
+  color: var(--color-ink-secondary);
+  border: 1px solid var(--color-line-strong);
+}
+
+.frozenNote,
+.frozenWarn {
+  margin-top: var(--space-3, 12px);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--color-line-strong);
+  background: var(--color-surface-soft);
+  color: var(--color-ink-secondary);
+}
+
+.frozenWarn {
+  border-left-color: var(--color-danger);
+  color: var(--color-ink);
 }
 
 .empty {

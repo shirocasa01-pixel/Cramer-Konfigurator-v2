@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './context/AuthContext'
 import { DraftProvider } from './context/DraftContext'
+import { ToastProvider } from './context/ToastContext'
 import './styles/tokens.css'
 import './styles/global.css'
 
@@ -11,9 +12,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
       <AuthProvider>
-        <DraftProvider>
-          <App />
-        </DraftProvider>
+        <ToastProvider>
+          <DraftProvider>
+            <App />
+          </DraftProvider>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   </StrictMode>,

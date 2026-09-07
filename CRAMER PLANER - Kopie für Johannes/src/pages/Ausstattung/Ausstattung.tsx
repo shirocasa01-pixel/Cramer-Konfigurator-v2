@@ -51,13 +51,14 @@ export default function AusstattungPage() {
   if (!group || !series) return <Navigate to="/products" replace />
   // Schritt 6 ist Refugium-spezifisch – andere Serien überspringen ihn.
   if (!isRefugium) return <Navigate to="/fronts" replace />
-  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) {
-    return <Navigate to="/korpus" replace />
-  }
+  // Reihenfolge wie im Workflow: erst Maße, dann Korpus.
   const grunddatenOk = series.korpusRaster
     ? isKorpusGrunddatenComplete(draft.korpusGrunddaten)
     : isDimensionsValid(draft.dimensions)
   if (!grunddatenOk) return <Navigate to="/dimensions" replace />
+  if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) {
+    return <Navigate to="/korpus" replace />
+  }
 
   function toggle(optionId: string) {
     const next = new Set(selected)
@@ -126,7 +127,7 @@ export default function AusstattungPage() {
         ))}
 
         <div className={styles.actions}>
-          <Button variant="ghost" onClick={() => navigate('/dimensions')}>
+          <Button variant="ghost" onClick={() => navigate('/korpus')}>
             Zurück
           </Button>
           <Button onClick={() => navigate('/fronts')}>Weiter zu den Fronten</Button>

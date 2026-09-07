@@ -15,7 +15,14 @@ import { support } from '../../config/support'
 import { isKorpusComplete } from '../../lib/korpusValidation'
 import { isFrontsComplete } from '../../lib/frontsValidation'
 import { PRICE_GROUP_LABEL, describeMaterialSelection } from '../../lib/materialFormat'
-import { ABSCHLUSS_UNTEN_LABEL, describeFrontField, describeHandleConfig, describeOben } from '../../lib/frontsFormat'
+import {
+  ABSCHLUSS_UNTEN_LABEL,
+  describeFrontExtras,
+  describeFrontField,
+  describeHandleConfig,
+  describeOben,
+} from '../../lib/frontsFormat'
+import { isFrontFieldVisible } from '../../lib/frontsHelpers'
 import { describeAusstattungAuswahl, describeColumnEquipment } from '../../lib/ausstattungFormat'
 import { downloadPdf } from '../../lib/generatePdf'
 import { formatVkPreis } from '../../lib/pricing'
@@ -30,7 +37,7 @@ import styles from './Summary.module.css'
  * Vollständige Übersicht + Smartphone-Scan der Handzeichnung + AV-PDF + Speichern.
  */
 export default function SummaryPage() {
-  const { draft, updateDraft, finalizeDraft } = useDraft()
+  const { draft, updateDraft, finalizeDraft, cloudSaving } = useDraft()
   const navigate = useNavigate()
   const [scanOpen, setScanOpen] = useState(false)
 
@@ -77,8 +84,8 @@ export default function SummaryPage() {
     window.location.href = `mailto:${to}?subject=${subject}&body=${body}`
   }
 
-  function handleFinalize() {
-    finalizeDraft()
+  async function handleFinalize() {
+    await finalizeDraft()
     navigate('/', { replace: true })
   }
 
@@ -131,7 +138,7 @@ export default function SummaryPage() {
 
         <KorpusGrunddatenRecap grunddaten={draft.korpusGrunddaten} />
 
-        <Block title="Korpus">
+        <Block title="Material">
           {visibleAreas.map((area) => {
             const selection = draft.korpus?.[area.id]
             return (
@@ -264,7 +271,9 @@ export default function SummaryPage() {
           >
             An AV senden
           </Button>
-          <Button onClick={handleFinalize}>Speichern &amp; abschließen</Button>
+          <Button onClick={() => void handleFinalize()} disabled={cloudSaving}>
+            {cloudSaving ? 'Speichert …' : 'Speichern & abschließen'}
+          </Button>
         </div>
 
         {avFehlend.length > 0 ? (
@@ -354,6 +363,7 @@ function ElementRecap({ element }: { element: FrontElement }) {
   const styleLine = getStyleLine(element.typeId, element.styleLineId)
   const fieldLines = styleLine
     ? styleLine.fields
+        .filter((field) => isFrontFieldVisible(field, element))
         .map((field) => describeFrontField(field, element.fieldValues?.[field.id]))
         .filter(Boolean)
     : []
@@ -363,6 +373,8 @@ function ElementRecap({ element }: { element: FrontElement }) {
   if (element.widthCm || element.heightCm) {
     meta.push(`Maße: ${caPrefix()}${element.widthCm ?? '?'}×${element.heightCm ?? '?'} cm`)
   }
+  const extras = describeFrontExtras(element)
+  if (extras) meta.push(extras)
 
   return (
     <div className={styles.elem}>

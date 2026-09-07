@@ -7,18 +7,31 @@ import { TextField } from '../../components/ui/TextField'
 import { KorpusInnenSection } from '../../components/korpus/KorpusInnenSection'
 import { useDraft } from '../../context/DraftContext'
 import { getProductGroup, getSeries } from '../../config/productCatalog'
-import { getVisibleKorpusAreas, rueckwandAussenArea, type KorpusMode } from '../../config/korpus'
-import { RAUCHGLAS_OPTION_IDS } from '../../config/materialMatrix'
+import {
+  ABSCHLUSSSET_GROUPS,
+  KORPUS_INNEN_SICHTBAR,
+  getVisibleKorpusAreas,
+  rueckwandAussenArea,
+  type KorpusMode,
+} from '../../config/korpus'
+import { getRauchglasOptionIds } from '../../config/materialMatrix'
 import { isKorpusComplete } from '../../lib/korpusValidation'
-import { resolveKorpusBreiteCm } from '../../lib/korpusMass'
+import { isDimensionsValid } from '../../lib/dimensionsValidation'
+import { isKorpusGrunddatenComplete, resolveKorpusBreiteCm } from '../../lib/korpusMass'
 import type { KorpusInnen, MaterialSelection } from '../../types'
 import styles from './Korpus.module.css'
 
 /**
- * PHASE 4 – Korpus-Konfiguration.
- * Bereiche Innen (bedingt: Velare/Refugium) / Außen / Abdeckplatte. Alle Material-
- * Dropdowns stammen aus der zentralen Farbmatrix; die Preisgruppe wird automatisch
- * im Hintergrund zugewiesen. Erzwungene Progression: sichtbare Bereiche sind Pflicht.
+ * SCHRITT 4 – Material.
+ *
+ * Der Schritt hieß bis zur Rückmeldung „Überarbeitung 2" (S. 4) „Korpus". Seit die
+ * Maße davor abgefragt werden und der Innenausbau-Block entfallen ist, liegen hier
+ * ausschließlich Materialauswahlen — der Name folgt jetzt dem Inhalt.
+ *
+ * Bereiche: Innen (bedingt: Velare/Refugium) · Außen · Abdeckplatte · Rückwand außen ·
+ * Abschlussset. Alle Dropdowns stammen aus der zentralen Farbmatrix; die Preisgruppe
+ * wird automatisch im Hintergrund zugewiesen. Erzwungene Progression: sichtbare
+ * Bereiche sind Pflicht.
  */
 export default function KorpusPage() {
   const { draft, updateDraft } = useDraft()
@@ -28,15 +41,25 @@ export default function KorpusPage() {
   const group = getProductGroup(draft.productGroupId)
   const series = getSeries(draft.productGroupId, draft.seriesId)
   if (!group || !series) return <Navigate to="/products" replace />
+  // Die Maße kommen jetzt vorher – ohne sie ist nicht bekannt, wie viele Korpi es gibt.
+  const masseVollstaendig = series.korpusRaster
+    ? isKorpusGrunddatenComplete(draft.korpusGrunddaten)
+    : isDimensionsValid(draft.dimensions)
+  if (!masseVollstaendig) return <Navigate to="/dimensions" replace />
 
   const korpus = draft.korpus
-  const mode: KorpusMode = draft.korpusMode ?? 'komplett'
+  // Punkt 4c: Bei Serien ohne Außenkorpus-Modus gilt immer „komplett" – auch wenn ein
+  // älterer Entwurf noch „getrennt" gespeichert hat.
+  const zeigeModusUmschalter = series.hasAussenkorpusModus !== false
+  const mode: KorpusMode = zeigeModusUmschalter ? draft.korpusMode ?? 'komplett' : 'komplett'
   const visibleAreas = getVisibleKorpusAreas(series, mode)
   const complete = isKorpusComplete(korpus, visibleAreas)
-  // Punkt 5.3: Die Korpus-Liste stammt aus Schritt „Maße". Solange sie fehlt, gibt es
-  // nur die einheitliche Auswahl – siehe Hinweis im Innen-Bereich.
+  // Punkt 5.3: Die Korpus-Liste stammt aus dem Schritt „Maße", der jetzt davor liegt.
   const korpusse = draft.korpusGrunddaten?.korpusse ?? []
   const innenJeKorpus = draft.korpusInnenJeKorpus != null && korpusse.length > 1
+  const abschlussSet = draft.korpusGrunddaten?.abschlussSet
+  const abschlussAktiv = abschlussSet != null && abschlussSet.position !== 'keine'
+  const abschlussBeidseitig = abschlussSet?.position === 'beide'
 
   function updateArea(areaId: string, selection: MaterialSelection) {
     updateDraft({ korpus: { ...korpus, [areaId]: selection } })
@@ -54,9 +77,23 @@ export default function KorpusPage() {
   function updateKorpusInnen(next: KorpusInnen) {
     updateDraft({ korpusInnen: next })
   }
+  // Abschlussset-Material („Überarbeitung 2", S. 3/4): Die Position steht in den
+  // Grunddaten aus dem Schritt „Maße", das Material gehört hierher zu den übrigen
+  // Materialien.
+  function patchAbschlussSet(patch: Partial<NonNullable<typeof abschlussSet>>) {
+    if (!draft?.korpusGrunddaten || !abschlussSet) return
+    updateDraft({
+      korpusGrunddaten: {
+        ...draft.korpusGrunddaten,
+        abschlussSet: { ...abschlussSet, ...patch },
+      },
+    })
+  }
 
   function handleContinue() {
-    if (complete) navigate('/dimensions')
+    // Nach dem Tausch der Schritte folgt auf den Korpus die Ausstattung (Refugium)
+    // bzw. direkt die Fronten.
+    if (complete) navigate(series?.korpusRaster ? '/ausstattung' : '/fronts')
   }
 
   return (
@@ -65,7 +102,7 @@ export default function KorpusPage() {
         <StepIndicator activeKey="korpus" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>Korpus-Konfiguration</h1>
+          <h1 className={styles.title}>Material</h1>
           <p className={styles.subtitle}>
             Material und Ausführung des Korpus festlegen. Alle Auswahllisten stammen aus der
             zentralen Farbmatrix; die Preisgruppe wird automatisch im Hintergrund zugeordnet.
@@ -75,32 +112,34 @@ export default function KorpusPage() {
           </p>
         </header>
 
-        <section className={styles.modeToggle} aria-label="Außenkorpus-Modus">
-          <span className={styles.modeLabel}>Außenkorpus</span>
-          <div className={styles.modeChips} role="group">
-            <button
-              type="button"
-              className={mode === 'komplett' ? styles.modeChipActive : styles.modeChip}
-              onClick={() => setMode('komplett')}
-              aria-pressed={mode === 'komplett'}
-            >
-              Komplett auswählen
-            </button>
-            <button
-              type="button"
-              className={mode === 'getrennt' ? styles.modeChipActive : styles.modeChip}
-              onClick={() => setMode('getrennt')}
-              aria-pressed={mode === 'getrennt'}
-            >
-              Getrennte Konfiguration
-            </button>
-          </div>
-          <span className={styles.modeHint}>
-            {mode === 'komplett'
-              ? 'Ein Material für den gesamten Außenkorpus.'
-              : 'Linke Seite, rechte Seite und Abdeckplatte unabhängig konfigurierbar.'}
-          </span>
-        </section>
+        {zeigeModusUmschalter ? (
+          <section className={styles.modeToggle} aria-label="Außenkorpus-Modus">
+            <span className={styles.modeLabel}>Außenkorpus</span>
+            <div className={styles.modeChips} role="group">
+              <button
+                type="button"
+                className={mode === 'komplett' ? styles.modeChipActive : styles.modeChip}
+                onClick={() => setMode('komplett')}
+                aria-pressed={mode === 'komplett'}
+              >
+                Komplett auswählen
+              </button>
+              <button
+                type="button"
+                className={mode === 'getrennt' ? styles.modeChipActive : styles.modeChip}
+                onClick={() => setMode('getrennt')}
+                aria-pressed={mode === 'getrennt'}
+              >
+                Getrennte Konfiguration
+              </button>
+            </div>
+            <span className={styles.modeHint}>
+              {mode === 'komplett'
+                ? 'Ein Material für den gesamten Außenkorpus.'
+                : 'Linke Seite, rechte Seite und Abdeckplatte unabhängig konfigurierbar.'}
+            </span>
+          </section>
+        ) : null}
 
         {visibleAreas.map((area) => {
           const selection = korpus?.[area.id]
@@ -141,7 +180,7 @@ export default function KorpusPage() {
                   groupIds={area.materialGroupIds}
                   allowCustom={area.allowCustom}
                   noneLabel={area.noneLabel}
-                  excludeOptionIds={isAbdeckplatte ? RAUCHGLAS_OPTION_IDS : undefined}
+                  excludeOptionIds={isAbdeckplatte ? getRauchglasOptionIds() : undefined}
                   value={selection}
                   onChange={(next) => updateArea(area.id, next)}
                 />
@@ -204,15 +243,77 @@ export default function KorpusPage() {
           </section>
         ) : null}
 
-        {/* Phase B – Korpus Innen (Innenausbau) */}
-        <KorpusInnenSection value={draft.korpusInnen} onChange={updateKorpusInnen} />
+        {/* Abschlussset-Material – Position kommt aus dem Schritt „Maße". */}
+        {abschlussAktiv ? (
+          <section className={styles.area} aria-label="Abschlussset">
+            <div className={styles.areaHead}>
+              <h2 className={styles.areaTitle}>Abschlussset (Außenabschluss links/rechts)</h2>
+              <span className={styles.areaHint}>
+                {abschlussSet?.position === 'beide'
+                  ? 'links & rechts'
+                  : abschlussSet?.position === 'links'
+                    ? 'nur links'
+                    : 'nur rechts'}{' '}
+                · 10 mm · Glas ist hier nicht möglich
+              </span>
+            </div>
+
+            {abschlussBeidseitig && abschlussSet?.materialGetrennt ? (
+              <div className={styles.korpusListe}>
+                <div className={styles.korpusEintrag}>
+                  <span className={styles.korpusName}>Abschlussset links</span>
+                  <MaterialSelect
+                    groupIds={ABSCHLUSSSET_GROUPS}
+                    allowCustom
+                    value={abschlussSet.materialLinks ?? abschlussSet.material}
+                    onChange={(next) => patchAbschlussSet({ materialLinks: next })}
+                  />
+                </div>
+                <div className={styles.korpusEintrag}>
+                  <span className={styles.korpusName}>Abschlussset rechts</span>
+                  <MaterialSelect
+                    groupIds={ABSCHLUSSSET_GROUPS}
+                    allowCustom
+                    value={abschlussSet.materialRechts ?? abschlussSet.material}
+                    onChange={(next) => patchAbschlussSet({ materialRechts: next })}
+                  />
+                </div>
+              </div>
+            ) : (
+              <MaterialSelect
+                groupIds={ABSCHLUSSSET_GROUPS}
+                allowCustom
+                value={abschlussSet?.material}
+                onChange={(next) => patchAbschlussSet({ material: next })}
+              />
+            )}
+
+            {abschlussBeidseitig ? (
+              <label className={styles.check}>
+                <input
+                  type="checkbox"
+                  className={styles.checkbox}
+                  checked={Boolean(abschlussSet?.materialGetrennt)}
+                  onChange={(event) => patchAbschlussSet({ materialGetrennt: event.target.checked })}
+                />
+                Material für Abschlussset links und rechts getrennt wählen
+              </label>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* Punkt 5: Innenausbau-Block abgeschaltet – Begründung in `config/korpus.ts`.
+            Komponente und Datenstruktur bleiben erhalten. */}
+        {KORPUS_INNEN_SICHTBAR ? (
+          <KorpusInnenSection value={draft.korpusInnen} onChange={updateKorpusInnen} />
+        ) : null}
 
         <div className={styles.actions}>
-          <Button variant="ghost" onClick={() => navigate('/products')}>
+          <Button variant="ghost" onClick={() => navigate('/dimensions')}>
             Zurück
           </Button>
           <Button onClick={handleContinue} disabled={!complete}>
-            Weiter zu den Fronten
+            {series?.korpusRaster ? 'Weiter zur Ausstattung' : 'Weiter zu den Fronten'}
           </Button>
           {!complete ? (
             <span className={styles.hint}>Bitte alle Korpus-Bereiche vollständig ausfüllen.</span>

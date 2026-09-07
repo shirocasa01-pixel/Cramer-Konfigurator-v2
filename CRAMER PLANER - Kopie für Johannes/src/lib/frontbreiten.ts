@@ -57,30 +57,32 @@ export const KORPUS_MAX_CM = 100
 export const ZWEITUERIG_AB_CM = 61
 
 /**
- * Korpusbreiten, deren Frontbreite in Dietmars Tabelle nicht eindeutig ist.
- * Sie werden nach der Systematik berechnet und im Ergebnis als `bestaetigt: false`
- * gekennzeichnet, damit die Oberfläche darauf hinweisen kann.
+ * Korpusbreiten, deren Frontbreite in der Vorgabe nicht eindeutig ist.
  *
- *   35  — die Tabelle nennt 34 cm, die Randnotiz derselben Seite 35 cm.
- *   80  — die Zeile fehlt in der Tabelle („Den 80er Korpus habe ich ergänzt").
- *
- * Beide sind mit der nachgereichten Liste abzugleichen.
+ * Mit der nachgereichten Maßtabelle („Frontbreiten.pdf", 86 Zeilen von 15 bis 100 cm,
+ * lückenlos) sind die beiden früheren Zweifelsfälle geklärt: Der 80er Korpus steht
+ * jetzt in der Liste, und der 35er ist mit 34 cm bestätigt. Die Liste bleibt als
+ * Mechanismus erhalten — sie greift wieder, sobald eine Breite hinzukommt, deren
+ * Frontmaß nicht belegt ist.
  */
-export const UNBESTAETIGTE_KORPUSBREITEN_CM: readonly number[] = [35, 80]
+export const UNBESTAETIGTE_KORPUSBREITEN_CM: readonly number[] = []
 
 /**
  * Restmaß = Korpusbreite − Summe der Frontbreiten, in Millimetern.
  *
- * Aus Dietmars Tabelle abgelesen und über alle 86 Zeilen gegengeprüft:
- *   15–60 cm  einteilig, Rest 10 mm      (50er Korpus → 490 mm Front)
- *   61–80 cm  zweiteilig, Rest 10 mm     (70er Korpus → 2 × 345 mm)
- *   81–100 cm zweiteilig, Rest 20 mm     (100er Korpus → 2 × 490 mm)
+ * Abgelesen aus der Maßtabelle und über alle 86 Zeilen gegengeprüft:
  *
- * Der Sprung des Restmaßes zwischen 79 und 81 ist genau die Stelle, an der in
- * der Tabelle die 80er-Zeile fehlte.
+ *   15–60 cm   einteilig,  Rest 10 mm   (50er Korpus  → 1 × 490 mm)
+ *   61–100 cm  zweiteilig, Rest 20 mm   (100er Korpus → 2 × 490 mm)
+ *
+ * ACHTUNG — gegenüber der ersten Fassung der Tabelle korrigiert: Dort war der
+ * zweitürige Bereich ab 61 um 5 mm je Front verschoben (61er → 2 × 300 mm) und die
+ * 80er-Zeile fehlte. Die neue Liste führt durchgehend Rest 20 mm, also 61er →
+ * 2 × 295 mm. Wer noch mit der alten Tabelle rechnet, liegt bei jedem Korpus
+ * zwischen 61 und 80 cm um 10 mm daneben.
  */
-function restmassMm(korpusMm: number): number {
-  return korpusMm <= 800 ? 10 : 20
+function restmassMm(anzahlFronten: number): number {
+  return anzahlFronten === 1 ? 10 : 20
 }
 
 export interface FrontAufteilung {
@@ -112,7 +114,7 @@ export function frontAufteilung(korpusCm: number | undefined): FrontAufteilung |
 
   const korpusMm = Math.round(korpusCm * 10)
   const anzahl = korpusCm >= ZWEITUERIG_AB_CM ? 2 : 1
-  const frontMm = Math.round((korpusMm - restmassMm(korpusMm)) / anzahl)
+  const frontMm = Math.round((korpusMm - restmassMm(anzahl)) / anzahl)
   const summeMm = frontMm * anzahl
 
   const ausserhalb = korpusCm < KORPUS_MIN_CM || korpusCm > KORPUS_MAX_CM

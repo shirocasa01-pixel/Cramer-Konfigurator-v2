@@ -9,27 +9,38 @@ import {
   type Mitarbeiter,
   type Preiszeile,
 } from '../../data/stammdaten.generated.ts'
+import type { Oberflaeche, Oberflaechenkategorie, PreisgruppenFeld } from '../../types/index.ts'
 import { formatEuroOderLeer, formatGanzzahl } from '../../lib/format.ts'
+import { PRICE_GROUP_LABEL } from '../../lib/materialFormat.ts'
 import { modusErlaubt } from '../../lib/modus.ts'
 import { exportiereXlsx, importiereXlsx } from '../../lib/stammdatenExport.ts'
 import {
   aendereFiliale,
+  aendereKategorie,
   aendereMitarbeiter,
+  aendereOberflaeche,
   dupliziereArtikel,
+  idVorschlag,
+  getImportProbleme,
+  pruefeImportMarke,
+  listeAenderungen,
+  speichereAlleAenderungen,
+  type AenderungsBereich,
   istArtikelGeaendert,
   istFilialeGeaendert,
+  istKategorieGeaendert,
   istMitarbeiterGeaendert,
+  istOberflaecheGeaendert,
   istPreisGeaendert,
   legeFilialeAn,
+  legeKategorieAn,
   legeMitarbeiterAn,
-  loescheArtikel,
-  loescheFiliale,
-  loescheMitarbeiter,
-  loeschePreiszeile,
+  legeOberflaecheAn,
+  naechsteSortierung,
+  oberflaecheSchluessel,
   preisSchluessel,
   setzeAllesZurueck,
   uebernehmeImport,
-  zaehleAenderungen,
 } from '../../lib/stammdatenStore.ts'
 import { useStammdaten } from '../../lib/useStammdaten.ts'
 import { entferneZugang, getZugang, hatZugang, setzeZugang } from '../../lib/zugangStore.ts'
@@ -56,12 +67,21 @@ import styles from './StammdatenAdminModal.module.css'
 
 const MAX_ZEILEN = 300
 
+/** Reiter-Bezeichnung je Bereich — für die Änderungsliste im Kopf. */
+const BEREICH_TITEL: Record<AenderungsBereich, string> = {
+  artikel: 'Artikelstamm',
+  preise: 'Preisblatt',
+  oberflaechen: 'Oberflächen',
+  berater: 'Berater',
+  filialen: 'Filialen',
+}
+
 export interface StammdatenAdminModalProps {
   open: boolean
   onClose: () => void
 }
 
-type Bereich = 'artikel' | 'preise' | 'berater' | 'filialen' | 'handbuch'
+type Bereich = 'artikel' | 'preise' | 'oberflaechen' | 'berater' | 'filialen' | 'handbuch'
 
 const j = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(' ')
 
@@ -127,6 +147,219 @@ const PREIS_SPALTEN: SpaltenDef<PreisZeileMitKontext>[] = [
   { id: 'ref', titel: 'Ref', breite: 74, numerisch: true, mono: true, standard: false, wert: (r) => String(r.zeile.ref ?? '') },
 ]
 
+// ---------------------------------------------------------------------------
+// Oberflächen — zwei Ebenen in EINER Tabelle
+// ---------------------------------------------------------------------------
+
+/**
+ * Eine Zeile im Reiter „Oberflächen". Kategorie- und Oberflächen-Zeilen stehen bewusst in
+ * derselben Liste, so wie in der Vorlage: die Kategorie führt ihre Farben an, darunter
+ * folgen sie eingerückt. Getrennte Tabellen würden die Zuordnung genau dort verstecken,
+ * wo sie gepflegt wird.
+ */
+interface OberflaechenZeile {
+  art: 'kategorie' | 'oberflaeche'
+  schluessel: string
+  kategorie: Oberflaechenkategorie | undefined
+  oberflaeche?: Oberflaeche
+  gruppenwechsel: boolean
+}
+
+/** „PG 2" bzw. „— offen"; bei Oberflächen zeigt der Zusatz die geerbte Gruppe. */
+function pgText(pg: PreisgruppenFeld, geerbt?: PreisgruppenFeld): string {
+  if (pg) return PRICE_GROUP_LABEL[pg]
+  if (geerbt) return `${PRICE_GROUP_LABEL[geerbt]} (von Kategorie)`
+  return '— offen'
+}
+
+const OBERFLAECHEN_SPALTEN: SpaltenDef<OberflaechenZeile>[] = [
+  {
+    id: 'bezeichnung',
+    titel: 'Bezeichnung',
+    breite: 330,
+    wert: (r) => (r.art === 'kategorie' ? (r.kategorie?.bezeichnung ?? '') : `    ${r.oberflaeche?.bezeichnung ?? ''}`),
+  },
+  {
+    // Spalte 2 der Vorlage: bei einer Kategorie steht dort die Preisgruppe,
+    // bei einer Farbe die Kategorie, zu der sie gehört.
+    id: 'zuordnung',
+    titel: 'Preisgruppe / Kategorie',
+    breite: 200,
+    wert: (r) =>
+      r.art === 'kategorie'
+        ? pgText(r.kategorie?.preisgruppe ?? '')
+        : (r.kategorie?.bezeichnung ?? '⚠ unbekannte Kategorie'),
+  },
+  {
+    id: 'preisgruppe',
+    titel: 'Wirksame PG',
+    breite: 160,
+    wert: (r) =>
+      r.art === 'kategorie'
+        ? pgText(r.kategorie?.preisgruppe ?? '')
+        : pgText(r.oberflaeche?.preisgruppe ?? '', r.kategorie?.preisgruppe ?? ''),
+  },
+  { id: 'art', titel: 'Art', breite: 110, wert: (r) => (r.art === 'kategorie' ? 'Kategorie' : 'Oberfläche') },
+  {
+    // Standardmäßig ausgeblendet: Der Berater sieht nur die Bezeichnung. Die ID bleibt
+    // über das Spaltenmenü erreichbar, wenn jemand nachvollziehen muss, worauf eine alte
+    // Angebotsposition zeigt.
+    id: 'kennung',
+    titel: 'ID',
+    breite: 260,
+    mono: true,
+    standard: false,
+    wert: (r) => (r.art === 'kategorie' ? (r.kategorie?.id ?? '') : (r.oberflaeche?.id ?? '')),
+  },
+  {
+    id: 'standardauswahl',
+    titel: 'Standardauswahl',
+    breite: 130,
+    standard: false,
+    wert: (r) => (r.art === 'kategorie' ? (r.kategorie?.standardauswahl ? 'J' : 'N') : ''),
+  },
+  {
+    id: 'freitext',
+    titel: 'Freitext',
+    breite: 200,
+    standard: false,
+    wert: (r) => (r.art === 'oberflaeche' && r.oberflaeche?.freitext ? (r.oberflaeche.freitextLabel || 'ja') : ''),
+  },
+  {
+    id: 'status',
+    titel: 'Status',
+    breite: 96,
+    wert: (r) => (r.art === 'kategorie' ? (r.kategorie?.status ?? '') : (r.oberflaeche?.status ?? '')),
+  },
+  {
+    id: 'sortierung',
+    titel: 'Sortierung',
+    breite: 92,
+    numerisch: true,
+    standard: false,
+    wert: (r) => formatGanzzahl(r.art === 'kategorie' ? (r.kategorie?.sortierung ?? 0) : (r.oberflaeche?.sortierung ?? 0)),
+  },
+  {
+    id: 'bemerkung',
+    titel: 'Bemerkung',
+    breite: 320,
+    standard: false,
+    wert: (r) => (r.art === 'kategorie' ? (r.kategorie?.bemerkung ?? '') : (r.oberflaeche?.bemerkung ?? '')),
+  },
+]
+
+/**
+ * Formularmodell der beiden Editoren.
+ *
+ * `DatensatzModal` arbeitet mit Zeichenketten — der Datensatz führt aber `boolean` und
+ * `number`. Die Umwandlung passiert an genau EINER Stelle (hier), statt im Modal eine
+ * Typprüfung je Feld zu erfinden.
+ */
+interface KategorieForm {
+  id: string
+  bezeichnung: string
+  preisgruppe: string
+  standardauswahl: string
+  sortierung: string
+  status: string
+  bemerkung: string
+}
+
+interface OberflaecheForm {
+  id: string
+  kategorie: string
+  bezeichnung: string
+  preisgruppe: string
+  freitext: string
+  freitextLabel: string
+  sortierung: string
+  status: string
+  bemerkung: string
+}
+
+const PG_OPTIONEN = [
+  { wert: '', titel: '— offen (AV klärt den Preis) —' },
+  { wert: 'PG1', titel: 'Preisgruppe 1' },
+  { wert: 'PG2', titel: 'Preisgruppe 2' },
+  { wert: 'PG3', titel: 'Preisgruppe 3' },
+  { wert: 'PG4', titel: 'Preisgruppe 4' },
+]
+
+const JA_NEIN = [
+  { wert: 'ja', titel: 'ja' },
+  { wert: 'nein', titel: 'nein' },
+]
+
+const STATUS_OPTIONEN = [
+  { wert: 'aktiv', titel: 'aktiv — erscheint im Konfigurator' },
+  { wert: 'gesperrt', titel: 'gesperrt — nur in der Verwaltung sichtbar' },
+]
+
+const zahl = (s: string, ersatz: number) => {
+  const n = Number(String(s).replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? Math.round(n) : ersatz
+}
+
+const KATEGORIE_FELDER: FeldDef<KategorieForm>[] = [
+  {
+    feld: 'id',
+    label: 'ID',
+    schluessel: true,
+    mono: true,
+    hinweis: 'Identität — steht so in gespeicherten Entwürfen und ist danach unveränderlich',
+  },
+  { feld: 'bezeichnung', label: 'Bezeichnung', breit: true, hinweis: 'Beschriftung des Material-Chips im Konfigurator' },
+  {
+    feld: 'preisgruppe',
+    label: 'Preisgruppe',
+    optionen: PG_OPTIONEN,
+    hinweis: 'gilt für alle Oberflächen dieser Kategorie, sofern sie keine eigene tragen',
+  },
+  {
+    feld: 'standardauswahl',
+    label: 'Teil der Standardauswahl',
+    optionen: JA_NEIN,
+    hinweis: 'erscheint dort, wo „alle Materialien" zulässig sind (Außenkorpus, Schiebetür-Ausführung)',
+  },
+  { feld: 'sortierung', label: 'Sortierung', mono: true, hinweis: 'kleinere Zahl steht weiter vorne' },
+  { feld: 'status', label: 'Status', optionen: STATUS_OPTIONEN },
+  { feld: 'bemerkung', label: 'Bemerkung', breit: true },
+]
+
+const OBERFLAECHE_FELDER = (kategorien: readonly Oberflaechenkategorie[]): FeldDef<OberflaecheForm>[] => [
+  {
+    feld: 'kategorie',
+    label: 'Oberflächenkategorie',
+    schluessel: true,
+    optionen: kategorien.map((k) => ({ wert: k.id, titel: `${k.bezeichnung} (${pgText(k.preisgruppe)})` })),
+    hinweis: 'bestimmt Preisgruppe und Dropdown — zusammen mit der ID die Identität, danach unveränderlich',
+  },
+  // Kein ID-Feld: Die ID wird beim Anlegen aus der Bezeichnung gebildet
+  // („Schwarz RAL 9005" ⇒ `schwarz-ral-9005`) und ist danach unveränderlich.
+  {
+    feld: 'bezeichnung',
+    label: 'Bezeichnung',
+    breit: true,
+    hinweis: 'exakter Anzeigetext im Dropdown, z. B. „Verkehrsweiß RAL 9016" — daraus entsteht auch die ID',
+  },
+  {
+    feld: 'preisgruppe',
+    label: 'Abweichende Preisgruppe',
+    optionen: PG_OPTIONEN,
+    hinweis: 'leer lassen ⇒ Preisgruppe der Kategorie (Ausnahme z. B. Wengé)',
+  },
+  {
+    feld: 'freitext',
+    label: 'Freitextfeld öffnen',
+    optionen: JA_NEIN,
+    hinweis: 'für Sonderfarben, bei denen der Berater die genaue Bezeichnung nachträgt',
+  },
+  { feld: 'freitextLabel', label: 'Beschriftung des Freitextfelds', breit: true, hinweis: 'nur wirksam, wenn oben „ja" steht' },
+  { feld: 'sortierung', label: 'Sortierung', mono: true },
+  { feld: 'status', label: 'Status', optionen: STATUS_OPTIONEN },
+  { feld: 'bemerkung', label: 'Bemerkung', breit: true },
+]
+
 interface BeraterZeile {
   m: Mitarbeiter
   filiale: Filiale | undefined
@@ -179,18 +412,36 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
   const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [teileartFilter, setTeileartFilter] = useState<string[]>([])
   const [meldung, setMeldung] = useState<{ art: 'info' | 'fehler'; text: string } | null>(null)
+  /** Aufgeklappte Änderungsliste im Kopf. */
+  const [panelOffen, setPanelOffen] = useState(false)
+  /** Zweite Stufe des uebergeordneten Speicherns im Kopf. */
+  const [speichernBestaetigt, setSpeichernBestaetigt] = useState(false)
+  /** Gruene Erfolgsmeldung des letzten Imports (bis der Benutzer sie ausblendet). */
+  const [importErfolg, setImportErfolg] = useState<string | null>(null)
+  /** Sprungziel im Gitter; `lauf` zählt hoch, damit derselbe Klick erneut wirkt. */
+  const [fokus, setFokus] = useState<{ zeilenId: string; lauf: number } | null>(null)
 
   const [artikelEditor, setArtikelEditor] = useState<{ artikel: Artikel | null; bereich?: 'allgemein' | 'preise' } | null>(null)
   const [beraterEditor, setBeraterEditor] = useState<{ datensatz: Mitarbeiter | null; zugang: ZugangEntwurf } | null>(null)
   const [filialEditor, setFilialEditor] = useState<{ datensatz: Filiale | null } | null>(null)
+  const [kategorieEditor, setKategorieEditor] = useState<{ datensatz: KategorieForm | null } | null>(null)
+  const [oberflaecheEditor, setOberflaecheEditor] = useState<{
+    datensatz: OberflaecheForm | null
+    schluessel: string | null
+    /** Beim Anlegen aus einer Kategoriezeile heraus bereits gewählt. */
+    vorbelegteKategorie?: string
+  } | null>(null)
   const dateiRef = useRef<HTMLInputElement>(null)
 
   const artikelLayout = useSpaltenLayout(ARTIKEL_SPALTEN, 'cramer-planer.grid.artikel.v2')
   const preisLayout = useSpaltenLayout(PREIS_SPALTEN, 'cramer-planer.grid.preise.v2')
   const beraterLayout = useSpaltenLayout(BERATER_SPALTEN, 'cramer-planer.grid.berater.v1')
   const filialLayout = useSpaltenLayout(FILIAL_SPALTEN, 'cramer-planer.grid.filialen.v1')
+  const oberflaechenLayout = useSpaltenLayout(OBERFLAECHEN_SPALTEN, 'cramer-planer.grid.oberflaechen.v1')
 
-  const einEditorOffen = Boolean(artikelEditor || beraterEditor || filialEditor)
+  const einEditorOffen = Boolean(
+    artikelEditor || beraterEditor || filialEditor || kategorieEditor || oberflaecheEditor,
+  )
 
   useEffect(() => {
     if (!open) return
@@ -245,6 +496,54 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
       .map<BeraterZeile>((m) => ({ m, filiale: filialeNach.get(m.filiale) }))
   }, [stand.mitarbeiter, filialeNach, suche, statusFilter])
 
+  /**
+   * Kategorien und ihre Oberflächen zu EINER Liste verflochten. Passt eine Farbe zur
+   * Suche, bleibt ihre Kategoriezeile stehen — sonst stünde die Farbe ohne die Zeile da,
+   * in der ihre Preisgruppe steht.
+   */
+  const gefilterteOberflaechen = useMemo(() => {
+    const begriff = suche.trim().toLowerCase()
+    const passtStatus = (s: string) => !statusFilter.length || statusFilter.includes(s)
+    const zeilen: OberflaechenZeile[] = []
+
+    for (const k of stand.oberflaechenkategorien) {
+      const farben = stand.oberflaechen.filter(
+        (o) =>
+          o.kategorie === k.id &&
+          passtStatus(o.status) &&
+          (!begriff || `${o.id} ${o.bezeichnung} ${o.preisgruppe} ${o.bemerkung}`.toLowerCase().includes(begriff)),
+      )
+      const kategoriePasst =
+        passtStatus(k.status) && (!begriff || `${k.id} ${k.bezeichnung} ${k.preisgruppe}`.toLowerCase().includes(begriff))
+      if (!kategoriePasst && farben.length === 0) continue
+
+      zeilen.push({ art: 'kategorie', schluessel: `kat:${k.id}`, kategorie: k, gruppenwechsel: true })
+      for (const o of farben) {
+        zeilen.push({
+          art: 'oberflaeche',
+          schluessel: `obf:${oberflaecheSchluessel(o)}`,
+          kategorie: k,
+          oberflaeche: o,
+          gruppenwechsel: false,
+        })
+      }
+    }
+
+    // Verwaiste Farben (Kategorie gelöscht) dürfen nicht unsichtbar werden — sonst
+    // stünde in einem Entwurf ein Material, das die Verwaltung gar nicht mehr kennt.
+    const bekannt = new Set(stand.oberflaechenkategorien.map((k) => k.id))
+    for (const o of stand.oberflaechen.filter((x) => !bekannt.has(x.kategorie))) {
+      zeilen.push({
+        art: 'oberflaeche',
+        schluessel: `obf:${oberflaecheSchluessel(o)}`,
+        kategorie: undefined,
+        oberflaeche: o,
+        gruppenwechsel: false,
+      })
+    }
+    return zeilen
+  }, [stand.oberflaechenkategorien, stand.oberflaechen, suche, statusFilter])
+
   const gefilterteFilialen = useMemo(() => {
     const begriff = suche.trim().toLowerCase()
     return stand.filialen.filter(
@@ -252,12 +551,54 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
     )
   }, [stand.filialen, suche])
 
-  const aenderungen = zaehleAenderungen()
+  const aenderungsListe = listeAenderungen()
+  const aenderungen = aenderungsListe.length
+  const ausstehend = aenderungsListe.filter((a) => a.ausstehend).length
+  const importProbleme = getImportProbleme()
+  /** Schnellzugriff je Bereich: hat DIESE Zeile eine Import-Beanstandung? */
+  const problemFuer = (bereich: AenderungsBereich, zeilenId: string): { probleme: string[] } | undefined =>
+    importProbleme.find((p) => p.bereich === bereich && p.zeilenId === zeilenId)
+
+  /**
+   * Zeilenklasse eines Gitters: Import-Beanstandung schlägt die Änderungsmarke, weil sie
+   * eine Aufforderung ist und nicht nur ein Hinweis.
+   */
+  function zeilenKlasseFuer(bereich: AenderungsBereich, zeilenId: string, geaendert: boolean) {
+    if (problemFuer(bereich, zeilenId)) return styles.zeileImportfehler
+    return geaendert ? styles.zeileGeaendert : undefined
+  }
+
+  /**
+   * Springt aus der Änderungsliste in die betroffene Zeile: Reiter wechseln, Filter
+   * räumen (sonst hätte die Zeile die Suche womöglich gar nicht überstanden) und die
+   * Zeilen-ID an das Gitter geben. Der Zähler im Schlüssel erzwingt, dass auch ein
+   * zweiter Klick auf dieselbe Zeile wieder scrollt.
+   */
+  function springeZu(aenderung: { bereich: AenderungsBereich; zeilenId: string }) {
+    setBereich(aenderung.bereich)
+    setSuche('')
+    setSerienFilter([])
+    setGruppenFilter([])
+    setStatusFilter([])
+    setTeileartFilter([])
+    setFokus((f) => ({ zeilenId: aenderung.zeilenId, lauf: (f?.lauf ?? 0) + 1 }))
+    setPanelOffen(false)
+  }
   const aktiveFilter = serienFilter.length + gruppenFilter.length + statusFilter.length + teileartFilter.length
   const istArtikelBereich = bereich === 'artikel' || bereich === 'preise'
 
   // --- Aktionen ---------------------------------------------------------------------
 
+  /**
+   * Die Gitter kennen KEINE Löschen-Aktion mehr.
+   *
+   * Stammdaten werden nicht entfernt, sondern auf `gesperrt` gesetzt: Ein gelöschter
+   * Artikel nimmt seine Preiszeilen mit und reißt in jedem bereits gespeicherten Angebot,
+   * das ihn referenziert, ein Loch — rückgängig machen lässt sich das nur über
+   * „Zurücksetzen", also durch Verwerfen aller Änderungen. „Gesperrt" erreicht dasselbe
+   * (der Datensatz verschwindet aus dem Konfigurator), bleibt aber nachvollziehbar und
+   * jederzeit umkehrbar. Den Status setzt der jeweilige Editor.
+   */
   const artikelAktionen: ZeilenAktion<Artikel>[] = [
     { id: 'edit', titel: 'Bearbeiten', symbol: '✎', ausfuehren: (a) => setArtikelEditor({ artikel: a }) },
     {
@@ -275,68 +616,65 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
         setArtikelEditor({ artikel: kopie })
       },
     },
-    {
-      id: 'del',
-      titel: 'Löschen',
-      symbol: '🗑',
-      gefahr: true,
-      ausfuehren: (a) => {
-        const zeilen = stand.preise.filter((p) => p.artikel === a.artikelnummer).length
-        const ok = window.confirm(
-          `„${a.bezeichnung}" (${a.artikelnummer}) löschen?` +
-            (zeilen > 0 ? `\n\n${zeilen} zugehörige Preiszeile(n) werden mit entfernt — ohne Artikel wären sie nicht auffindbar.` : ''),
-        )
-        if (ok) loescheArtikel(a.artikelnummer)
-      },
-    },
   ]
 
   const preisAktionen: ZeilenAktion<PreisZeileMitKontext>[] = [
     { id: 'edit', titel: 'Artikel bearbeiten', symbol: '✎', ausfuehren: (r) => r.artikel && setArtikelEditor({ artikel: r.artikel, bereich: 'preise' }) },
-    {
-      id: 'del',
-      titel: 'Preiszeile löschen',
-      symbol: '🗑',
-      gefahr: true,
-      ausfuehren: (r) => {
-        const achsen = r.zeile.a.filter(Boolean).join(' · ') || 'ohne Achsenwerte'
-        if (window.confirm(`Preiszeile ${r.zeile.artikel} (${achsen}) löschen?`)) {
-          loeschePreiszeile(preisSchluessel(r.zeile))
-        }
-      },
-    },
   ]
 
   const beraterAktionen: ZeilenAktion<BeraterZeile>[] = [
     { id: 'edit', titel: 'Bearbeiten', symbol: '✎', ausfuehren: (r) => setBeraterEditor({ datensatz: r.m, zugang: LEERER_ZUGANG }) },
+  ]
+
+  // --- Oberflächen: Datensatz ⇄ Formular -------------------------------------------
+
+  const alsKategorieForm = (k: Oberflaechenkategorie): KategorieForm => ({
+    id: k.id,
+    bezeichnung: k.bezeichnung,
+    preisgruppe: k.preisgruppe,
+    standardauswahl: k.standardauswahl ? 'ja' : 'nein',
+    sortierung: String(k.sortierung),
+    status: k.status,
+    bemerkung: k.bemerkung,
+  })
+
+  const alsOberflaecheForm = (o: Oberflaeche): OberflaecheForm => ({
+    id: o.id,
+    kategorie: o.kategorie,
+    bezeichnung: o.bezeichnung,
+    preisgruppe: o.preisgruppe,
+    freitext: o.freitext ? 'ja' : 'nein',
+    freitextLabel: o.freitextLabel,
+    sortierung: String(o.sortierung),
+    status: o.status,
+    bemerkung: o.bemerkung,
+  })
+
+  function oeffneOberflaeche(zeile: OberflaechenZeile) {
+    if (zeile.art === 'kategorie') {
+      if (zeile.kategorie) setKategorieEditor({ datensatz: alsKategorieForm(zeile.kategorie) })
+      return
+    }
+    if (!zeile.oberflaeche) return
+    setOberflaecheEditor({
+      datensatz: alsOberflaecheForm(zeile.oberflaeche),
+      schluessel: oberflaecheSchluessel(zeile.oberflaeche),
+    })
+  }
+
+  const oberflaechenAktionen: ZeilenAktion<OberflaechenZeile>[] = [
+    { id: 'edit', titel: 'Bearbeiten', symbol: '✎', ausfuehren: oeffneOberflaeche },
     {
-      id: 'del',
-      titel: 'Löschen',
-      symbol: '🗑',
-      gefahr: true,
-      ausfuehren: (r) => {
-        if (!window.confirm(`Mitarbeiter „${r.m.name}" (${r.m.personalnr}) löschen?`)) return
-        loescheMitarbeiter(r.m.personalnr)
-        // Zugang mit entfernen — sonst erbt eine später neu vergebene Personalnummer
-        // stillschweigend das alte Passwort.
-        entferneZugang(r.m.personalnr)
-      },
+      id: 'neu',
+      titel: 'Oberfläche in dieser Kategorie anlegen',
+      symbol: '＋',
+      ausfuehren: (r) =>
+        setOberflaecheEditor({ datensatz: null, schluessel: null, vorbelegteKategorie: r.kategorie?.id }),
     },
   ]
 
   const filialAktionen: ZeilenAktion<Filiale>[] = [
     { id: 'edit', titel: 'Bearbeiten', symbol: '✎', ausfuehren: (f) => setFilialEditor({ datensatz: f }) },
-    {
-      id: 'del',
-      titel: 'Löschen',
-      symbol: '🗑',
-      gefahr: true,
-      ausfuehren: (f) => {
-        if (!window.confirm(`Filiale „${f.name}" (${f.filialnr}) löschen?`)) return
-        const problem = loescheFiliale(f.filialnr)
-        if (problem) setMeldung({ art: 'fehler', text: problem })
-      },
-    },
   ]
 
   function handleExport() {
@@ -345,22 +683,40 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
       preise: bereich === 'preise' ? gefiltertePreise.map((r) => r.zeile) : stand.preise,
       mitarbeiter: stand.mitarbeiter,
       filialen: stand.filialen,
+      oberflaechenkategorien: stand.oberflaechenkategorien,
+      oberflaechen: stand.oberflaechen,
     })
-    setMeldung({ art: 'info', text: `${name} heruntergeladen — vier Blätter, Spaltennamen wie in der Mappe.` })
+    setMeldung({ art: 'info', text: `${name} heruntergeladen — ein Blatt je Reiter, Spaltennamen wie in der Verwaltung.` })
   }
 
+  /**
+   * Excel einlesen — ohne Abbruch.
+   *
+   * Erfolg und Beanstandung werden getrennt gemeldet: Das grüne Banner sagt, was
+   * angekommen ist, das gelbe, was nachgearbeitet werden muss. Beides steht nebeneinander,
+   * weil ein Import in aller Regel beides enthält.
+   */
   async function handleImport(datei: File) {
     try {
       const ergebnis = await importiereXlsx(datei)
-      const { uebernommen, bereiche } = uebernehmeImport(ergebnis)
-      const text = uebernommen
-        ? `${bereiche.join(' · ')} übernommen.`
-        : 'Nichts übernommen — keine bekannten Blattnamen gefunden.'
-      setMeldung({
-        art: ergebnis.meldungen.length ? 'fehler' : 'info',
-        text: [text, ...ergebnis.meldungen].join(' '),
-      })
+      const { uebernommen, neu, geaendert, bereiche } = uebernehmeImport(ergebnis)
+      if (!uebernommen) {
+        setImportErfolg(null)
+        setMeldung({
+          art: 'fehler',
+          text: ['Nichts übernommen — keine bekannten Blattnamen gefunden.', ...ergebnis.meldungen].join(' '),
+        })
+        return
+      }
+      setImportErfolg(
+        `${neu} neue Datensätze hinzugefügt · ${geaendert} aktualisiert — gelesen: ${bereiche.join(' · ')}.`,
+      )
+      setMeldung(
+        ergebnis.meldungen.length ? { art: 'fehler', text: ergebnis.meldungen.join(' ') } : null,
+      )
+      setPanelOffen(false)
     } catch (err) {
+      setImportErfolg(null)
       setMeldung({ art: 'fehler', text: `Import fehlgeschlagen: ${(err as Error).message}` })
     }
   }
@@ -379,7 +735,18 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
             {formatGanzzahl(stand.artikel.length)} Artikel · {formatGanzzahl(stand.preise.length)} Preiszeilen ·{' '}
             {stand.mitarbeiter.length} Mitarbeiter · {stand.filialen.length} Filialen
           </span>
-          {aenderungen > 0 ? <span className={styles.dirtyBadge}>{aenderungen} geändert</span> : null}
+          {aenderungen > 0 ? (
+            <button
+              type="button"
+              className={styles.dirtyBadge}
+              aria-expanded={panelOffen}
+              title="Änderungen im Detail anzeigen"
+              onClick={() => setPanelOffen((o) => !o)}
+            >
+              {ausstehend > 0 ? `${ausstehend} Änderungen ausstehend` : `${aenderungen} gespeichert`}{' '}
+              <span aria-hidden="true">{panelOffen ? '▴' : '▾'}</span>
+            </button>
+          ) : null}
           <span className={styles.spacer} />
 
           <input
@@ -413,6 +780,35 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               Zurücksetzen
             </button>
           ) : null}
+
+          {/*
+            Der übergeordnete Speichern-Knopf — bewusst zwischen „Zurücksetzen" und dem
+            Schließen-Kreuz. Er ist die EINZIGE Stelle mit Rückfrage: die Editoren übernehmen
+            nur in den Bearbeitungsstand, hier wird alles über alle Reiter hinweg verbindlich.
+          */}
+          {ausstehend > 0 ? (
+            <button
+              type="button"
+              className={[styles.topbarButton, styles.topbarSpeichern].join(' ')}
+              onClick={() => {
+                if (!speichernBestaetigt) {
+                  setSpeichernBestaetigt(true)
+                  return
+                }
+                const anzahl = speichereAlleAenderungen()
+                setSpeichernBestaetigt(false)
+                setMeldung({
+                  art: 'info',
+                  text: `${anzahl} Änderung(en) gespeichert — sie gelten jetzt im Konfigurator und in der Kalkulation.`,
+                })
+              }}
+              onBlur={() => setSpeichernBestaetigt(false)}
+              title="Alle gesammelten Änderungen aller Reiter verbindlich übernehmen"
+            >
+              {speichernBestaetigt ? 'Wirklich speichern?' : `Speichern (${ausstehend})`}
+            </button>
+          ) : null}
+
           <button type="button" className={styles.schliessen} onClick={onClose} aria-label="Schließen">
             ✕
           </button>
@@ -423,6 +819,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
             [
               ['artikel', 'Artikelstamm', stand.artikel.length],
               ['preise', 'Preisblatt & Achsen', stand.preise.length],
+              ['oberflaechen', 'Oberflächen', stand.oberflaechen.length],
               ['berater', 'Berater', stand.mitarbeiter.length],
               ['filialen', 'Filialen', stand.filialen.length],
               ['handbuch', 'Handbuch', null],
@@ -523,6 +920,9 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
             {bereich === 'filialen' ? (
               <SpaltenMenue spalten={filialLayout.alle} versteckt={filialLayout.layout.versteckt} onToggle={filialLayout.toggleSpalte} onAlleZeigen={filialLayout.alleZeigen} onZuruecksetzen={filialLayout.zuruecksetzen} />
             ) : null}
+            {bereich === 'oberflaechen' ? (
+              <SpaltenMenue spalten={oberflaechenLayout.alle} versteckt={oberflaechenLayout.layout.versteckt} onToggle={oberflaechenLayout.toggleSpalte} onAlleZeigen={oberflaechenLayout.alleZeigen} onZuruecksetzen={oberflaechenLayout.zuruecksetzen} />
+            ) : null}
 
             {bereich === 'artikel' ? (
               <button type="button" className={styles.primaer} onClick={() => setArtikelEditor({ artikel: null })}>
@@ -539,7 +939,93 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
                 + Neue Filiale
               </button>
             ) : null}
+            {bereich === 'oberflaechen' ? (
+              <>
+                <button type="button" className={styles.topbarButton} onClick={() => setKategorieEditor({ datensatz: null })}>
+                  + Neue Kategorie
+                </button>
+                <button
+                  type="button"
+                  className={styles.primaer}
+                  onClick={() => setOberflaecheEditor({ datensatz: null, schluessel: null })}
+                >
+                  + Neue Oberfläche
+                </button>
+              </>
+            ) : null}
           </div>
+        ) : null}
+
+        {importErfolg ? (
+          <div className={styles.importErfolg} role="status">
+            <span aria-hidden="true">✓</span>
+            <span>{importErfolg}</span>
+            <button type="button" className={styles.aenderungZu} onClick={() => setImportErfolg(null)}>
+              ausblenden
+            </button>
+          </div>
+        ) : null}
+
+        {importProbleme.length > 0 ? (
+          <div className={styles.importWarnung} role="alert">
+            <span aria-hidden="true">⚠</span>
+            <span>
+              {importProbleme.length} fehlerhafte/unvollständige Einträge importiert — bitte prüfen. Die
+              betroffenen Zeilen sind im Gitter markiert; per Doppelklick nacharbeiten.
+            </span>
+            <button
+              type="button"
+              className={styles.aenderungZu}
+              onClick={() => springeZu(importProbleme[0])}
+            >
+              → zum ersten Eintrag
+            </button>
+          </div>
+        ) : null}
+
+        {panelOffen && aenderungen > 0 ? (
+          <section className={styles.aenderungsPanel} aria-label="Geänderte Datensätze">
+            <header className={styles.aenderungsKopf}>
+              <span>
+                {aenderungen} Abweichung(en) vom Grundstand <code>Cramer-Stammdaten.xlsx</code>
+              </span>
+              <button type="button" className={styles.aenderungZu} onClick={() => setPanelOffen(false)}>
+                Zuklappen
+              </button>
+            </header>
+            <ul className={styles.aenderungsListe}>
+              {aenderungsListe.map((a, index) => (
+                <li key={`${a.bereich}-${a.zeilenId}-${index}`} className={styles.aenderung}>
+                  <div className={styles.aenderungKopf}>
+                    <span className={j(styles.aenderungArt, styles[`art_${a.art}`])}>
+                      {a.art === 'neu' ? 'neu' : a.art === 'geloescht' ? 'gelöscht' : 'geändert'}
+                    </span>
+                    <span className={styles.aenderungBereich}>{BEREICH_TITEL[a.bereich]}</span>
+                    <span className={styles.aenderungTitel}>{a.titel}</span>
+                    {a.ausstehend ? (
+                      <span
+                        className={styles.aenderungAusstehend}
+                        title="Noch nicht über den Speichern-Knopf im Kopf bestätigt"
+                      >
+                        ausstehend
+                      </span>
+                    ) : null}
+                    <span className={styles.spacer} />
+                    <button type="button" className={styles.aenderungSprung} onClick={() => springeZu(a)}>
+                      → zur Änderung
+                    </button>
+                  </div>
+                  {a.felder.length ? (
+                    <ul className={styles.aenderungFelder}>
+                      {a.felder.map((f) => (
+                        <li key={f}>{f}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </section>
         ) : null}
 
         {meldung ? (
@@ -557,6 +1043,8 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               spalten={artikelLayout.sichtbar}
               breiten={artikelLayout.layout.breiten}
               onBreite={artikelLayout.setBreite}
+              fokusZeile={fokus?.zeilenId}
+              fokusLauf={fokus?.lauf}
               onVersteckeSpalte={artikelLayout.versteckeSpalte}
               zeilen={gefilterteArtikel}
               zeilenId={(a) => a.artikelnummer}
@@ -566,7 +1054,10 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               leerText="Kein Artikel passt zur Filterung."
               zeilenKlasse={(a) =>
                 j(
-                  istArtikelGeaendert(a.artikelnummer) && styles.zeileGeaendert,
+                  problemFuer('artikel', a.artikelnummer) && styles.zeileImportfehler,
+                  !problemFuer('artikel', a.artikelnummer) &&
+                    istArtikelGeaendert(a.artikelnummer) &&
+                    styles.zeileGeaendert,
                   a.status === 'gesperrt' && styles.zeileGesperrt,
                   a.status === 'entwurf' && styles.zeileEntwurf,
                 )
@@ -579,6 +1070,8 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               spalten={preisLayout.sichtbar}
               breiten={preisLayout.layout.breiten}
               onBreite={preisLayout.setBreite}
+              fokusZeile={fokus?.zeilenId}
+              fokusLauf={fokus?.lauf}
               onVersteckeSpalte={preisLayout.versteckeSpalte}
               zeilen={gefiltertePreise}
               zeilenId={(r) => preisSchluessel(r.zeile)}
@@ -586,7 +1079,9 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               aktionen={preisAktionen}
               maxZeilen={MAX_ZEILEN}
               leerText="Keine Preiszeile passt zur Filterung."
-              zeilenKlasse={(r) => (istPreisGeaendert(preisSchluessel(r.zeile)) ? styles.zeileGeaendert : undefined)}
+              zeilenKlasse={(r) =>
+                zeilenKlasseFuer('preise', preisSchluessel(r.zeile), istPreisGeaendert(preisSchluessel(r.zeile)))
+              }
               gruppenKopf={(r) =>
                 r.gruppenwechsel ? (
                   <span className={styles.gruppe}>
@@ -614,18 +1109,52 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
             />
           ) : null}
 
+          {bereich === 'oberflaechen' ? (
+            <DataGrid
+              spalten={oberflaechenLayout.sichtbar}
+              breiten={oberflaechenLayout.layout.breiten}
+              onBreite={oberflaechenLayout.setBreite}
+              fokusZeile={fokus?.zeilenId}
+              fokusLauf={fokus?.lauf}
+              onVersteckeSpalte={oberflaechenLayout.versteckeSpalte}
+              zeilen={gefilterteOberflaechen}
+              zeilenId={(r) => r.schluessel}
+              onOeffnen={oeffneOberflaeche}
+              aktionen={oberflaechenAktionen}
+              maxZeilen={MAX_ZEILEN}
+              leerText="Keine Oberfläche passt zur Filterung."
+              zeilenKlasse={(r) =>
+                j(
+                  problemFuer('oberflaechen', r.schluessel) && styles.zeileImportfehler,
+                  r.art === 'kategorie' && styles.zeileEntwurf,
+                  r.art === 'kategorie' && r.kategorie && istKategorieGeaendert(r.kategorie.id) && styles.zeileGeaendert,
+                  r.art === 'oberflaeche' &&
+                    r.oberflaeche &&
+                    istOberflaecheGeaendert(oberflaecheSchluessel(r.oberflaeche)) &&
+                    styles.zeileGeaendert,
+                  (r.art === 'kategorie' ? r.kategorie?.status : r.oberflaeche?.status) === 'gesperrt' &&
+                    styles.zeileGesperrt,
+                )
+              }
+            />
+          ) : null}
+
           {bereich === 'berater' ? (
             <DataGrid
               spalten={beraterLayout.sichtbar}
               breiten={beraterLayout.layout.breiten}
               onBreite={beraterLayout.setBreite}
+              fokusZeile={fokus?.zeilenId}
+              fokusLauf={fokus?.lauf}
               onVersteckeSpalte={beraterLayout.versteckeSpalte}
               zeilen={gefilterteBerater}
               zeilenId={(r) => r.m.personalnr}
               onOeffnen={(r) => setBeraterEditor({ datensatz: r.m, zugang: LEERER_ZUGANG })}
               aktionen={beraterAktionen}
               leerText="Kein Mitarbeiter passt zur Filterung."
-              zeilenKlasse={(r) => (istMitarbeiterGeaendert(r.m.personalnr) ? styles.zeileGeaendert : undefined)}
+              zeilenKlasse={(r) =>
+                zeilenKlasseFuer('berater', r.m.personalnr, istMitarbeiterGeaendert(r.m.personalnr))
+              }
             />
           ) : null}
 
@@ -634,13 +1163,15 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               spalten={filialLayout.sichtbar}
               breiten={filialLayout.layout.breiten}
               onBreite={filialLayout.setBreite}
+              fokusZeile={fokus?.zeilenId}
+              fokusLauf={fokus?.lauf}
               onVersteckeSpalte={filialLayout.versteckeSpalte}
               zeilen={gefilterteFilialen}
               zeilenId={(f) => f.filialnr}
               onOeffnen={(f) => setFilialEditor({ datensatz: f })}
               aktionen={filialAktionen}
               leerText="Keine Filiale passt zur Suche."
-              zeilenKlasse={(f) => (istFilialeGeaendert(f.filialnr) ? styles.zeileGeaendert : undefined)}
+              zeilenKlasse={(f) => zeilenKlasseFuer('filialen', f.filialnr, istFilialeGeaendert(f.filialnr))}
             />
           ) : null}
 
@@ -655,6 +1186,9 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
           <span className={styles.statusRechts}>
             {bereich === 'artikel' ? `${formatGanzzahl(gefilterteArtikel.length)} von ${formatGanzzahl(stand.artikel.length)} Artikeln` : null}
             {bereich === 'preise' ? `${formatGanzzahl(gefiltertePreise.length)} von ${formatGanzzahl(stand.preise.length)} Preiszeilen` : null}
+            {bereich === 'oberflaechen'
+              ? `${stand.oberflaechenkategorien.length} Kategorien · ${formatGanzzahl(stand.oberflaechen.length)} Oberflächen`
+              : null}
             {bereich === 'berater' ? `${gefilterteBerater.length} von ${stand.mitarbeiter.length} Mitarbeitern` : null}
             {bereich === 'filialen' ? `${gefilterteFilialen.length} von ${stand.filialen.length} Filialen` : null}
             {bereich === 'handbuch' ? 'Pflegeregeln und Nummernsystematik' : null}
@@ -667,7 +1201,10 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
           artikel={artikelEditor.artikel}
           preiszeilen={artikelEditor.artikel ? stand.preise.filter((p) => p.artikel === artikelEditor.artikel!.artikelnummer) : []}
           startBereich={artikelEditor.bereich}
-          onClose={() => setArtikelEditor(null)}
+          onClose={() => {
+            if (artikelEditor.artikel) pruefeImportMarke('artikel', artikelEditor.artikel.artikelnummer)
+            setArtikelEditor(null)
+          }}
         />
       ) : null}
 
@@ -704,9 +1241,94 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
 
             if (zugang.entziehen) entferneZugang(entwurf.personalnr)
             else if (zugang.neuesPasswort) await setzeZugang(entwurf.personalnr, zugang.neuesPasswort)
+            pruefeImportMarke('berater', entwurf.personalnr)
             return null
           }}
           onClose={() => setBeraterEditor(null)}
+        />
+      ) : null}
+
+      {kategorieEditor ? (
+        <DatensatzModal<KategorieForm>
+          titel={kategorieEditor.datensatz ? kategorieEditor.datensatz.bezeichnung : 'Oberflächenkategorie'}
+          datensatz={kategorieEditor.datensatz}
+          leerwert={() => ({
+            id: '',
+            bezeichnung: '',
+            preisgruppe: '',
+            standardauswahl: 'ja',
+            sortierung: String(naechsteSortierung()),
+            status: 'aktiv',
+            bemerkung: '',
+          })}
+          untertitel={(e) =>
+            `${e.id || idVorschlag(e.bezeichnung) || 'neue ID'} · ${pgText(e.preisgruppe as PreisgruppenFeld)}`
+          }
+          felder={KATEGORIE_FELDER}
+          onSpeichern={(entwurf, anlegen) => {
+            const datensatz: Oberflaechenkategorie = {
+              // Beim Anlegen darf die ID leer bleiben — dann wird sie aus der Bezeichnung
+              // gebildet, damit niemand von Hand „raeuchereiche-geoelt" tippen muss.
+              id: (entwurf.id.trim() || idVorschlag(entwurf.bezeichnung)).toLowerCase(),
+              bezeichnung: entwurf.bezeichnung.trim(),
+              preisgruppe: entwurf.preisgruppe as PreisgruppenFeld,
+              standardauswahl: entwurf.standardauswahl === 'ja',
+              sortierung: zahl(entwurf.sortierung, naechsteSortierung()),
+              status: entwurf.status === 'gesperrt' ? 'gesperrt' : 'aktiv',
+              bemerkung: entwurf.bemerkung,
+            }
+            if (anlegen) return legeKategorieAn(datensatz)
+            aendereKategorie(datensatz.id, datensatz)
+            pruefeImportMarke('oberflaechen', `kat:${datensatz.id}`)
+            return null
+          }}
+          onClose={() => setKategorieEditor(null)}
+        />
+      ) : null}
+
+      {oberflaecheEditor ? (
+        <DatensatzModal<OberflaecheForm>
+          titel={oberflaecheEditor.datensatz ? oberflaecheEditor.datensatz.bezeichnung : 'Oberfläche'}
+          datensatz={oberflaecheEditor.datensatz}
+          leerwert={() => {
+            const kategorie =
+              oberflaecheEditor.vorbelegteKategorie ?? stand.oberflaechenkategorien[0]?.id ?? ''
+            return {
+              id: '',
+              kategorie,
+              bezeichnung: '',
+              preisgruppe: '',
+              freitext: 'nein',
+              freitextLabel: '',
+              sortierung: String(naechsteSortierung(kategorie)),
+              status: 'aktiv',
+              bemerkung: '',
+            }
+          }}
+          untertitel={(e) => {
+            const k = stand.oberflaechenkategorien.find((x) => x.id === e.kategorie)
+            const wirksam = (e.preisgruppe || k?.preisgruppe || '') as PreisgruppenFeld
+            return `${k?.bezeichnung ?? 'ohne Kategorie'} · ${e.id || idVorschlag(e.bezeichnung) || 'neue ID'} · ${pgText(wirksam)}`
+          }}
+          felder={OBERFLAECHE_FELDER(stand.oberflaechenkategorien)}
+          onSpeichern={(entwurf, anlegen) => {
+            const datensatz: Oberflaeche = {
+              id: (entwurf.id.trim() || idVorschlag(entwurf.bezeichnung)).toLowerCase(),
+              kategorie: entwurf.kategorie,
+              bezeichnung: entwurf.bezeichnung.trim(),
+              preisgruppe: entwurf.preisgruppe as PreisgruppenFeld,
+              freitext: entwurf.freitext === 'ja',
+              freitextLabel: entwurf.freitextLabel.trim(),
+              sortierung: zahl(entwurf.sortierung, naechsteSortierung(entwurf.kategorie)),
+              status: entwurf.status === 'gesperrt' ? 'gesperrt' : 'aktiv',
+              bemerkung: entwurf.bemerkung,
+            }
+            if (anlegen) return legeOberflaecheAn(datensatz)
+            aendereOberflaeche(oberflaecheEditor.schluessel ?? oberflaecheSchluessel(datensatz), datensatz)
+            pruefeImportMarke('oberflaechen', `obf:${oberflaecheSchluessel(datensatz)}`)
+            return null
+          }}
+          onClose={() => setOberflaecheEditor(null)}
         />
       ) : null}
 
@@ -720,6 +1342,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
           onSpeichern={(entwurf, anlegen) => {
             if (anlegen) return legeFilialeAn(entwurf)
             aendereFiliale(entwurf.filialnr, entwurf)
+            pruefeImportMarke('filialen', entwurf.filialnr)
             return null
           }}
           onClose={() => setFilialEditor(null)}

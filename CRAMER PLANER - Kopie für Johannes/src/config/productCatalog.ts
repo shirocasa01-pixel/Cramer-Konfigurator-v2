@@ -44,6 +44,18 @@ export interface ProductSeries {
    * Aktuell nur Refugium.
    */
   korpusRaster?: boolean
+  /**
+   * Serien-Filtering: `false` blendet den Umschalter „Außenkorpus komplett / getrennt"
+   * aus und erzwingt „komplett".
+   *
+   * Hintergrund (Rückmeldung „Überarbeitung 2", S. 4): Bei Refugium ist die
+   * Abdeckplatte ohnehin ausgeblendet, und die sichtbaren Außenseiten sind die
+   * Abschlusssets — deren Material wird seit derselben Rückmeldung separat und bei
+   * Bedarf links/rechts getrennt abgefragt. Der Umschalter hätte dort keine Wirkung
+   * mehr. Bei Atrium, Velare und Publicum existiert die Abdeckplatte und der
+   * Außenkorpus ist sichtbar; dort trägt die Unterscheidung weiterhin.
+   */
+  hasAussenkorpusModus?: boolean
 }
 
 export interface ProductGroup {
@@ -68,6 +80,7 @@ const SERIEN_UI_REGELN: Record<string, Omit<ProductSeries, 'id' | 'name'>> = {
     hasAbdeckplatte: false,
     hasSichtRueckwand: false,
     korpusRaster: true,
+    hasAussenkorpusModus: false,
   },
 }
 

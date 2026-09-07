@@ -47,10 +47,34 @@ export function describeHandleConfig(element: FrontElement): string {
   if (element.pto) parts.push('PTO (Push-to-Open)')
   if (element.griff) {
     const handle = getHandle(element.griffId)
-    const farbe = element.griffFarbe?.trim()
-    parts.push(`Griff${handle ? ` ${handle.label}` : ''}${farbe ? ` · Farbe: ${farbe}` : ''}`)
+    const details = element.griffFarbe?.trim()
+    parts.push(`Griff${handle ? ` ${handle.label}` : ''}${details ? ` · Griffdetails: ${details}` : ''}`)
   }
   if (element.laufschienenfarbe?.trim()) parts.push(`Laufschiene: ${element.laufschienenfarbe.trim()}`)
   if (element.griffProfil) parts.push(`Griffprofil: ${element.griffProfil === 'edge' ? 'Edge' : 'Curve'}`)
+  return parts.join(' · ')
+}
+
+/** Anzeigetext der drei Türhöhen-Optionen (Überarbeitung 3). */
+const HOEHE_MODUS_LABEL: Record<NonNullable<FrontElement['hoeheModus']>, string> = {
+  korpusoberkante: 'Höhe bis Korpusoberkante',
+  raster: 'Höhe in Rastern',
+  cm: 'Höhe in cm',
+}
+
+/**
+ * Türanschlag und Art der Höhenangabe als Klartext (Überarbeitung 3). Beides sind
+ * Fertigungsangaben, die im AV-PDF und in der Zusammenfassung stehen müssen — der
+ * blanke Zentimeterwert verrät nicht, ob die Tür bis zur Korpusoberkante läuft.
+ */
+export function describeFrontExtras(element: FrontElement): string {
+  const parts: string[] = []
+  if (element.tuerAnschlag) parts.push(`Türanschlag: ${element.tuerAnschlag}`)
+  if (element.hoeheModus) {
+    const raster = element.hoeheModus === 'raster' && element.hoeheRaster?.trim()
+    parts.push(HOEHE_MODUS_LABEL[element.hoeheModus] + (raster ? ` (${element.hoeheRaster} Raster)` : ''))
+  }
+  if (element.lineAufkantungGleich === false) parts.push('Frontscheibe und Aufkantung unterschiedlich')
+  else if (element.lineAufkantungGleich === true) parts.push('Frontscheibe und Aufkantung gleich')
   return parts.join(' · ')
 }
