@@ -13,3 +13,7 @@ dist-ssr
 
 .vercel
 .env*
+
+# Die Vorlage OHNE Werte gehoert bewusst ins Repo (die .env* Regeln oben
+# schliessen sie sonst mit aus).
+!.env.example
