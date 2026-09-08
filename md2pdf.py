@@ -580,7 +580,7 @@ def titelseite():
         return [Paragraph(sicher(k), st_metak), Paragraph(inline(v), st_meta)]
 
     tab = Table(
-        [metazeile("QUELLE", "Quellcode `CRAMER PLANER - Kopie für Johannes`, "
+        [metazeile("QUELLE", "Quellcode `app`, "
                              "`Cramer-Stammdaten.xlsx`, `ARTIKELNUMMER-LOGIK.md`"),
          metazeile("DATENSTAND", "190 Artikel · 1.509 Preiszeilen · 9 Serien · Preisliste 06.2026"),
          metazeile("ZIELGRUPPE", "Projektteam, Vertrieb, Geschäftsführung, Kunde – "

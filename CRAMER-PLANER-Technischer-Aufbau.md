@@ -3,7 +3,7 @@
 **Zweck dieses Dokuments:** Projektteam, Vertrieb und Geschäftsführung sollen Rückfragen des
 Kunden zum technischen Aufbau selbst beantworten können — ohne Programmierkenntnisse.
 
-**Stand der Analyse:** Quellcode-Ordner `CRAMER PLANER - Kopie für Johannes`, Stammdatenmappe
+**Stand der Analyse:** Quellcode-Ordner `app`, Stammdatenmappe
 `Cramer-Stammdaten.xlsx` (190 Artikel · 1.509 Preiszeilen) und `ARTIKELNUMMER-LOGIK.md`.
 
 **Grundregel für dieses Dokument:** Es wird ausschließlich beschrieben, was tatsächlich im Code

@@ -5,7 +5,7 @@
       "name": "cramer-planer",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "CRAMER PLANER - Kopie für Johannes",
+      "cwd": "app",
       "port": 5173
     }
   ]
