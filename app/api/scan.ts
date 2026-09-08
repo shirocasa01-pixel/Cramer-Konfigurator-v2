@@ -30,6 +30,14 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
+/**
+ * Vercel fuehrt `api/*.ts` sonst als Node-Function aus, die `(req, res)` erwartet.
+ * Dieser Handler ist gegen die Web-API geschrieben (`Request` rein, `Response` raus) —
+ * ohne diese Zeile wird der zurueckgegebene Response ignoriert, die Function antwortet
+ * nie und Vercel liefert HTTP 500.
+ */
+export const config = { runtime: 'edge' }
+
 export default async function handler(req: Request): Promise<Response> {
   const url = new URL(req.url)
 
