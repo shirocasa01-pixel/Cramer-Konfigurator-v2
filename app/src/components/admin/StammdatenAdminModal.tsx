@@ -47,6 +47,7 @@ import { entferneZugang, getZugang, hatZugang, setzeZugang } from '../../lib/zug
 import { ArtikelDetailModal } from './ArtikelDetailModal'
 import { BeraterZugang, LEERER_ZUGANG, pruefeZugangEntwurf, type ZugangEntwurf } from './BeraterZugang'
 import { DataGrid, SpaltenMenue, useSpaltenLayout, type SpaltenDef, type ZeilenAktion } from './DataGrid'
+import { AenderungenModal } from './AenderungenModal.tsx'
 import { DatensatzModal, type FeldDef } from './DatensatzModal'
 import { Handbuch } from './Handbuch'
 import { MehrfachFilter } from './MehrfachFilter'
@@ -413,7 +414,8 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
   const [teileartFilter, setTeileartFilter] = useState<string[]>([])
   const [meldung, setMeldung] = useState<{ art: 'info' | 'fehler'; text: string } | null>(null)
   /** Aufgeklappte Änderungsliste im Kopf. */
-  const [panelOffen, setPanelOffen] = useState(false)
+  /** Vorschau-Fenster „Änderungen" (frueher ein Panel ueber den Tabellen). */
+  const [aenderungenOffen, setAenderungenOffen] = useState(false)
   /** Zweite Stufe des uebergeordneten Speicherns im Kopf. */
   const [speichernBestaetigt, setSpeichernBestaetigt] = useState(false)
   /** Gruene Erfolgsmeldung des letzten Imports (bis der Benutzer sie ausblendet). */
@@ -582,7 +584,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
     setStatusFilter([])
     setTeileartFilter([])
     setFokus((f) => ({ zeilenId: aenderung.zeilenId, lauf: (f?.lauf ?? 0) + 1 }))
-    setPanelOffen(false)
+    setAenderungenOffen(false)
   }
   const aktiveFilter = serienFilter.length + gruppenFilter.length + statusFilter.length + teileartFilter.length
   const istArtikelBereich = bereich === 'artikel' || bereich === 'preise'
@@ -714,7 +716,9 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
       setMeldung(
         ergebnis.meldungen.length ? { art: 'fehler', text: ergebnis.meldungen.join(' ') } : null,
       )
-      setPanelOffen(false)
+      // Nach einem Import zaehlt zuerst das Ergebnis-Banner; ein offenes
+      // Änderungs-Fenster wuerde es verdecken.
+      setAenderungenOffen(false)
     } catch (err) {
       setImportErfolg(null)
       setMeldung({ art: 'fehler', text: `Import fehlgeschlagen: ${(err as Error).message}` })
@@ -739,12 +743,16 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
             <button
               type="button"
               className={styles.dirtyBadge}
-              aria-expanded={panelOffen}
+              aria-haspopup="dialog"
               title="Änderungen im Detail anzeigen"
-              onClick={() => setPanelOffen((o) => !o)}
+              onClick={() => setAenderungenOffen(true)}
             >
-              {ausstehend > 0 ? `${ausstehend} Änderungen ausstehend` : `${aenderungen} gespeichert`}{' '}
-              <span aria-hidden="true">{panelOffen ? '▴' : '▾'}</span>
+              {/* Grammatik zaehlt: „1 Änderung", ab zwei „Änderungen". Der Zusatz
+                  unterscheidet weiter zwischen noch nicht bestaetigt und bereits
+                  gespeichert — diese Information traegt der Knopf als einzige Stelle. */}
+              {ausstehend > 0
+                ? `${ausstehend} ${ausstehend === 1 ? 'Änderung' : 'Änderungen'} ausstehend`
+                : `${aenderungen} ${aenderungen === 1 ? 'Änderung' : 'Änderungen'} gespeichert`}
             </button>
           ) : null}
           <span className={styles.spacer} />
@@ -981,51 +989,6 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               → zum ersten Eintrag
             </button>
           </div>
-        ) : null}
-
-        {panelOffen && aenderungen > 0 ? (
-          <section className={styles.aenderungsPanel} aria-label="Geänderte Datensätze">
-            <header className={styles.aenderungsKopf}>
-              <span>
-                {aenderungen} Abweichung(en) vom Grundstand <code>Cramer-Stammdaten.xlsx</code>
-              </span>
-              <button type="button" className={styles.aenderungZu} onClick={() => setPanelOffen(false)}>
-                Zuklappen
-              </button>
-            </header>
-            <ul className={styles.aenderungsListe}>
-              {aenderungsListe.map((a, index) => (
-                <li key={`${a.bereich}-${a.zeilenId}-${index}`} className={styles.aenderung}>
-                  <div className={styles.aenderungKopf}>
-                    <span className={j(styles.aenderungArt, styles[`art_${a.art}`])}>
-                      {a.art === 'neu' ? 'neu' : a.art === 'geloescht' ? 'gelöscht' : 'geändert'}
-                    </span>
-                    <span className={styles.aenderungBereich}>{BEREICH_TITEL[a.bereich]}</span>
-                    <span className={styles.aenderungTitel}>{a.titel}</span>
-                    {a.ausstehend ? (
-                      <span
-                        className={styles.aenderungAusstehend}
-                        title="Noch nicht über den Speichern-Knopf im Kopf bestätigt"
-                      >
-                        ausstehend
-                      </span>
-                    ) : null}
-                    <span className={styles.spacer} />
-                    <button type="button" className={styles.aenderungSprung} onClick={() => springeZu(a)}>
-                      → zur Änderung
-                    </button>
-                  </div>
-                  {a.felder.length ? (
-                    <ul className={styles.aenderungFelder}>
-                      {a.felder.map((f) => (
-                        <li key={f}>{f}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          </section>
         ) : null}
 
         {meldung ? (
@@ -1348,6 +1311,17 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
           onClose={() => setFilialEditor(null)}
         />
       ) : null}
+
+      {/* Vorschau-Fenster der Änderungen — liegt bewusst ueber allem, statt wie
+          frueher als Panel ueber den Tabellen zu stehen, wo es bei langen Listen
+          untergegangen ist. */}
+      <AenderungenModal
+        offen={aenderungenOffen}
+        aenderungen={aenderungsListe}
+        bereichTitel={BEREICH_TITEL}
+        onClose={() => setAenderungenOffen(false)}
+        onSpringeZu={springeZu}
+      />
     </>
   )
 }
