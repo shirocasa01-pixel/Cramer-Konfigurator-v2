@@ -130,6 +130,8 @@ export interface EquipmentOption {
   maxAnzahl?: number
   /** Platzhalter des Positions-Freitextes. */
   positionPlaceholder?: string
+  /** Platzhalter des Format-Freitextes. */
+  formatPlaceholder?: string
   /**
    * Position als Kästchen statt Freitext. Fachberater: „Ich finde es immer gut, wenn wenig
    * geschrieben werden muß. Daher würde ich 3 Kästchen zum anhaken vorgeben:
@@ -296,8 +298,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         label: 'Innenspiegel für Drehtür',
         frontTypes: ['drehtuer'],
         detailFields: ['format', 'note'],
-        minFrontBreiteCm: 47,
-        hint: 'Format 40 × 120 cm; nicht bei Fronten unter 47 cm.',
+        hint: 'Format 40 × 120 cm; gewünschte Drehtür bzw. Sonderformat angeben.',
       },
       {
         id: 'kleiderlift',
@@ -308,32 +309,36 @@ export const equipmentCategories: EquipmentCategory[] = [
       },
       { id: 'glasboden', label: 'Glasboden', detailFields: ['qty'], heightMode: 'raster', choices: [GLASART] },
       {
+        // Die 47-cm-Regel steht im PDF unter DIESER Kachel, nicht unter dem Innenspiegel.
         id: 'krawattenspange',
         label: 'Krawattenspange',
         detailFields: ['qty', 'position'],
-        maxAnzahl: 20,
-        positionPlaceholder: 'z. B. genaue Angabe der Position',
+        minFrontBreiteCm: 47,
+        positionPlaceholder: 'z. B. links',
+        hint: 'Nicht bei Fronten unter 47 cm.',
       },
       {
         id: 'kleiderbuegelhalter',
         label: 'Kleiderbügelhalter ausziehbar',
         detailFields: ['qty', 'position'],
-        maxAnzahl: 20,
-        positionPlaceholder: 'z. B. genaue Angabe der Position',
+        heightMode: 'raster',
+        positionPlaceholder: 'z. B. rechts',
       },
       {
+        // Format + Position als Freitext — die Vorlage zeigt hier weder Rasterhöhe
+        // noch Seiten-Kästchen, nur einen genaueren Platzhalter für die Position.
         id: 'revisionsklappe',
         label: 'Revisionsklappe',
-        detailFields: ['format'],
-        heightMode: 'raster',
-        positionSeiten: true,
+        detailFields: ['format', 'position'],
+        formatPlaceholder: 'z. B. 40 × 20 cm',
+        positionPlaceholder: 'z. B. genaue Angabe der Position',
       },
       {
         id: 'rueckwandausschnitt',
         label: 'Rückwandausschnitt',
-        detailFields: ['format'],
-        heightMode: 'raster',
-        positionSeiten: true,
+        detailFields: ['format', 'position'],
+        formatPlaceholder: 'z. B. 40 × 20 cm',
+        positionPlaceholder: 'z. B. genaue Angabe der Position',
       },
     ],
   },
@@ -344,15 +349,13 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         id: 'verblendung-korpusbuendig',
         label: 'Verblendung korpusbündig',
-        detailFields: ['lfm'],
-        positionSeiten: true,
+        detailFields: ['lfm', 'position'],
         hint: 'Bei Schiebetürschrank nur seitlich möglich. Lfm für Kalkulation angeben.',
       },
       {
         id: 'verblendung-frontbuendig',
         label: 'Verblendung frontbündig',
-        detailFields: ['lfm'],
-        positionSeiten: true,
+        detailFields: ['lfm', 'position'],
         hint: 'Bei Schiebetürschrank nur seitlich möglich. Lfm für Kalkulation angeben.',
       },
     ],
@@ -364,9 +367,10 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         id: 'led-syncro',
         label: 'LED-Syncro',
-        detailFields: ['qty'],
-        // „Positionsabfrage braucht es nicht. Wird immer am Korpusdeckel montiert."
-        hint: 'Wird immer am Korpusdeckel montiert – keine Positionsangabe nötig.',
+        // In der Vorlage sind ANZAHL und POSITION beide gestrichen: „Positionsabfrage
+        // braucht es nicht. Wird immer am Korpusdeckel montiert." und „Anzahl gibt es
+        // nicht. Der Preis leitet sich vom Korpus ab."
+        hint: 'Wird immer am Korpusdeckel montiert; der Preis ergibt sich aus dem Korpus.',
       },
       {
         id: 'led-band-aluprofil',
@@ -422,6 +426,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         // durch die Korpusbreite ermittelt."
         preisAusKorpusbreite: true,
         heightMode: 'raster-oder-boden',
+        detailFields: ['position'],
       },
     ],
   },

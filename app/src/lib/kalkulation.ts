@@ -31,6 +31,7 @@
 
 import { getEquipmentOption } from '../config/equipment.ts'
 import {
+  anzahlMittelseiten,
   ausstattungLookups,
   ausstattungOhnePreis,
   containerLookups,
@@ -38,6 +39,7 @@ import {
   rasterAusVariante,
   frontLookups,
   getSerienRegel,
+  griffImFrontpreisEnthalten,
   liniePgAchsenwert,
   prozentZuschlaege,
   schubRasterFuerHoehe,
@@ -388,16 +390,22 @@ function baueKorpusPositionen(
     }
   }
 
-  const anzahlMittelseiten = Math.max(0, kontext.breiten.length - 1)
-  if (regel.mittelseite && anzahlMittelseiten > 0) {
+  // Die Anzahl folgt der Konstruktionsregel der Serie (config/preisMapping.ts) — hier
+  // steht bewusst keine fest verdrahtete Formel.
+  const segmente = kontext.breiten.length
+  const mittelseiten = anzahlMittelseiten(regel.mittelseitenRegel, segmente)
+  if (regel.mittelseite && mittelseiten > 0) {
     positionen.push(
       bauePosition({
         lookup: regel.mittelseite,
-        menge: anzahlMittelseiten,
+        menge: mittelseiten,
         bucket: 'korpus',
         herkunft: 'abgeleitet',
         raster: kontext.bepreistesRaster,
-        hinweis: `Automatisch ergänzt: ${kontext.breiten.length} Segmente erfordern ${anzahlMittelseiten} Mittelseite(n).`,
+        hinweis:
+          regel.mittelseitenRegel === 'abschluss'
+            ? `Automatisch ergänzt: Jeder der ${segmente} Korpi bringt seine linke Seite mit — nötig ist nur die Wand, die den Block rechts abschließt.`
+            : `Automatisch ergänzt: ${segmente} Segmente erfordern ${mittelseiten} Mittelseite(n).`,
       }),
     )
   }
@@ -524,10 +532,14 @@ function baueFrontPositionen(
         }),
       )
 
-      // Griff als eigene Position — jetzt aus dem Artikelstamm statt aus `handles.ts`.
+      // Griff als eigene Position — aber NUR, wenn er nicht ohnehin im Frontpreis steckt.
+      // Ein Stückgriff gehört laut Preisliste zur Tür; ihn zusätzlich zu berechnen, hieße
+      // ihn doppelt zu verkaufen. Die Entscheidung trifft `griffImFrontpreisEnthalten`
+      // anhand der Preislogik des Artikels, nicht anhand seiner Nummer.
       if (el.griff && el.griffId) {
         const griffArtikel = griffArtikelnummer(el.griffId)
-        if (griffArtikel) {
+        const stamm = griffArtikel ? getArtikelNr(griffArtikel) : undefined
+        if (griffArtikel && !griffImFrontpreisEnthalten(stamm)) {
           positionen.push(
             bauePosition({
               lookup: { artikel: griffArtikel },

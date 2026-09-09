@@ -226,7 +226,7 @@ export function AusstattungHinterFrontSection({
                         {option.detailFields?.includes('format') ? (
                           <TextField
                             label={EQUIPMENT_FIELD_LABEL.format}
-                            placeholder="z. B. 40 × 120 cm"
+                            placeholder={option.formatPlaceholder ?? 'z. B. 40 × 120 cm'}
                             value={item.formatNote ?? ''}
                             onChange={(e) => patchItem(item.id, { formatNote: e.target.value })}
                           />

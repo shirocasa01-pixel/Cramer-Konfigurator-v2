@@ -19,7 +19,9 @@
     "data:seed-filialen": "node scripts/seed-filialen.js",
     "kalk:test": "node scripts/check-kalkulation.js",
     "format:test": "node scripts/check-format.js",
-    "mass:test": "node scripts/check-masse.js"
+    "mass:test": "node scripts/check-masse.js",
+    "preis:test": "node scripts/check-preisprobe.js",
+    "seed:entwuerfe": "node scripts/seed-entwuerfe.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

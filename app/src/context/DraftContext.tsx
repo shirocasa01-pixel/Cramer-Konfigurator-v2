@@ -10,7 +10,6 @@ import {
 } from 'react'
 import type { Draft } from '../types'
 import { generateEntwurfsnummer } from '../lib/id'
-import { verificationDrafts } from '../data/verificationDrafts'
 import {
   deleteProject,
   getAllProjects,
@@ -35,16 +34,6 @@ const ALTER_LISTEN_KEY = 'cramer-planer.drafts.v2'
 
 /** Wartezeit des Auto-Speicherns nach der letzten Eingabe. */
 const AUTOSAVE_VERZOEGERUNG_MS = 2000
-
-/**
- * Fest im Code hinterlegte Verifizierungs-Entwürfe immer einblenden (oben),
- * ohne persistierte Duplikate. So spiegeln sie stets den aktuellen Code-Stand.
- */
-function withVerificationDrafts(list: Draft[]): Draft[] {
-  const ids = new Set(list.map((item) => item.id))
-  const pinned = verificationDrafts.filter((v) => !ids.has(v.id))
-  return [...pinned, ...list]
-}
 
 /**
  * Hat der Entwurf genug Inhalt, um in der Übersicht zu erscheinen? (Die Auftragsnummer
@@ -244,7 +233,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       if (index === -1) liste.unshift(draft)
       else liste[index] = draft
     }
-    return withVerificationDrafts(liste)
+    return liste
   }, [remoteDrafts, draft])
 
   const startNewDraft = useCallback<DraftContextValue['startNewDraft']>((consultant) => {
@@ -291,12 +280,6 @@ export function DraftProvider({ children }: { children: ReactNode }) {
 
   const loadDraft = useCallback<DraftContextValue['loadDraft']>(
     async (id) => {
-      // Referenz-Entwürfe leben im Code, nicht in der Datenbank.
-      const pinned = verificationDrafts.find((item) => item.id === id)
-      if (pinned) {
-        setDraft({ ...pinned })
-        return true
-      }
       try {
         setDraft(await loadProject(id))
         return true
@@ -310,7 +293,6 @@ export function DraftProvider({ children }: { children: ReactNode }) {
 
   const deleteDraft = useCallback<DraftContextValue['deleteDraft']>(
     async (id) => {
-      if (verificationDrafts.some((item) => item.id === id)) return false // nicht löschbar
       try {
         await deleteProject(id)
         setRemoteDrafts((list) => list.filter((item) => item.id !== id))

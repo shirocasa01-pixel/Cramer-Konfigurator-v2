@@ -61,13 +61,51 @@ export interface BauteilLookup {
  */
 export type Konfigurationsart = 'BAUTEIL' | 'MODELL' | 'FLAECHE'
 
+/**
+ * KONSTRUKTIONSREGEL FÜR MITTELSEITEN.
+ *
+ * Wie viele senkrechte Wände ein Möbelblock zusätzlich braucht, hängt davon ab, ob die
+ * Korpi ihre Seitenwände selbst mitbringen:
+ *
+ *   'proTrennung'  Der Korpus ist ein reiner Boden-Deckel-Rahmen; jede Grenze zwischen
+ *                  zwei Segmenten braucht eine eigene Wand ⇒ n − 1.
+ *
+ *   'abschluss'    Jeder Korpus bringt seine LINKE Seite mit. Die Wand zwischen Segment 1
+ *                  und 2 ist damit schon die linke Seite von Korpus 2, die zwischen 2 und 3
+ *                  die linke Seite von Korpus 3 — es fehlt allein die Wand, die den letzten
+ *                  Korpus rechts schließt ⇒ genau 1, unabhängig von der Segmentzahl.
+ *
+ * Refugium baut nach dem zweiten Muster. Fachberater zur Preisprobe: „nur 1 Mittelseite.
+ * Weil sich der Schrank aus 3 Korpi + 1 Mittelseite zusammensetzt. (die linke Außenwand
+ * des 2 & 3 Korpi ersetzt eine Mittelwand & die Mittelwand ist quasi die Abschlußwand.)"
+ * Seine Skizze zeigt drei nach rechts offene U-Korpi und ein einzelnes stehendes Brett.
+ */
+export type MittelseitenRegel = 'proTrennung' | 'abschluss'
+
+/**
+ * Anzahl der Mittelseiten für einen Block aus `segmente` Korpi.
+ *
+ * Bewusst ohne Sonderfall für eine bestimmte Segmentzahl: Beide Regeln sind allgemein
+ * und liefern für 1, 2, 5 oder 12 Korpi dasselbe Konstruktionsprinzip. Ein Block ohne
+ * Segmente braucht auch keine Wand.
+ */
+export function anzahlMittelseiten(regel: MittelseitenRegel | undefined, segmente: number): number {
+  if (segmente <= 0) return 0
+  return regel === 'abschluss' ? 1 : Math.max(0, segmente - 1)
+}
+
 export interface SerienRegel {
   id: string
   konfigurationsart: Konfigurationsart
   /** Korpus-Bauteil (Pflicht bei BAUTEIL-Serien). */
   korpus?: BauteilLookup
-  /** Abgeleitet: Trennwand zwischen zwei Segmenten — Anzahl = Segmente − 1. */
+  /** Abgeleitet: die senkrechte Trennwand/Abschlusswand des Möbelblocks. */
   mittelseite?: BauteilLookup
+  /**
+   * Wie sich die ANZAHL der Mittelseiten aus der Segmentzahl ergibt. Konstruktive Regel,
+   * deshalb hier und nicht im Rechenkern — sie hängt am Korpusbau der Serie.
+   */
+  mittelseitenRegel?: MittelseitenRegel
   /** Abgeleitet: seitlicher Abschluss des Möbelblocks. */
   aussenset?: BauteilLookup
   /** Serienweite Hinweise, die als INFO-Meldung erscheinen. */
@@ -111,6 +149,8 @@ export const serienRegeln: Record<string, SerienRegel> = {
       artikel: '10-10-10-0001', // Mittelseite (2 cm)
       rasterInBreite: true,
     },
+    // Refugium-Korpi bringen ihre linke Seite mit — es fehlt nur die Abschlusswand rechts.
+    mittelseitenRegel: 'abschluss',
     aussenset: {
       artikel: '10-10-15-0001', // Aussenset — BREITE(=Raster) × PG
       rasterInBreite: true,
@@ -190,6 +230,34 @@ export function liniePgAchsenwert(styleLineId: string | undefined, pg: PriceGrou
     default:
       return undefined
   }
+}
+
+/**
+ * IST DER GRIFF IM FRONTPREIS ENTHALTEN?
+ *
+ * Preisliste S. 7: Der Türpreis (z. B. Glatt 1, 18 R = 260 €) enthält den Griff bereits.
+ * Fachberater zur Preisprobe, sechsmal notiert: „Preis für Griff ist im Türpreis
+ * enthalten." Eine zusätzliche Griffposition wäre also doppelt berechnet.
+ *
+ * Die Unterscheidung läuft über die PREISLOGIK des Artikels, nicht über eine Liste von
+ * Griffnummern:
+ *
+ *   FESTPREIS / Stück   Ein Stückgriff, wie ihn die Griff-Auswahl einer Front anbietet.
+ *                       Er gehört zur Tür und wird nicht noch einmal berechnet.
+ *   PRO_LFM u. a.       Nach laufendem Meter oder anders bepreist — das ist kein
+ *                       Standardgriff, sondern ein eigenes Bauteil (Edge-Kantengriff)
+ *                       und bleibt eine eigene Position.
+ *
+ * Damit gilt die Regel für JEDE Frontart gleich (Drehtür, Schub, Klappe, Schiebetür):
+ * Sie hängt am Artikel, nicht am Front-Typ. Die Preise bleiben im Stamm erhalten — sie
+ * werden gebraucht, sobald ein Griff einzeln verkauft oder als Aufpreis geführt wird.
+ *
+ * Griffleisten (107/Curve) und das Griffprofil der zweiläufigen Schiebetür laufen gar
+ * nicht über die Griff-Auswahl; sie sind eigene Felder und von dieser Regel unberührt.
+ */
+export function griffImFrontpreisEnthalten(artikel: { preislogik: string; einheit: string } | undefined): boolean {
+  if (!artikel) return false
+  return artikel.preislogik === 'FESTPREIS' && /st(ü|ue)ck/i.test(artikel.einheit)
 }
 
 /**
