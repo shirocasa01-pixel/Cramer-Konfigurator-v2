@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BrandMark } from '../ui/BrandMark'
 import { Button } from '../ui/Button'
@@ -20,13 +20,28 @@ interface AppShellProps {
  */
 export function AppShell({ children, footer }: AppShellProps) {
   const { user, logout, isAdmin } = useAuth()
-  const { draft, resetDraft } = useDraft()
+  const { draft, resetDraft, leaveDraft } = useDraft()
   const navigate = useNavigate()
   const location = useLocation()
 
+  const [verlaesst, setVerlaesst] = useState(false)
+
   const branchName = getBranch(draft?.branchId)?.name
+  const istDashboard = location.pathname === '/'
   // Globaler „Zurück“ überall außer auf dem Dashboard.
-  const showBack = location.pathname !== '/'
+  const showBack = !istDashboard
+
+  async function handleLeave() {
+    setVerlaesst(true)
+    try {
+      // Auch wenn das Speichern scheitert, wird der Nutzer nicht festgehalten — die
+      // Fehlermeldung kommt als Toast, der lokale Stand bleibt erhalten.
+      await leaveDraft()
+      navigate('/')
+    } finally {
+      setVerlaesst(false)
+    }
+  }
 
   function handleLogout() {
     resetDraft()
@@ -61,6 +76,24 @@ export function AppShell({ children, footer }: AppShellProps) {
         </div>
 
         <div className={styles.right}>
+          {/*
+            „Entwurf verlassen" — der eine sichtbare Ausgang aus dem Konfigurator,
+            unabhängig vom Schritt. Gespeichert wird vorher, und zwar alles, was Inhalt
+            hat: Wer nach einem einzigen Buchstaben im Kundennamen abbricht, findet den
+            Entwurf im Dashboard wieder statt ihn zu verlieren.
+          */}
+          {draft && !istDashboard ? (
+            <button
+              type="button"
+              className={styles.leaveBtn}
+              onClick={() => void handleLeave()}
+              disabled={verlaesst}
+              title="Entwurf speichern und zur Übersicht zurückkehren"
+            >
+              <span aria-hidden="true">✕</span>
+              {verlaesst ? 'Speichert …' : 'Entwurf verlassen'}
+            </button>
+          ) : null}
           {user ? (
             <div className={styles.account}>
               <span className={styles.accountLabel}>{user.role === 'admin' ? 'Administrator' : 'Berater'}</span>

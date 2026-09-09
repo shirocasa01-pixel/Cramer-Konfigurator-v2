@@ -330,25 +330,33 @@ export function AusstattungHinterFrontSection({
                       {option.positionSeiten ? (
                         <div className={styles.hoehenBlock}>
                           <span className={styles.fieldLabel}>{EQUIPMENT_FIELD_LABEL.position}</span>
-                          <div className={styles.chips}>
+                          {/*
+                            Radio-Gruppe statt Kästchen: Die drei Angaben schließen einander
+                            aus — „links & rechts" und „nur links" gleichzeitig gibt es nicht.
+                            Als Checkboxen ließe sich genau das anklicken.
+                          */}
+                          <div
+                            className={styles.seiten}
+                            role="radiogroup"
+                            aria-label={EQUIPMENT_FIELD_LABEL.position}
+                          >
                             {[
+                              { label: 'Nur links', links: true, rechts: false },
+                              { label: 'Nur rechts', links: false, rechts: true },
                               { label: 'Links & rechts', links: true, rechts: true },
-                              { label: 'links', links: true, rechts: false },
-                              { label: 'rechts', links: false, rechts: true },
                             ].map((w) => {
                               const aktiv =
                                 Boolean(item.seiten?.links) === w.links && Boolean(item.seiten?.rechts) === w.rechts
                               return (
-                                <label key={w.label} className={aktiv ? styles.chipActive : styles.chip}>
+                                <label key={w.label} className={styles.seiteOption}>
                                   <input
-                                    type="checkbox"
-                                    className={styles.checkbox}
+                                    type="radio"
+                                    className={styles.radio}
+                                    name={`seiten-${item.id}`}
                                     checked={aktiv}
-                                    onChange={() =>
-                                      aktiv ? setSeite(item, false, false) : setSeite(item, w.links, w.rechts)
-                                    }
+                                    onChange={() => setSeite(item, w.links, w.rechts)}
                                   />
-                                  {w.label}
+                                  <span>{w.label}</span>
                                 </label>
                               )
                             })}

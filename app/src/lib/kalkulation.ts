@@ -35,7 +35,9 @@ import {
   ausstattungLookups,
   ausstattungOhnePreis,
   containerLookups,
+  CONTAINER_RAUCHGLAS_ARTIKEL,
   containerRaster,
+  rauchglasAufpreisIndex,
   rasterAusVariante,
   frontLookups,
   getSerienRegel,
@@ -49,6 +51,7 @@ import {
 import { meta } from '../data/stammdaten.generated.ts'
 import { resolveDepthCm, resolveHeightCm, resolveKorpusBreiteCm } from './korpusMass.ts'
 import { findePreis, getArtikelNr, verfuegbareRaster, type AufgelloesteAchse } from './preisLookup.ts'
+import { getPreisListe } from './stammdatenStore.ts'
 import { korpusOffsetMm, loeseRasterAuf } from './raster.ts'
 import type {
   Draft,
@@ -123,6 +126,14 @@ export interface KalkErgebnis {
 // ---------------------------------------------------------------------------
 // Hilfen
 // ---------------------------------------------------------------------------
+
+/** Preiszeilen eines Artikels aus dem Arbeitsstand — in der Reihenfolge der Mappe. */
+function preiseFuerArtikel(artikelnummer: string) {
+  return getPreisListe().filter((z) => z.artikel === artikelnummer)
+}
+
+/** Erwartete Zeilenzahl des Rauchglas-Aufpreises (50er · 60er · 100er). */
+const RAUCHGLAS_ZEILEN = 3
 
 function runde2(n: number): number {
   return Math.round(n * 100) / 100
@@ -681,6 +692,37 @@ function baueAusstattungsPositionen(
             : undefined,
         }),
       )
+
+      // Aufpreis Deckplatte in Rauchglas — eigene Position, sobald das Häkchen sitzt.
+      if (item.rauchglas) {
+        const index = rauchglasAufpreisIndex(breiteCm)
+        const zeilen = preiseFuerArtikel(CONTAINER_RAUCHGLAS_ARTIKEL)
+        const zeile = index != null && zeilen.length === RAUCHGLAS_ZEILEN ? zeilen[index] : undefined
+        const stamm = getArtikelNr(CONTAINER_RAUCHGLAS_ARTIKEL)
+        positionen.push({
+          id: naechsteId(),
+          herkunft: 'gewaehlt',
+          bucket: 'innen',
+          segment,
+          label: `Aufpreis Deckplatte Rauchglas (${label})`,
+          artikelnummer: CONTAINER_RAUCHGLAS_ARTIKEL,
+          kurzzeichen: stamm?.kurzzeichen,
+          teileart: stamm?.teileart,
+          produktgruppe: stamm?.produktgruppe,
+          artikelgruppe: stamm?.artikelgruppe,
+          einheit: stamm?.einheit,
+          seite: zeile?.seite,
+          achsen: [],
+          menge,
+          einzelpreis: zeile?.preis ?? null,
+          gesamt: zeile?.preis == null ? null : runde2(zeile.preis * menge),
+          status: zeile?.preis == null ? 'auf-anfrage' : 'berechnet',
+          hinweis:
+            zeile?.preis == null
+              ? `Der Artikel ${CONTAINER_RAUCHGLAS_ARTIKEL} führt ${zeilen.length} Preiszeile(n) ohne Breiten-Achse — für ${breiteCm ?? '?'} cm ist keine eindeutige Stufe bestimmbar. AV-Prüfung.`
+              : `Übergangslösung: Der Betrag folgt der Reihenfolge der Preiszeilen (50er · 60er · 100er), weil ${CONTAINER_RAUCHGLAS_ARTIKEL} in den Stammdaten noch keine BREITE-Achse trägt.`,
+        })
+      }
     })
   })
 

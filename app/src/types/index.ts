@@ -709,6 +709,18 @@ export interface Draft {
   scanImage?: string
   /** Zeitpunkt der Finalisierung (ISO-8601); gesetzt => Entwurf „abgeschlossen“. */
   finalizedAt?: string
+  /**
+   * PAPIERKORB — Zeitpunkt (ISO-8601), zu dem der Entwurf verworfen wurde. Fehlt das
+   * Feld, ist der Entwurf aktiv.
+   *
+   * Die Marke steht bewusst IM ENTWURF und nicht in einer eigenen Tabellenspalte: Die
+   * Tabelle `projects` kennt keine solche Spalte, und `saveProject()` verwirft unbekannte
+   * Spalten stillschweigend, um das Speichern nicht scheitern zu lassen — eine Löschung
+   * wäre damit lautlos verloren gegangen. Das `configuration`-JSON wird dagegen immer
+   * vollständig geschrieben. Kommt später eine echte Spalte dazu, kann sie diesen Wert
+   * spiegeln, ohne dass sich an der Oberfläche etwas ändert.
+   */
+  deletedAt?: string
 
   // --- Phase 8 (Preis-Transparenz) ---
   /** Optionale Aufschläge für die Preis-Kalkulation (Montage +10%, Lieferung regional +3%). */

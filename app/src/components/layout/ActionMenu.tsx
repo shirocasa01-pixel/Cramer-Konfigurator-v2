@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Modal } from '../ui/Modal'
 import { StammdatenAdminModal } from '../admin/StammdatenAdminModal'
 import { support } from '../../config/support'
@@ -10,7 +11,8 @@ import styles from './ActionMenu.module.css'
  * Entwurf speichern · Entwurf zurücksetzen · Stammdaten & Artikelverwaltung · Hilfe & Notfall.
  */
 export function ActionMenu() {
-  const { draft, saveDraft, cloudSaving, startNewDraft } = useDraft()
+  const { draft, saveDraft, cloudSaving, startNewDraft, trashedDrafts } = useDraft()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [stammdatenOpen, setStammdatenOpen] = useState(false)
@@ -73,6 +75,18 @@ export function ActionMenu() {
           </button>
           <button type="button" role="menuitem" className={styles.item} onClick={handleReset}>
             Entwurf zurücksetzen
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.item}
+            onClick={() => {
+              setOpen(false)
+              navigate('/papierkorb')
+            }}
+          >
+            Papierkorb
+            {trashedDrafts.length > 0 ? <span className={styles.zaehler}>{trashedDrafts.length}</span> : null}
           </button>
           <div className={styles.divider} />
           <button

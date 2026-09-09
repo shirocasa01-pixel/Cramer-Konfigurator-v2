@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { Button } from '../../components/ui/Button'
+import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { useAuth } from '../../context/AuthContext'
@@ -46,10 +47,14 @@ export default function DashboardPage() {
     refreshDrafts,
     startNewDraft,
     loadDraft,
-    deleteDraft,
+    trashDraft,
     duplicateDraft,
   } = useDraft()
   const navigate = useNavigate()
+
+  /** Entwurf, für den die Papierkorb-Rückfrage offen ist. */
+  const [zuVerwerfen, setZuVerwerfen] = useState<{ id: string; kunde: string } | null>(null)
+  const [verwirft, setVerwirft] = useState(false)
 
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<StatusFilter>('all')
@@ -240,11 +245,10 @@ export default function DashboardPage() {
                           <button
                             type="button"
                             className={styles.delete}
-                            onClick={() => {
-                              if (window.confirm(`Entwurf ${draft.id} endgültig löschen? Er wird aus der Datenbank entfernt.`))
-                                void deleteDraft(draft.id)
-                            }}
-                            aria-label={`Entwurf ${draft.id} löschen`}
+                            onClick={() =>
+                              setZuVerwerfen({ id: draft.id, kunde: draft.customerName || draft.id })
+                            }
+                            aria-label={`Entwurf ${draft.id} in den Papierkorb verschieben`}
                           >
                             Löschen
                           </button>
@@ -258,6 +262,41 @@ export default function DashboardPage() {
           </ul>
         )}
       </div>
+      {/*
+        Rückfrage vor dem Verwerfen. Der Entwurf wandert in den Papierkorb und bleibt
+        dort wiederherstellbar — endgültig gelöscht wird erst beim Leeren des Papierkorbs.
+      */}
+      <Modal
+        open={zuVerwerfen !== null}
+        title="In den Papierkorb verschieben?"
+        onClose={() => setZuVerwerfen(null)}
+      >
+        <p className={styles.modalText}>
+          „{zuVerwerfen?.kunde}" wird aus der Übersicht entfernt und in den Papierkorb gelegt. Von dort
+          lässt er sich jederzeit wiederherstellen; endgültig gelöscht wird er erst, wenn der Papierkorb
+          geleert wird.
+        </p>
+        <div className={styles.modalActions}>
+          <Button variant="ghost" onClick={() => setZuVerwerfen(null)} disabled={verwirft}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={async () => {
+              if (!zuVerwerfen) return
+              setVerwirft(true)
+              try {
+                await trashDraft(zuVerwerfen.id)
+                setZuVerwerfen(null)
+              } finally {
+                setVerwirft(false)
+              }
+            }}
+            disabled={verwirft}
+          >
+            {verwirft ? 'Verschiebt …' : 'In den Papierkorb'}
+          </Button>
+        </div>
+      </Modal>
     </AppShell>
   )
 }

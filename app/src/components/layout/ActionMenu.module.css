@@ -113,3 +113,15 @@
   font-size: 0.85rem;
   color: var(--color-ink-muted);
 }
+
+/* Zähler hinter „Papierkorb" */
+.zaehler {
+  margin-left: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--color-surface-soft);
+  color: var(--color-ink-secondary);
+  font-size: 0.72rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}

@@ -86,6 +86,16 @@ interface DraftContextValue {
   loadDraft: (id: string) => Promise<boolean>
   /** Löscht einen Entwurf in Supabase. Referenz-Entwürfe sind nicht löschbar. */
   deleteDraft: (id: string) => Promise<boolean>
+  /** Entwürfe im Papierkorb (`deletedAt` gesetzt), neueste zuerst. */
+  trashedDrafts: Draft[]
+  /** Verschiebt einen Entwurf in den Papierkorb (Soft-Delete). */
+  trashDraft: (id: string) => Promise<boolean>
+  /** Holt einen Entwurf aus dem Papierkorb zurück. */
+  restoreDraft: (id: string) => Promise<boolean>
+  /** Leert den Papierkorb endgültig; liefert die Zahl der gelöschten Entwürfe. */
+  emptyTrash: () => Promise<number>
+  /** Speichert den laufenden Entwurf und verlässt ihn (Rückkehr zur Übersicht). */
+  leaveDraft: () => Promise<boolean>
   /**
    * Dupliziert einen Entwurf als neue Variante (Schritt 1): neue Entwurfsnummer,
    * `variantOf` gesetzt, Auftrags-/Artikelnummer & Abschluss geleert. Setzt die Kopie
@@ -233,8 +243,17 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       if (index === -1) liste.unshift(draft)
       else liste[index] = draft
     }
-    return liste
+    // Verworfene Entwürfe gehören in den Papierkorb, nicht in die Übersicht.
+    return liste.filter((item) => !item.deletedAt)
   }, [remoteDrafts, draft])
+
+  const trashedDrafts = useMemo(
+    () =>
+      remoteDrafts
+        .filter((item) => item.deletedAt)
+        .sort((a, b) => (b.deletedAt ?? '').localeCompare(a.deletedAt ?? '')),
+    [remoteDrafts],
+  )
 
   const startNewDraft = useCallback<DraftContextValue['startNewDraft']>((consultant) => {
     setDraft({
@@ -290,6 +309,81 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     },
     [showToast],
   )
+
+  /**
+   * Verschiebt einen Entwurf in den Papierkorb — er bleibt in der Datenbank und trägt
+   * nur `deletedAt`. Aus der Übersicht verschwindet er sofort; wiederherstellbar ist er
+   * jederzeit. Endgültig entfernt wird erst über „Papierkorb leeren".
+   */
+  const trashDraft = useCallback<DraftContextValue['trashDraft']>(
+    async (id) => {
+      const quelle = remoteDrafts.find((item) => item.id === id) ?? (draft?.id === id ? draft : undefined)
+      if (!quelle) return false
+      const verworfen: Draft = { ...quelle, deletedAt: new Date().toISOString() }
+      const ok = await pushToCloud(verworfen, { still: true })
+      if (!ok) return false
+      // Der verworfene Entwurf darf nicht als „aktueller" weiterleben.
+      setDraft((prev) => (prev?.id === id ? null : prev))
+      showToast(`Entwurf ${id} in den Papierkorb verschoben.`)
+      return true
+    },
+    [remoteDrafts, draft, pushToCloud, showToast],
+  )
+
+  /** Holt einen Entwurf aus dem Papierkorb zurück in die Übersicht. */
+  const restoreDraft = useCallback<DraftContextValue['restoreDraft']>(
+    async (id) => {
+      const quelle = remoteDrafts.find((item) => item.id === id)
+      if (!quelle) return false
+      const { deletedAt: _verworfen, ...wiederhergestellt } = quelle
+      const ok = await pushToCloud(wiederhergestellt as Draft, { still: true })
+      if (ok) showToast(`Entwurf ${id} wiederhergestellt.`)
+      return ok
+    },
+    [remoteDrafts, pushToCloud, showToast],
+  )
+
+  /**
+   * Leert den Papierkorb — DAS ist die endgültige Löschung aus der Datenbank.
+   * Fehlgeschlagene Einträge bleiben stehen, statt die Schleife abzubrechen; der Bericht
+   * nennt die Zahl, damit niemand glaubt, es sei alles weg.
+   */
+  const emptyTrash = useCallback<DraftContextValue['emptyTrash']>(async () => {
+    const verworfene = remoteDrafts.filter((item) => item.deletedAt)
+    let geloescht = 0
+    for (const eintrag of verworfene) {
+      try {
+        await deleteProject(eintrag.id)
+        setRemoteDrafts((list) => list.filter((item) => item.id !== eintrag.id))
+        geloescht++
+      } catch (error) {
+        showToast(`${eintrag.id} konnte nicht gelöscht werden: ${(error as Error).message}`, 'error')
+      }
+    }
+    if (geloescht > 0) showToast(`Papierkorb geleert — ${geloescht} Entwurf/Entwürfe endgültig entfernt.`)
+    return geloescht
+  }, [remoteDrafts, showToast])
+
+  /**
+   * „Entwurf verlassen": sichert den Stand und kehrt zur Übersicht zurück.
+   *
+   * Gespeichert wird alles, was überhaupt Inhalt hat — auch ein einzelner Buchstabe im
+   * Kundennamen. Wer den Konfigurator verlässt, soll seine Eingabe wiederfinden; ein
+   * leerer Rumpf-Entwurf würde die Übersicht dagegen nur zumüllen.
+   */
+  const leaveDraft = useCallback<DraftContextValue['leaveDraft']>(async () => {
+    if (!draft) return true
+    if (!hatInhalt(draft)) {
+      setDraft(null)
+      return true
+    }
+    const ok = await pushToCloud(draft, { still: true })
+    if (ok) {
+      setDraft(null)
+      showToast(`Entwurf ${draft.id} gespeichert.`)
+    }
+    return ok
+  }, [draft, pushToCloud, showToast])
 
   const deleteDraft = useCallback<DraftContextValue['deleteDraft']>(
     async (id) => {
@@ -352,6 +446,11 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       cloudSaving,
       loadDraft,
       deleteDraft,
+      trashedDrafts,
+      trashDraft,
+      restoreDraft,
+      emptyTrash,
+      leaveDraft,
       duplicateDraft,
     }),
     [
@@ -369,6 +468,11 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       cloudSaving,
       loadDraft,
       deleteDraft,
+      trashedDrafts,
+      trashDraft,
+      restoreDraft,
+      emptyTrash,
+      leaveDraft,
       duplicateDraft,
     ],
   )

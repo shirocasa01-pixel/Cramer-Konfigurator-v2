@@ -348,6 +348,33 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
 export const CONTAINER_RAUCHGLAS_ARTIKEL = '40-40-20-0018'
 
 /**
+ * Korpus-Nennbreiten in der Reihenfolge, in der die Preisliste sie führt.
+ * Der Container selbst ist genau so geschlüsselt: 50er · 60er · 100er.
+ */
+const RAUCHGLAS_BREITEN_CM = [50, 60, 100]
+
+/**
+ * ÜBERGANGSLÖSUNG — Aufpreis der Rauchglas-Deckplatte über die Korpusbreite.
+ *
+ * Der Artikel `40-40-20-0018` führt drei Preiszeilen (210 / 220 / 230 €), aber KEINE
+ * Achse: In der Mappe steht nicht, welcher Betrag zu welcher Breite gehört. Die
+ * Zuordnung über die Zeilenreihenfolge ist deshalb eine ANNAHME — sie folgt der
+ * Reihenfolge, in der Preisliste S. 26 und der Container-Artikel selbst die Breiten
+ * führen (50er, 60er, 100er).
+ *
+ * Auf ausdrückliche Vorgabe so umgesetzt, bis die BREITE-Achse in den Excel-Stammdaten
+ * gepflegt ist. Danach ersetzt ein normaler Achsen-Lookup diese Funktion; bis dahin
+ * trägt die Position einen Hinweis, damit die Herkunft des Betrags im Angebot sichtbar
+ * bleibt. Passt die Breite nicht oder stimmt die Zeilenzahl nicht, wird BEWUSST nichts
+ * geraten — dann bleibt die Position „auf Anfrage".
+ */
+export function rauchglasAufpreisIndex(korpusBreiteCm: number | undefined): number | null {
+  if (korpusBreiteCm == null) return null
+  const index = RAUCHGLAS_BREITEN_CM.indexOf(korpusBreiteCm)
+  return index >= 0 ? index : null
+}
+
+/**
  * Ausstattungs-Optionen ohne Preiszeile. Sie erzeugen bewusst eine Position mit Status
  * „auf Anfrage" statt stillschweigend zu fehlen — die Arbeitsvorbereitung sieht sie trotzdem.
  */

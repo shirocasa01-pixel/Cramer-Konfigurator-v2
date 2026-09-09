@@ -4,6 +4,7 @@ import { useAuth } from './context/AuthContext'
 import { MaintenanceOverlay } from './components/layout/MaintenanceOverlay'
 import LoginPage from './pages/Login/Login'
 import DashboardPage from './pages/Dashboard/Dashboard'
+import TrashPage from './pages/Trash/Trash'
 import NewDraftPage from './pages/NewDraft/NewDraft'
 import ProductSelectionPage from './pages/ProductSelection/ProductSelection'
 import KorpusPage from './pages/Korpus/Korpus'
@@ -60,6 +61,8 @@ export default function App() {
       {/* Phase 6 – Dashboard (Startseite) */}
       <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
       {/* Phase 2 – Neuen Entwurf anlegen */}
+      <Route path="/papierkorb" element={<RequireAuth><TrashPage /></RequireAuth>} />
+
       <Route path="/new" element={<RequireAuth><NewDraftPage /></RequireAuth>} />
       {/* Phase 3 – Produktgruppen- & Serien-Auswahl */}
       <Route path="/products" element={<RequireAuth><ProductSelectionPage /></RequireAuth>} />
