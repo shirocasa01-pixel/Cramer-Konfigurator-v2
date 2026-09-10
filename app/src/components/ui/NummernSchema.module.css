@@ -1,0 +1,103 @@
+/* =====================================================================
+   Grafische Aufschlüsselung einer Artikelnummer.
+
+   Vier Blöcke nebeneinander, darunter je eine Spalte mit Rolle und
+   Klartextwert. Bewusst kein Bild und kein SVG: So bleibt der Text
+   markierbar, skaliert mit der Schriftgröße und liest sich auch für
+   Screenreader in der richtigen Reihenfolge.
+   ===================================================================== */
+
+.wurzel {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3, 12px);
+  margin: var(--space-4, 16px) 0;
+}
+
+/* Auf schmalen Fenstern untereinander — vier Spalten wären dort unlesbar. */
+@media (max-width: 640px) {
+  .wurzel {
+    grid-template-columns: 1fr;
+  }
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  text-align: center;
+}
+
+/* Die Ziffern selbst — das, worauf im Gespräch gezeigt wird. */
+.ziffern {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: var(--schema-ziffer, 1.75rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 10px 6px;
+  border-radius: var(--radius-sm, 8px);
+  border: 2px solid var(--block-farbe, var(--color-line-strong));
+  background: color-mix(in srgb, var(--block-farbe, var(--color-line-strong)) 12%, transparent);
+  color: var(--color-ink);
+}
+
+/* Verbindungsstrich vom Block zur Beschriftung. */
+.stiel {
+  width: 2px;
+  height: 14px;
+  margin: 0 auto;
+  background: var(--block-farbe, var(--color-line-strong));
+  opacity: 0.55;
+}
+
+.rolle {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: var(--tracking-label, 0.08em);
+  text-transform: uppercase;
+  color: var(--block-farbe, var(--color-ink-secondary));
+}
+
+.wert {
+  margin-top: 2px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.erklaerung {
+  margin-top: 4px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-ink-secondary);
+}
+
+/* Kompakt: nur Ziffern und Rolle — für Folien, wo der Vortragende erzählt. */
+.kompakt .erklaerung {
+  display: none;
+}
+
+.kompakt .ziffern {
+  font-size: var(--schema-ziffer, 2.5rem);
+}
+
+/* Auflösung darunter: „= Griff Nr. 127 Griffleiste (200 mm)" */
+.aufloesung {
+  margin-top: var(--space-3, 12px);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm, 8px);
+  background: var(--color-surface-sunken, #f2f2ef);
+  font-size: 0.875rem;
+  color: var(--color-ink);
+  text-align: center;
+}
+
+.aufloesungLabel {
+  font-weight: 700;
+  letter-spacing: var(--tracking-label, 0.08em);
+  text-transform: uppercase;
+  font-size: 0.7rem;
+  color: var(--color-ink-muted);
+  margin-right: var(--space-2, 8px);
+}

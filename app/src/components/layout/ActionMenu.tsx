@@ -100,6 +100,17 @@ export function ActionMenu() {
           >
             Stammdaten &amp; Artikelverwaltung
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.item}
+            onClick={() => {
+              setOpen(false)
+              navigate('/praesentation')
+            }}
+          >
+            Präsentation
+          </button>
           <div className={styles.divider} />
           <button
             type="button"

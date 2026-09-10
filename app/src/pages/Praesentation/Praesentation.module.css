@@ -1,0 +1,334 @@
+/* =====================================================================
+   Präsentations-Modul — für den Beamer, nicht für den Schreibtisch.
+
+   Alles ist eine Nummer größer als im Konfigurator: Wer hinten im Raum
+   sitzt, muss es lesen können. Deshalb skaliert die Folie über eine
+   eigene Schrifteinheit (--fs), die an der Fensterbreite hängt.
+   ===================================================================== */
+
+.buehne {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  /* Basisgröße der Folie: wächst mit dem Fenster, gedeckelt für Riesenschirme. */
+  --fs: clamp(15px, 1.35vw, 23px);
+}
+
+.folie {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: calc(var(--fs) * 2.2) clamp(24px, 6vw, 96px);
+  max-width: 1500px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.nummer {
+  font-size: calc(var(--fs) * 0.72);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label, 0.08em);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin-bottom: calc(var(--fs) * 0.5);
+}
+
+.titel {
+  margin: 0;
+  font-size: calc(var(--fs) * 2.3);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.untertitel {
+  margin: calc(var(--fs) * 0.6) 0 0;
+  font-size: calc(var(--fs) * 1.05);
+  line-height: 1.5;
+  color: var(--color-ink-secondary);
+  max-width: 62ch;
+}
+
+.inhalt {
+  margin-top: calc(var(--fs) * 1.5);
+  font-size: calc(var(--fs) * 0.95);
+  line-height: 1.6;
+}
+
+/* --- Bausteine für die Folien ------------------------------------------------------- */
+
+.punkte {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: calc(var(--fs) * 0.75);
+}
+
+.punkte li {
+  display: grid;
+  grid-template-columns: calc(var(--fs) * 1.4) 1fr;
+  align-items: baseline;
+  gap: calc(var(--fs) * 0.5);
+}
+
+.punkte li::before {
+  content: '▸';
+  color: var(--color-focus);
+  font-size: calc(var(--fs) * 0.9);
+}
+
+.spalten {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: calc(var(--fs) * 1.2);
+}
+
+.karte {
+  padding: calc(var(--fs) * 0.9) calc(var(--fs) * 1.1);
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.karteTitel {
+  margin: 0 0 calc(var(--fs) * 0.35);
+  font-size: calc(var(--fs) * 0.78);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label, 0.08em);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.karteWert {
+  font-size: calc(var(--fs) * 1.7);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.karteText {
+  margin: calc(var(--fs) * 0.3) 0 0;
+  font-size: calc(var(--fs) * 0.82);
+  color: var(--color-ink-secondary);
+  line-height: 1.5;
+}
+
+/* Ablauf-Diagramm: Kästen mit Pfeilen dazwischen.
+
+   Bewusst KEIN flex-wrap: Bricht die Reihe um, bleibt ein Pfeil am Zeilenende
+   hängen und zeigt ins Leere. Stattdessen schrumpfen die Kästen gleichmäßig
+   (flex-basis 0), und erst unterhalb der Lesbarkeitsgrenze wird komplett auf
+   eine Spalte umgeschaltet — dann drehen sich die Pfeile mit. */
+.fluss {
+  display: flex;
+  align-items: stretch;
+  gap: calc(var(--fs) * 0.6);
+  flex-wrap: nowrap;
+}
+
+.flussKasten {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: calc(var(--fs) * 0.8) calc(var(--fs) * 0.9);
+  border: 2px solid var(--kasten-farbe, var(--color-line-strong));
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--kasten-farbe, var(--color-line-strong)) 9%, transparent);
+}
+
+@media (max-width: 900px) {
+  .fluss {
+    flex-direction: column;
+  }
+
+  .pfeil {
+    transform: rotate(90deg);
+  }
+}
+
+.flussKopf {
+  font-size: calc(var(--fs) * 0.7);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label, 0.08em);
+  text-transform: uppercase;
+  color: var(--kasten-farbe, var(--color-ink-muted));
+}
+
+.flussText {
+  margin: calc(var(--fs) * 0.25) 0 0;
+  font-size: calc(var(--fs) * 0.85);
+  line-height: 1.45;
+}
+
+.pfeil {
+  align-self: center;
+  font-size: calc(var(--fs) * 1.4);
+  color: var(--color-ink-muted);
+}
+
+.tabelle {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: calc(var(--fs) * 0.85);
+}
+
+.tabelle th,
+.tabelle td {
+  padding: calc(var(--fs) * 0.4) calc(var(--fs) * 0.6);
+  text-align: left;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.tabelle th {
+  font-size: calc(var(--fs) * 0.68);
+  font-weight: 700;
+  letter-spacing: var(--tracking-label, 0.08em);
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.tabelle td:last-child {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mono {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+}
+
+.code {
+  display: block;
+  padding: calc(var(--fs) * 0.9);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-sunken);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace);
+  font-size: calc(var(--fs) * 0.78);
+  line-height: 1.65;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+.merksatz {
+  margin-top: calc(var(--fs) * 1.2);
+  padding: calc(var(--fs) * 0.9) calc(var(--fs) * 1.1);
+  border-left: 4px solid var(--color-focus);
+  background: var(--color-surface-soft);
+  font-size: calc(var(--fs) * 1.02);
+  line-height: 1.55;
+}
+
+/* --- Steuerleiste -------------------------------------------------------------------- */
+
+.leiste {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 10px clamp(16px, 4vw, 40px);
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+
+.marke {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.punkteReihe {
+  display: flex;
+  gap: 6px;
+  margin: 0 auto;
+}
+
+.punktKnopf {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: var(--color-line-strong);
+  cursor: pointer;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.punktKnopf:hover {
+  background: var(--color-ink-muted);
+}
+
+.punktAktiv {
+  background: var(--color-ink);
+  transform: scale(1.25);
+}
+
+.zaehler {
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-ink-secondary);
+  white-space: nowrap;
+}
+
+.knopf {
+  padding: 6px 14px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.knopf:hover:not(:disabled) {
+  background: var(--color-surface-soft);
+}
+
+.knopf:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.zurueck {
+  font-size: 0.8rem;
+  color: var(--color-ink-secondary);
+  text-decoration: underline;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.tastenhinweis {
+  font-size: 0.72rem;
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .tastenhinweis,
+  .marke {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .punktKnopf {
+    transition: none;
+  }
+}
+
+/* Beim Drucken (PDF-Export für den Termin) jede Folie auf eine eigene Seite. */
+@media print {
+  .leiste {
+    display: none;
+  }
+
+  .buehne {
+    position: static;
+  }
+}
