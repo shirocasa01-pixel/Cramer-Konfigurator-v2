@@ -57,47 +57,7 @@ export function Handbuch() {
 
         {/* ---------------------------------------------------------------- */}
         <section className={styles.abschnitt}>
-          <h3 className={styles.h2}>2 · Was sich gegenüber früher geändert hat</h3>
-          <p>
-            Bis September 2026 hatte die Nummer <strong>vier</strong> Blöcke:{' '}
-            <code>TT-PP-GG-NNNN</code>, mit einer eigenen „Teileart" (STRUKTUR, BESCHLAG, …) vor der
-            Produktgruppe. Zwei Dinge daran waren Ballast:
-          </p>
-          <ol className={styles.liste}>
-            <li>
-              <strong>Der erste Block war redundant.</strong> Die alte Teileart war innerhalb jedes
-              Auswahlfeldes immer dieselbe — geprüft, 38 von 38. Wer das Dropdown kannte, kannte die
-              Teileart. Der Block trug keine Information, die nicht schon woanders stand, kostete
-              aber Verwirrung: Zwei Blöcke hießen fast gleich und meinten Verschiedenes.
-            </li>
-            <li>
-              <strong>Die Auswahlfeld-Nummer war nicht eindeutig.</strong> Sie zählte je
-              Produktgruppe neu. <code>05</code> stand deshalb für neun verschiedene Dinge — Korpus,
-              Drehtür, Griff, Boden, Sockelplatte, Leuchte, Tischplatte, Zuschlag, Porticus-Modell.
-              Erst zusammen mit dem zweiten Block war sie eindeutig.
-            </li>
-          </ol>
-          <p>
-            Seitdem heißt die frühere <em>Produktgruppe</em> <strong>Teileart</strong>, die frühere{' '}
-            <em>Artikelgruppe</em> heißt <strong>Dropdown</strong> und trägt eine systemweit
-            eindeutige dreistellige Nummer. <code>001</code> ist überall im System der Korpus,
-            nirgends sonst.
-          </p>
-          <pre className={styles.schema}>
-            {`ALT   30-30-05-0011     Teileart · Produktgruppe · Artikelgruppe · Laufnummer
-NEU      30-012-0011     Teileart · Dropdown · Laufnummer`}
-          </pre>
-          <p className={styles.hinweis}>
-            Die Mappe <code>Cramer-Stammdaten.xlsx</code> führt intern weiterhin das alte Schema —
-            die Umrechnung passiert beim Einlesen an genau einer Stelle
-            (<code>scripts/lib/nummern-migration.js</code>). Jedes Dropdown trägt deshalb auch
-            seinen alten Nummernkreis mit, damit Altbestände zuordenbar bleiben.
-          </p>
-        </section>
-
-        {/* ---------------------------------------------------------------- */}
-        <section className={styles.abschnitt}>
-          <h3 className={styles.h2}>3 · Steuert die Nummer oder das Dropdown?</h3>
+          <h3 className={styles.h2}>2 · Steuert die Nummer oder das Dropdown?</h3>
           <p>
             Die häufigste Rückfrage — und die Antwort ist zweigeteilt, weil zwei verschiedene Dinge
             gesteuert werden:
@@ -147,7 +107,7 @@ NEU      30-012-0011     Teileart · Dropdown · Laufnummer`}
 
         {/* ---------------------------------------------------------------- */}
         <section className={styles.abschnitt}>
-          <h3 className={styles.h2}>4 · Die Reiter — was steht wo?</h3>
+          <h3 className={styles.h2}>3 · Die Reiter — was steht wo?</h3>
           <p>
             Die Verwaltung hat fünf Datenreiter. Sie hängen zusammen wie Bauplan, Preisliste,
             Musterkoffer und Adressbuch: Der <strong>Artikelstamm</strong> sagt, <em>was es gibt</em>,
@@ -175,10 +135,10 @@ NEU      30-012-0011     Teileart · Dropdown · Laufnummer`}
               <tr><td className={styles.mono}>Bezeichnung 2</td><td>Oberbegriff für die Gruppierung in Listen und im AV-PDF.</td></tr>
               <tr><td className={styles.mono}>Teileart</td><td>Block 1 — der Hauptschritt im Konfigurator.</td></tr>
               <tr><td className={styles.mono}>Dropdown</td><td>Block 2 — <strong>die wichtigste Angabe</strong>. Sie entscheidet, in welchem Auswahlfeld der Artikel auftaucht.</td></tr>
-              <tr><td className={styles.mono}>Modus</td><td>Für welche Serien freigegeben. GROSS = Standard, klein = Sonderanfertigung (Abschnitt 6).</td></tr>
+              <tr><td className={styles.mono}>Modus</td><td>Für welche Serien freigegeben. GROSS = Standard, klein = Sonderanfertigung (Abschnitt 7).</td></tr>
               <tr><td className={styles.mono}>Preislogik</td><td>Wie der Preis entsteht: fester Stückpreis, Matrix, Aufpreis oder Prozentzuschlag.</td></tr>
               <tr><td className={styles.mono}>Einheit</td><td>Stück, lfm, m², %. Bestimmt, womit die Menge multipliziert wird.</td></tr>
-              <tr><td className={styles.mono}>Achsen · Achse 1–5</td><td>Was die Spalten A1–A5 der Preiszeilen bei <em>diesem</em> Artikel bedeuten (Abschnitt 7).</td></tr>
+              <tr><td className={styles.mono}>Achsen · Achse 1–5</td><td>Was die Spalten A1–A5 der Preiszeilen bei <em>diesem</em> Artikel bedeuten (Abschnitt 8).</td></tr>
               <tr><td className={styles.mono}>Preiszellen</td><td>Wie viele Preiswerte laut Grundstand zu erwarten sind — Kontrollzahl gegen Lücken.</td></tr>
               <tr><td className={styles.mono}>Oberfläche</td><td>J/N: Braucht der Artikel eine Material- bzw. Farbwahl?</td></tr>
               <tr><td className={styles.mono}>Status</td><td>Nur <code>aktiv</code> erscheint im Konfigurator. <code>gesperrt</code> ist das Mittel der Wahl statt Löschen.</td></tr>
@@ -256,9 +216,179 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
 
           <h4 className={styles.h3}>Filialen — die Verkaufshäuser</h4>
           <p>
-            Filialnummer, Name, Anschrift, Telefon, E-Mail und Status. Die <code>Alt-ID</code>{' '}
-            verbindet den Datensatz mit der bisherigen Nummerierung, damit alte Vorgänge zuordenbar
-            bleiben. Gesperrte Filialen verschwinden aus dem Dropdown im Entwurf.
+            Filialnummer, Name, Anschrift, Telefon, E-Mail und Status. Die <code>Alt-ID</code> trägt die
+            Kennung, unter der die Filiale in den Cramer-Systemen geführt wird — sie hält Vorgänge
+            über Systemgrenzen hinweg zuordenbar. Gesperrte Filialen verschwinden aus dem Dropdown im Entwurf.
+          </p>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        <section className={styles.abschnitt}>
+          <h3 className={styles.h2}>4 · Datensätze bearbeiten — der Doppelklick</h3>
+          <p>
+            In den Tabellen wird <strong>nicht direkt getippt</strong>. Ein{' '}
+            <strong>Doppelklick auf eine beliebige Zeile</strong> öffnet das Bearbeitungs-Fenster;
+            dort liegt der Datensatz vollständig und in Ruhe vor. Das ist Absicht: In einer Tabelle
+            mit 1.509 Preiszeilen wäre ein versehentlicher Tastendruck sonst eine stille
+            Datenänderung, die niemandem auffällt.
+          </p>
+          <p>Welcher Reiter welches Fenster öffnet:</p>
+          <table className={styles.tabelle}>
+            <thead>
+              <tr>
+                <th>Doppelklick im Reiter</th>
+                <th>öffnet</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Artikelstamm</td>
+                <td>Artikel-Fenster, startet bei <strong>Allgemein</strong></td>
+              </tr>
+              <tr>
+                <td>Preisblatt &amp; Achsen</td>
+                <td>
+                  Dasselbe Artikel-Fenster, springt aber direkt auf{' '}
+                  <strong>Preise &amp; Achsen</strong> — man landet dort, wo man hinwollte
+                </td>
+              </tr>
+              <tr>
+                <td>Oberflächen</td>
+                <td>Kategorie- oder Farb-Fenster, je nachdem, welche Zeilenart getroffen wurde</td>
+              </tr>
+              <tr>
+                <td>Berater</td>
+                <td>Berater-Fenster inklusive Zugangsverwaltung</td>
+              </tr>
+              <tr>
+                <td>Filialen</td>
+                <td>Filial-Fenster</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h4 className={styles.h3}>Das Artikel-Fenster hat drei Reiter</h4>
+          <p>
+            Nur der Artikel ist umfangreich genug für eine Aufteilung. Oberflächen, Berater und
+            Filialen öffnen ein einzelnes Formular ohne Unterreiter — dort steht alles auf einen
+            Blick.
+          </p>
+
+          <table className={styles.tabelle}>
+            <thead>
+              <tr>
+                <th>Reiter</th>
+                <th>Felder</th>
+                <th>Wirkung im Konfigurator</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Allgemein</strong></td>
+                <td>
+                  Artikelnummer, Kurzzeichen, Bezeichnung 1 und 2, Einheit, „Oberfläche relevant",
+                  Quelle, Preiszellen, Bemerkung
+                </td>
+                <td>
+                  <strong>Bezeichnung 1</strong> ist der Text, den der Berater im Auswahlfeld liest.{' '}
+                  <strong>Einheit</strong> bestimmt, womit die Menge multipliziert wird (Stück, lfm,
+                  m², %). <strong>Oberfläche relevant</strong> schaltet die Material- und Farbwahl für
+                  diesen Artikel frei. Die <strong>Artikelnummer</strong> ist nur beim Anlegen
+                  beschreibbar.
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Klassifikation &amp; Status</strong></td>
+                <td>Teileart, Dropdown, Preislogik, Status, Sortierung, Modus (Serien-Freigabe)</td>
+                <td>
+                  Hier entscheidet sich <strong>ob und wo</strong> der Artikel überhaupt erscheint.
+                  Das <strong>Dropdown</strong> bestimmt das Auswahlfeld, der <strong>Modus</strong>{' '}
+                  die Serien — die Serien lassen sich anklicken statt tippen, das Fenster zeigt
+                  darunter, welche es erkannt hat. <strong>Status</strong> auf <code>gesperrt</code>{' '}
+                  nimmt den Artikel sofort aus allen Auswahlfeldern, ohne ihn zu löschen.{' '}
+                  <strong>Sortierung</strong> verschiebt ihn nur in der Liste.
+                </td>
+              </tr>
+              <tr>
+                <td><strong>Preise &amp; Achsen</strong></td>
+                <td>
+                  Achsen A1–A5 des Artikels sowie alle seine Preiszeilen — anlegen, ändern, entfernen
+                </td>
+                <td>
+                  Die <strong>Achsen</strong> legen fest, was die Spalten A1–A5 bei diesem Artikel
+                  bedeuten. Die <strong>Preiszeilen</strong> sind die Matrix darunter: je Kombination
+                  von Achsenwerten ein Preis. Fehlt eine passende Zeile, bleibt der Artikel wählbar,
+                  erscheint in der Kalkulation aber als „auf Anfrage".
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h4 className={styles.h3}>Zweistufiges Speichern</h4>
+          <p>
+            Das Fenster übernimmt nur in den <strong>Bearbeitungsstand</strong>. Verbindlich wird
+            eine Änderung erst über den <strong>Speichern-Knopf oben im Kopf</strong> — er gilt für
+            alle Reiter gemeinsam und ist die einzige Stelle mit Rückfrage. Bis dahin zeigt der
+            Zähler im Kopf, wie viele Änderungen ausstehen; ein Klick darauf listet sie feldweise
+            auf (<span className={styles.mono}>preis: 372 → 410</span>) und springt auf Wunsch zur
+            betroffenen Zeile. „Abbrechen" im Fenster verwirft alles, was dort geändert wurde.
+          </p>
+
+          <h4 className={styles.h3}>Beispiel 1 — Preis eines Artikels anpassen</h4>
+          <ol className={styles.liste}>
+            <li>
+              Reiter <strong>Preisblatt &amp; Achsen</strong> öffnen und die betroffene Zeile suchen
+              — am schnellsten über das Suchfeld mit der Artikelnummer.
+            </li>
+            <li>
+              <strong>Doppelklick</strong> auf die Zeile. Das Artikel-Fenster öffnet direkt im Reiter
+              „Preise &amp; Achsen"; die Preiszeilen des Artikels stehen untereinander.
+            </li>
+            <li>
+              Im Preisfeld den neuen Betrag eintragen. Deutsche Schreibweise: Komma trennt die Cent.
+            </li>
+            <li>
+              <strong>Änderungen speichern</strong> — das Fenster schließt, der Zähler im Kopf zählt
+              hoch.
+            </li>
+            <li>
+              Oben im Kopf auf <strong>Speichern</strong>. Erst jetzt gilt der neue Preis; ab dem
+              nächsten Rendern rechnet die Kalkulation damit.
+            </li>
+          </ol>
+
+          <h4 className={styles.h3}>Beispiel 2 — einer Front eine andere Material-Preisgruppe geben</h4>
+          <p>
+            Fronten haben keine eigene Preisgruppe. Sie erben sie von dem Material, das der Berater
+            wählt — deshalb wird das nicht am Artikel, sondern im Reiter{' '}
+            <strong>Oberflächen</strong> gepflegt.
+          </p>
+          <ol className={styles.liste}>
+            <li>
+              Reiter <strong>Oberflächen</strong> öffnen. Die Liste zeigt zwei Ebenen: Kategorien und
+              die Farben darunter.
+            </li>
+            <li>
+              Soll die Änderung für <strong>alle</strong> Farben einer Gruppe gelten — etwa alle
+              Mattlacke von PG 2 auf PG 3 —, per Doppelklick die <strong>Kategoriezeile</strong>{' '}
+              öffnen und dort die Preisgruppe ändern. Alle Farben darin erben sie sofort.
+            </li>
+            <li>
+              Soll nur <strong>eine einzelne Farbe</strong> abweichen — wie Wengé, das teurer ist als
+              der Rest seiner Gruppe —, per Doppelklick die <strong>Farbzeile</strong> öffnen und dort
+              die abweichende Preisgruppe eintragen. Sie schlägt die Kategorie.
+            </li>
+            <li>
+              Speichern im Fenster, dann oben im Kopf. Die Front zieht ab sofort die neue Preisgruppe
+              in die Preiszeile — <strong>ohne</strong> dass am Front-Artikel selbst etwas geändert
+              werden musste.
+            </li>
+          </ol>
+          <p className={styles.hinweis}>
+            Faustregel für beide Beispiele: Am <strong>Artikel</strong> ändert man, was das Bauteil
+            ist und kostet. An der <strong>Oberfläche</strong> ändert man, in welche Preisgruppe ein
+            Material fällt. Wer das verwechselt, legt einen zweiten Artikel an, wo ein Katalogeintrag
+            gereicht hätte.
           </p>
         </section>
 
@@ -477,9 +607,7 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
             Position — eine verschobene Spalte bricht also nichts.
           </p>
           <p className={styles.hinweis}>
-            Ältere Exporte mit den Spalten <code>Produktgruppe</code> und <code>Artikelgruppe</code>{' '}
-            werden weiterhin gelesen und automatisch auf die neuen Felder abgebildet. Änderungen
-            liegen im Browser-Speicher dieses Geräts, nicht in der Mappe auf der Platte; über „Auf
+            Änderungen liegen im Browser-Speicher dieses Geräts, nicht in der Mappe auf der Platte; über „Auf
             Excel-Stand zurücksetzen" ist jederzeit der Ausgangszustand erreichbar.
           </p>
         </section>
