@@ -9,26 +9,26 @@
  *
  * Die Dropdown-Regel steht so im Blatt „00 Anleitung":
  *
- *   Produktgruppe = ein Schritt im Konfigurator
- *     └── Artikelgruppe = ein Dropdown in diesem Schritt
+ *   Teileart = ein Schritt im Konfigurator
+ *     └── Dropdown = ein Dropdown in diesem Schritt
  *           └── Artikel = die Einträge, gefiltert über Modus und Status
  */
 
 import {
   SERIEN_CODES,
-  artikelgruppen as alleArtikelgruppen,
+  dropdowns as alleDropdowns,
   artikelnummerLogik,
   meta,
-  produktgruppen as alleProduktgruppen,
+  teilearten as alleTeilearten,
   serien,
   type Artikel,
-  type Artikelgruppe,
-  type ArtikelgruppeCode,
+  type Dropdown,
+  type DropdownCode,
   type Filiale,
   type Mitarbeiter,
   type Preiszeile,
-  type Produktgruppe,
-  type ProduktgruppeCode,
+  type Teileart,
+  type TeileartCode,
   type Serie,
   type SerienCode,
   type SerienId,
@@ -46,13 +46,13 @@ import {
 
 export type {
   Artikel,
-  Artikelgruppe,
-  ArtikelgruppeCode,
+  Dropdown,
+  DropdownCode,
   Filiale,
   Mitarbeiter,
   Preiszeile,
-  Produktgruppe,
-  ProduktgruppeCode,
+  Teileart,
+  TeileartCode,
   Serie,
   SerienCode,
   SerienId,
@@ -108,9 +108,9 @@ export interface ArtikelFilter {
   /** Nur Artikel, die für diese Serie freigegeben sind. */
   serieId?: string
   /** Nur Artikel dieses Konfigurator-Schritts. */
-  produktgruppe?: ProduktgruppeCode
+  teileart?: TeileartCode
   /** Nur Artikel dieses Dropdowns. */
-  artikelgruppe?: ArtikelgruppeCode
+  dropdown?: DropdownCode
   /**
    * Gesperrte und Entwurfs-Artikel mitliefern. Standard `false` — laut „00 Anleitung"
    * erscheint im Konfigurator ausschließlich Status `aktiv`.
@@ -127,8 +127,8 @@ export function findeArtikel(filter: ArtikelFilter = {}): Artikel[] {
     .filter((a) => {
       if (!filter.auchInaktive && a.status !== 'aktiv') return false
       if (serie && !modusErlaubt(a.modus, serie.code)) return false
-      if (filter.produktgruppe && a.produktgruppe !== filter.produktgruppe) return false
-      if (filter.artikelgruppe && a.artikelgruppe !== filter.artikelgruppe) return false
+      if (filter.teileart && a.teileart !== filter.teileart) return false
+      if (filter.dropdown && a.dropdown !== filter.dropdown) return false
       return true
     })
     .sort(
@@ -143,12 +143,12 @@ export function artikelFuerSerie(serieId: string | undefined): Artikel[] {
   return findeArtikel({ serieId })
 }
 
-/** Die Einträge eines Dropdowns — Artikelgruppe × Serie, wie im Blatt „00 Anleitung" beschrieben. */
+/** Die Einträge eines Dropdowns — Dropdown × Serie, wie im Blatt „00 Anleitung" beschrieben. */
 export function dropdownEintraege(
-  artikelgruppe: ArtikelgruppeCode,
+  dropdown: DropdownCode,
   serieId: string | undefined,
 ): Artikel[] {
-  return findeArtikel({ artikelgruppe, serieId })
+  return findeArtikel({ dropdown, serieId })
 }
 
 // ---------------------------------------------------------------------------
@@ -156,7 +156,7 @@ export function dropdownEintraege(
 // ---------------------------------------------------------------------------
 
 /** Konfigurator-Schritte in der Reihenfolge der Mappe. */
-export const schritte: readonly Produktgruppe[] = [...alleProduktgruppen].sort(
+export const schritte: readonly Teileart[] = [...alleTeilearten].sort(
   (a, b) => a.reihenfolge - b.reihenfolge,
 )
 
@@ -166,11 +166,11 @@ export const schritte: readonly Produktgruppe[] = [...alleProduktgruppen].sort(
  * Abdeckplatten-Artikel ein `R` im Modus trägt.
  */
 export function dropdownsFuerSchritt(
-  produktgruppe: ProduktgruppeCode,
+  teileart: TeileartCode,
   serieId?: string,
-): Artikelgruppe[] {
-  return alleArtikelgruppen
-    .filter((ag) => ag.produktgruppe === produktgruppe)
+): Dropdown[] {
+  return alleDropdowns
+    .filter((ag) => ag.teileart === teileart)
     .filter((ag) => serieId === undefined || dropdownEintraege(ag.code, serieId).length > 0)
     .sort((a, b) => a.nr.localeCompare(b.nr))
 }
@@ -205,14 +205,16 @@ export function findePreis(artikelnummer: string, achsenwerte: string[]): Preisz
 // ---------------------------------------------------------------------------
 
 export interface ArtikelnummerTeile {
+  /** Block 1, zweistellig — Hauptschritt im Konfigurator. */
   teileart: string
-  produktgruppe: string
-  artikelgruppe: string
+  /** Block 2, dreistellig und systemweit eindeutig — das Auswahlfeld. */
+  dropdown: string
+  /** Block 3, vierstellig — laufende Nummer innerhalb des Dropdowns. */
   laufend: string
 }
 
 /**
- * Zerlegt `30-30-05-0011` anhand der im Markdown beschriebenen Blockstruktur.
+ * Zerlegt `30-012-0011` anhand der im Markdown beschriebenen Blockstruktur.
  * Ändert sich das Nummernschema dort, ändert sich diese Funktion mit.
  */
 export function parseArtikelnummer(nr: string): ArtikelnummerTeile | null {
@@ -222,9 +224,8 @@ export function parseArtikelnummer(nr: string): ArtikelnummerTeile | null {
   if (!teile.every((teil, i) => teil.length === bloecke[i].laenge && /^\d+$/.test(teil))) return null
   return {
     teileart: teile[0],
-    produktgruppe: teile[1],
-    artikelgruppe: teile[2],
-    laufend: teile[3],
+    dropdown: teile[1],
+    laufend: teile[2],
   }
 }
 

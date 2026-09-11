@@ -23,76 +23,79 @@ die Hierarchie verlustfrei in die Nummer codieren.
 ## 2. Der Aufbau
 
 ```
-        30-30-05-0011
-        │  │  │  └──── laufende Nummer in der Artikelgruppe   0001–9999
-        │  │  └─────── Artikelgruppe        05 = Griff
-        │  └────────── Produktgruppe        30 = Frontausstattung
-        └───────────── Teileart             30 = Beschlag
+        30-012-0011
+        │   │   └──── laufende Nummer im Dropdown   0001–9999
+        │   └──────── Dropdown      012 = Griff
+        └──────────── Teileart       30 = Frontausstattung
 ```
 
-Vier Blöcke, 10 Ziffern, drei Trennstriche. Gelesen: *Beschlag, im Schritt Frontausstattung,
-Dropdown Griff, elfter Artikel.*
+Drei Blöcke, 9 Ziffern, zwei Trennstriche. Gelesen: *Schritt Frontausstattung,
+Auswahlfeld Griff, elfter Artikel.*
 
-### Vergabe in Schritten — der Platz zum Erweitern
+### Was sich gegenüber dem alten Schema geändert hat
 
-Alle drei Klassifikationsblöcke sind **nicht** fortlaufend vergeben, sondern in Schritten. So
-lässt sich eine neue Klasse dazwischenschieben, ohne eine einzige bestehende Nummer anzufassen.
+Bis September 2026 galt ein Vier-Block-Schema `TT-PP-GG-NNNN` mit einer eigenen „Teileart"
+(STRUKTUR, BESCHLAG, …) vor der Produktgruppe. Zwei Dinge daran waren Ballast:
 
-**Teileart — Zehnerschritte** (Stelle 1)
+**Der erste Block war redundant.** Die alte Teileart ist innerhalb jeder Artikelgruppe konstant —
+geprüft, 38 von 38. Wer das Auswahlfeld kennt, kennt die Teileart. Der Block trug also keine
+Information, die nicht schon im dritten Block stand, kostete aber Verwirrung: Zwei Blöcke hießen
+fast gleich und meinten Verschiedenes.
 
-| Nr | Code | Bedeutung |
+**Die Auswahlfeld-Nummer war nicht eindeutig.** Sie zählte je Produktgruppe neu, weshalb `05` für
+neun verschiedene Dinge stand — Korpus, Drehtür, Griff, Boden, Sockelplatte, Leuchte, Tischplatte,
+Zuschlag, Porticus-Modell. Erst zusammen mit dem zweiten Block war sie eindeutig.
+
+Deshalb jetzt: Die frühere **Produktgruppe heißt Teileart** (Block 1), die frühere
+**Artikelgruppe heißt Dropdown** und bekommt eine **systemweit eindeutige dreistellige Nummer**
+(Block 2). `001` ist überall im System der Korpus, nirgends sonst.
+
+### Vergabe — der Platz zum Erweitern
+
+**Teileart — Zehnerschritte** (Block 1), identisch mit der Schrittreihenfolge im Konfigurator
+
+| Nr | Code | Schritt im Konfigurator |
 |---:|---|---|
-| 10 | STRUKTUR | Strukturteil — trägt das Möbel |
-| 20 | FRONT | Frontteil |
-| 30 | BESCHLAG | Beschlag |
-| 40 | AUSSTATTUNG | Ausstattung |
-| 50 | TECHNIK | Technik |
-| 60 | KOMPLETT | Fertigmöbel |
-| 70 | KALKULATION | Kalkulationsposition |
+| 10 | KORPUS | Korpus-Konfiguration |
+| 20 | FRONT | Fronten & Abschlüsse |
+| 30 | FRONTAUSSTATTUNG | Griffe, Schlösser, PTO |
+| 40 | INNENAUSSTATTUNG | Ausstattung hinter der Front |
+| 50 | TECHNIK | Beleuchtung & Elektrifizierung |
+| 60 | ABSCHLUSS | Sockel, Füße, Rollen, Wandmontage |
+| 70 | MOEBEL | Komplette Möbel aus Modellserien |
+| 80 | TISCH | Tischplatten & Untergestelle |
+| 90 | KALKULATION | Zuschläge & Serviceleistungen |
 
-Frei: 80, 90 sowie sämtliche Zwischenwerte 11–19, 21–29 usw. Wird etwa „Verpackung/Logistik" als
-eigene Teileart nötig, wird sie 80 — oder 35, wenn sie fachlich zwischen Beschlag und Ausstattung
-gehört.
+Frei bleiben sämtliche Zwischenwerte 11–19, 21–29 usw. Eine neue Kategorie lässt sich
+dazwischenschieben, ohne eine bestehende Nummer anzufassen.
 
-**Produktgruppe — Zehnerschritte** (Stelle 2), identisch mit der Schrittreihenfolge im Konfigurator
+**Dropdown — fortlaufend und global eindeutig** (Block 2), gruppiert nach Teileart:
 
-| Nr | Code |
-|---:|---|
-| 10 | KORPUS |
-| 20 | FRONT |
-| 30 | FRONTAUSSTATTUNG |
-| 40 | INNENAUSSTATTUNG |
-| 50 | TECHNIK |
-| 60 | ABSCHLUSS |
-| 70 | MOEBEL |
-| 80 | TISCH |
-| 90 | KALKULATION |
-
-**Artikelgruppe — Fünferschritte** (Stelle 3), je Produktgruppe neu beginnend, fachlich sortiert:
-erst das Tragende, dann das Zubehör.
-
-| Produktgruppe | Artikelgruppen |
+| Teileart | Dropdowns |
 |---|---|
-| 10 KORPUS | 05 Korpus · 10 Mittelseite · 15 Außenset · 20 Abdeckplatte · 25 Ecklösung |
-| 20 FRONT | 05 Drehtür · 10 Schiebetür einläufig · 15 Schiebetür zweiläufig · 20 Schublade · 25 Klappe · 30 Front-Aufpreis |
-| 30 FRONTAUSSTATTUNG | 05 Griff · 10 Schloss |
-| 40 INNENAUSSTATTUNG | 05 Boden · 10 Kleiderstange · 15 Auszug · 20 Container · 25 Spiegel · 30 Schubladeneinlage · 35 Wandelement · 40 Akustikpaneel · 45 Raumteiler · 50 Zubehör |
-| 50 TECHNIK | 05 Leuchte · 10 Schalter · 15 Strom · 20 Kabelführung |
-| 60 ABSCHLUSS | 05 Sockelplatte · 10 Fuß/Rolle |
-| 70 MOEBEL | 05 Porticus-Modell · 10 Supersonus-Modell · 15 Cavum-Modul · 20 Publicum-Regal |
-| 80 TISCH | 05 Tischplatte · 10 Untergestell · 15 Arcum-Einsatz |
-| 90 KALKULATION | 05 Zuschlag · 10 Verblendung |
+| 10 KORPUS | 001 Korpus · 002 Mittelseite · 003 Außenset · 004 Abdeckplatte · 005 Ecklösung |
+| 20 FRONT | 006 Drehtür · 007 Schiebetür einläufig · 008 Schiebetür zweiläufig · 009 Schublade · 010 Klappe · 011 Front-Aufpreis |
+| 30 FRONTAUSSTATTUNG | 012 Griff · 013 Schloss |
+| 40 INNENAUSSTATTUNG | 014 Boden · 015 Kleiderstange · 016 Auszug · 017 Container · 018 Spiegel · 019 Schubladeneinlage · 020 Wandelement · 021 Akustikpaneel · 022 Raumteiler · 023 Zubehör |
+| 50 TECHNIK | 024 Leuchte · 025 Schalter · 026 Strom · 027 Kabelführung |
+| 60 ABSCHLUSS | 028 Sockelplatte · 029 Fuß/Rolle |
+| 70 MOEBEL | 030 Porticus-Modell · 031 Supersonus-Modell · 032 Cavum-Modul · 033 Publicum-Regal |
+| 80 TISCH | 034 Tischplatte · 035 Untergestell · 036 Arcum-Einsatz |
+| 90 KALKULATION | 037 Zuschlag · 038 Verblendung |
 
-**Laufende Nummer — fortlaufend** (Stellen 4–7). Hier ist bewusst **kein** Abstand gelassen: die
+Ein neues Auswahlfeld bekommt die nächste freie Nummer — **039**, unabhängig davon, zu welcher
+Teileart es gehört. Die Nummer ist eine Identität, keine Sortierung.
+
+**Laufende Nummer — fortlaufend** (Block 3). Hier ist bewusst **kein** Abstand gelassen: die
 Reihenfolge im Dropdown regelt die Spalte `Sortierung`, nicht die Nummer. Das trennt Identität von
 Anzeige — ein Artikel kann in der Liste nach oben rutschen, ohne die Nummer zu wechseln.
 
 ### Suchen über das Präfix — wie im ERP
 
 ```
-30-              alle Beschläge
-20-20-           alle Fronten im Schritt „Fronten"
-20-20-05-        alle Drehtüren
+30-              alles aus dem Schritt Frontausstattung
+30-012-          alle Griffe
+20-006-          alle Drehtüren
 ```
 
 ---
@@ -101,17 +104,17 @@ Anzeige — ein Artikel kann in der Liste nach oben rutschen, ohne die Nummer zu
 
 | Artikelnummer | Kurzzeichen | Bezeichnung | Achsen |
 |---|---|---|---|
-| `10-10-05-0001` | KOR-001 | Korpus (Atrium / Velare / Porticus) | Breite × Raster × PG × Tiefe × Variante |
-| `10-10-05-0003` | KOR-003 | Korpus *(Refugium)* | Breite × Raster |
-| `10-10-10-0001` | MIT-001 | Mittelseite (2 cm) | Raster |
-| `10-10-15-0001` | AUS-001 | Außenset | Breite × PG |
-| `20-20-05-0001` | DRT-001 | Drehtür | Breite × Raster × Linie+PG |
-| `20-20-20-0001` | SCB-001 | Schublade | Breite × Raster × Linie+PG × Tiefe |
-| `30-30-05-0013` | GRF-013 | Griff Nr. 19 | — |
-| `30-30-05-0011` | GRF-011 | Griff Nr. 127 Griffleiste | — |
-| `50-50-05-0003` | LEU-003 | LED-Band Aluprofil | Bedingung |
-| `70-90-05-0004` | ZUS-004 | Sichtrückwand *(Zuschlag % vom Möbelpreis)* | — |
-| `70-90-10-0001` | VBL-001 | Verblendung frontbündig *(€/lfm)* | — |
+| `10-001-0001` | KOR-001 | Korpus (Atrium / Velare / Porticus) | Breite × Raster × PG × Tiefe × Variante |
+| `10-001-0003` | KOR-003 | Korpus *(Refugium)* | Breite × Raster |
+| `10-002-0001` | MIT-001 | Mittelseite (2 cm) | Raster |
+| `10-003-0001` | AUS-001 | Außenset | Breite × PG |
+| `20-006-0001` | DRT-001 | Drehtür | Breite × Raster × Linie+PG |
+| `20-009-0001` | SCB-001 | Schublade | Breite × Raster × Linie+PG × Tiefe |
+| `30-012-0013` | GRF-013 | Griff Nr. 19 | — |
+| `30-012-0011` | GRF-011 | Griff Nr. 127 Griffleiste | — |
+| `50-024-0003` | LEU-003 | LED-Band Aluprofil | Bedingung |
+| `90-037-0004` | ZUS-004 | Sichtrückwand *(Zuschlag % vom Möbelpreis)* | — |
+| `90-038-0001` | VBL-001 | Verblendung frontbündig *(€/lfm)* | — |
 
 Das **Kurzzeichen** (`DRT-001`) bleibt als Lesehilfe für Gespräche und Bildschirmanzeige
 erhalten — es ist ausdrücklich **kein Schlüssel**. Wenn es stört, ist es eine Spalte weniger.

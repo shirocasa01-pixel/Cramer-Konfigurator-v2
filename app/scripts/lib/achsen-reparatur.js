@@ -37,21 +37,21 @@
 /** @type {Reparatur[]} */
 export const ACHSEN_REPARATUREN = [
   {
-    artikel: '20-20-20-0001',
+    artikel: '20-009-0001',
     achse: 'RASTER',
     falsch: '5',
     richtig: '1.5',
     beleg: 'Ref → „Mittlerer Schub 1,5R" (Preisliste S. 11)',
   },
   {
-    artikel: '40-40-15-0001',
+    artikel: '40-016-0001',
     achse: 'RASTER',
     falsch: '5',
     richtig: '1.5',
     beleg: 'Ref → „Innenschublade 1,5 Raster - Glatt1 Decoboard" (S. 26)',
   },
   {
-    artikel: '40-40-20-0019',
+    artikel: '40-017-0019',
     achse: 'RASTER',
     falsch: '5',
     richtig: '4.5',

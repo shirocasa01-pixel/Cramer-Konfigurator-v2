@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   achsen as achsenKatalog,
-  artikelgruppen,
+  dropdowns,
   preislogiken,
-  produktgruppen,
   serien,
   teilearten,
   type AchseCode,
@@ -33,7 +32,7 @@ import styles from './ArtikelDetailModal.module.css'
  *
  * Drei Bereiche:
  *   Allgemein               Nummer, Bezeichnungen 1–4, Einheit, Beschreibung, Quelle
- *   Klassifikation & Status Teileart, Produktgruppe, Artikelgruppe, Modus, Status, Sortierung
+ *   Klassifikation & Status Teileart, Dropdown, Modus, Status, Sortierung
  *   Preise & Achsen         Achsen A1–A5 des Artikels und alle seine Preiszellen
  *
  * Alle 22 Felder des Blattes „10 Artikel" sind vertreten — die Artikelnummer als
@@ -71,8 +70,7 @@ function leererArtikel(): Artikel {
     bezeichnung: '',
     bezeichnung2: '',
     teileart: teilearten[0].code,
-    produktgruppe: produktgruppen[0].code,
-    artikelgruppe: artikelgruppen[0].code,
+    dropdown: dropdowns[0].code,
     modus: '',
     preislogik: 'FESTPREIS',
     einheit: 'Stück',
@@ -172,7 +170,7 @@ export function ArtikelDetailModal({
             <h2 className={styles.titel}>{anlegen ? 'Neuer Artikel' : form.bezeichnung || 'Artikel'}</h2>
             <p className={styles.untertitel}>
               {anlegen ? (
-                'Artikelnummer nach dem Muster TT-PP-GG-NNNN vergeben'
+                'Artikelnummer nach dem Muster TT-DDD-NNNN vergeben'
               ) : (
                 <>
                   <span className={styles.mono}>{form.artikelnummer}</span>
@@ -207,7 +205,7 @@ export function ArtikelDetailModal({
         <div className={styles.koerper}>
           {bereich === 'allgemein' ? (
             <div className={styles.felder}>
-              <Feld label="Artikelnummer" hinweis={anlegen ? 'Muster TT-PP-GG-NNNN' : 'Identität — nicht änderbar'}>
+              <Feld label="Artikelnummer" hinweis={anlegen ? 'Muster TT-DDD-NNNN' : 'Identität — nicht änderbar'}>
                 <input
                   className={[styles.input, styles.mono].join(' ')}
                   value={form.artikelnummer}
@@ -283,7 +281,7 @@ export function ArtikelDetailModal({
 
           {bereich === 'klassifikation' ? (
             <div className={styles.felder}>
-              <Feld label="Teileart" hinweis="Stelle 1 der Artikelnummer">
+              <Feld label="Teileart" hinweis="Block 1 · Hauptschritt im Konfigurator">
                 <select
                   className={styles.input}
                   value={form.teileart}
@@ -291,33 +289,20 @@ export function ArtikelDetailModal({
                 >
                   {teilearten.map((t) => (
                     <option key={t.code} value={t.code}>
-                      {t.nr} · {t.code} — {t.bezeichnung}
+                      {t.nr} · {t.code} — {t.schritt}
                     </option>
                   ))}
                 </select>
               </Feld>
-              <Feld label="Produktgruppe" hinweis="Schritt im Konfigurator">
+              <Feld label="Dropdown" hinweis="Block 2 · Auswahlfeld, in dem der Artikel erscheint">
                 <select
                   className={styles.input}
-                  value={form.produktgruppe}
-                  onChange={(e) => setFeld('produktgruppe', e.target.value as Artikel['produktgruppe'])}
+                  value={form.dropdown}
+                  onChange={(e) => setFeld('dropdown', e.target.value as Artikel['dropdown'])}
                 >
-                  {produktgruppen.map((p) => (
-                    <option key={p.code} value={p.code}>
-                      {p.nr} · {p.code} — {p.bezeichnung}
-                    </option>
-                  ))}
-                </select>
-              </Feld>
-              <Feld label="Artikelgruppe" hinweis="Dropdown im Schritt">
-                <select
-                  className={styles.input}
-                  value={form.artikelgruppe}
-                  onChange={(e) => setFeld('artikelgruppe', e.target.value as Artikel['artikelgruppe'])}
-                >
-                  {artikelgruppen.map((a) => (
-                    <option key={a.code} value={a.code}>
-                      {a.nr} · {a.code} — {a.bezeichnung}
+                  {dropdowns.map((d) => (
+                    <option key={d.code} value={d.code}>
+                      {d.nr} · {d.code} — {d.bezeichnung}
                     </option>
                   ))}
                 </select>

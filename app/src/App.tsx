@@ -13,7 +13,6 @@ import AusstattungPage from './pages/Ausstattung/Ausstattung'
 import FrontsPage from './pages/Fronts/Fronts'
 import SummaryPage from './pages/Summary/Summary'
 import MobileScanPage from './pages/MobileScan/MobileScan'
-import PraesentationPage from './pages/Praesentation/Praesentation'
 import RootActivatePage from './pages/Admin/RootActivate'
 import RootSetupPage from './pages/Admin/RootSetup'
 import AdminDashboardPage from './pages/Admin/AdminDashboard'
@@ -39,13 +38,8 @@ export default function App() {
 
   // Wartungsmodus fängt das gesamte Routing ab – außer Login/Admin, damit
   // Administratoren den Modus wieder deaktivieren können.
-  // Die Präsentation ist ebenfalls ausgenommen: Sie zeigt keine Live-Daten, wird aber
-  // im Kundentermin gebraucht — ein Wartungs-Overlay auf dem Beamer waere das
-  // denkbar schlechteste Timing.
   const maintenanceExempt =
-    location.pathname === '/login' ||
-    location.pathname === '/praesentation' ||
-    location.pathname.startsWith('/admin')
+    location.pathname === '/login' || location.pathname.startsWith('/admin')
   if (maintenanceActive && !maintenanceExempt) return <MaintenanceOverlay />
 
   return (
@@ -58,13 +52,6 @@ export default function App() {
       {/* Öffentliche Mobile-Scan-Ansicht (per QR geöffnet, ohne Login) */}
       <Route path="/scan/:draftId" element={<MobileScanPage />} />
 
-      {/*
-        Präsentations-Modul — bewusst ohne Login: Es zeigt ausschliesslich die
-        Datenstruktur und Kennzahlen aus den Stammdaten, keine Kundendaten und keine
-        Entwuerfe. So laesst es sich im Termin direkt auf dem Beamer oeffnen, ohne
-        dass sich jemand vor Publikum anmelden muss.
-      */}
-      <Route path="/praesentation" element={<PraesentationPage />} />
 
       {/* Phase 10 – Admin-Onboarding (öffentlich: Aktivierung & Einrichtung) */}
       <Route path="/admin/activate" element={<RootActivatePage />} />

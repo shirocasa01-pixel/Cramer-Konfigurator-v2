@@ -564,9 +564,10 @@ export interface PricingSnapshotPosition {
   label: string
   artikelnummer?: string
   kurzzeichen?: string
+  /** Hauptschritt im Konfigurator (Block 1 der Artikelnummer). */
   teileart?: string
-  produktgruppe?: string
-  artikelgruppe?: string
+  /** Auswahlfeld, aus dem der Artikel stammt (Block 2). */
+  dropdown?: string
   achsen: PricingSnapshotAchse[]
   einheit?: string
   /** Seite der gedruckten Preisliste. */

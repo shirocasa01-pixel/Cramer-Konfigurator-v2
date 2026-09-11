@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   achsen as achsenKatalog,
-  produktgruppen,
+  dropdowns,
   serien,
   teilearten,
   type Artikel,
@@ -98,9 +98,8 @@ const ARTIKEL_SPALTEN: SpaltenDef<Artikel>[] = [
   { id: 'kurzzeichen', titel: 'Kurzzeichen', breite: 96, mono: true, wert: (a) => a.kurzzeichen },
   { id: 'bezeichnung', titel: 'Bezeichnung', breite: 250, wert: (a) => a.bezeichnung },
   { id: 'bezeichnung2', titel: 'Bezeichnung 2', breite: 185, wert: (a) => a.bezeichnung2 },
-  { id: 'teileart', titel: 'Teileart', breite: 124, wert: (a) => a.teileart },
-  { id: 'produktgruppe', titel: 'Produktgruppe', breite: 150, wert: (a) => a.produktgruppe },
-  { id: 'artikelgruppe', titel: 'Artikelgruppe', breite: 160, wert: (a) => a.artikelgruppe },
+  { id: 'teileart', titel: 'Teileart', breite: 150, wert: (a) => a.teileart },
+  { id: 'dropdown', titel: 'Dropdown', breite: 170, wert: (a) => a.dropdown },
   { id: 'modus', titel: 'Modus', breite: 96, mono: true, wert: (a) => a.modus },
   { id: 'preislogik', titel: 'Preislogik', breite: 132, wert: (a) => a.preislogik },
   { id: 'einheit', titel: 'Einheit', breite: 110, wert: (a) => a.einheit },
@@ -129,9 +128,8 @@ const PREIS_SPALTEN: SpaltenDef<PreisZeileMitKontext>[] = [
   { id: 'artikel', titel: 'Artikel', breite: 132, mono: true, wert: (r) => r.zeile.artikel },
   { id: 'bezeichnung', titel: 'Bezeichnung', breite: 235, wert: (r) => r.artikel?.bezeichnung ?? '' },
   { id: 'bezeichnung2', titel: 'Bezeichnung 2', breite: 180, standard: false, wert: (r) => r.artikel?.bezeichnung2 ?? '' },
-  { id: 'teileart', titel: 'Teileart', breite: 120, standard: false, wert: (r) => r.artikel?.teileart ?? '' },
-  { id: 'produktgruppe', titel: 'Produktgruppe', breite: 148, standard: false, wert: (r) => r.artikel?.produktgruppe ?? '' },
-  { id: 'artikelgruppe', titel: 'Artikelgruppe', breite: 158, standard: false, wert: (r) => r.artikel?.artikelgruppe ?? '' },
+  { id: 'teileart', titel: 'Teileart', breite: 148, standard: false, wert: (r) => r.artikel?.teileart ?? '' },
+  { id: 'dropdown', titel: 'Dropdown', breite: 158, standard: false, wert: (r) => r.artikel?.dropdown ?? '' },
   { id: 'modus', titel: 'Modus', breite: 92, mono: true, standard: false, wert: (r) => r.artikel?.modus ?? '' },
   { id: 'preislogik', titel: 'Preislogik', breite: 130, standard: false, wert: (r) => r.artikel?.preislogik ?? '' },
   { id: 'einheit', titel: 'Einheit', breite: 108, standard: false, wert: (r) => r.artikel?.einheit ?? '' },
@@ -409,9 +407,9 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
   const [bereich, setBereich] = useState<Bereich>('artikel')
   const [suche, setSuche] = useState('')
   const [serienFilter, setSerienFilter] = useState<string[]>([])
-  const [gruppenFilter, setGruppenFilter] = useState<string[]>([])
-  const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [teileartFilter, setTeileartFilter] = useState<string[]>([])
+  const [statusFilter, setStatusFilter] = useState<string[]>([])
+  const [dropdownFilter, setDropdownFilter] = useState<string[]>([])
   const [meldung, setMeldung] = useState<{ art: 'info' | 'fehler'; text: string } | null>(null)
   /** Aufgeklappte Änderungsliste im Kopf. */
   /** Vorschau-Fenster „Änderungen" (frueher ein Panel ueber den Tabellen). */
@@ -465,17 +463,17 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
     return (a: Artikel | undefined, zusatz: string) => {
       if (a) {
         if (serienFilter.length && !serienFilter.some((c) => modusErlaubt(a.modus, c))) return false
-        if (gruppenFilter.length && !gruppenFilter.includes(a.produktgruppe)) return false
-        if (statusFilter.length && !statusFilter.includes(a.status)) return false
         if (teileartFilter.length && !teileartFilter.includes(a.teileart)) return false
+        if (statusFilter.length && !statusFilter.includes(a.status)) return false
+        if (dropdownFilter.length && !dropdownFilter.includes(a.dropdown)) return false
       }
       if (!begriff) return true
       const text = a
-        ? `${a.artikelnummer} ${a.kurzzeichen} ${a.bezeichnung} ${a.bezeichnung2} ${a.artikelgruppe} ${zusatz}`
+        ? `${a.artikelnummer} ${a.kurzzeichen} ${a.bezeichnung} ${a.bezeichnung2} ${a.dropdown} ${zusatz}`
         : zusatz
       return text.toLowerCase().includes(begriff)
     }
-  }, [suche, serienFilter, gruppenFilter, statusFilter, teileartFilter])
+  }, [suche, serienFilter, teileartFilter, statusFilter, dropdownFilter])
 
   const gefilterteArtikel = useMemo(() => stand.artikel.filter((a) => passt(a, '')), [stand.artikel, passt])
 
@@ -580,13 +578,13 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
     setBereich(aenderung.bereich)
     setSuche('')
     setSerienFilter([])
-    setGruppenFilter([])
-    setStatusFilter([])
     setTeileartFilter([])
+    setStatusFilter([])
+    setDropdownFilter([])
     setFokus((f) => ({ zeilenId: aenderung.zeilenId, lauf: (f?.lauf ?? 0) + 1 }))
     setAenderungenOffen(false)
   }
-  const aktiveFilter = serienFilter.length + gruppenFilter.length + statusFilter.length + teileartFilter.length
+  const aktiveFilter = serienFilter.length + teileartFilter.length + statusFilter.length + dropdownFilter.length
   const istArtikelBereich = bereich === 'artikel' || bereich === 'preise'
 
   // --- Aktionen ---------------------------------------------------------------------
@@ -871,16 +869,16 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
                   onChange={setSerienFilter}
                 />
                 <MehrfachFilter
-                  label="Produktgruppe"
-                  optionen={produktgruppen.map((p) => ({ wert: p.code, titel: p.bezeichnung }))}
-                  ausgewaehlt={gruppenFilter}
-                  onChange={setGruppenFilter}
-                />
-                <MehrfachFilter
                   label="Teileart"
-                  optionen={teilearten.map((t) => ({ wert: t.code, titel: `${t.code} — ${t.bezeichnung}` }))}
+                  optionen={teilearten.map((t) => ({ wert: t.code, titel: `${t.nr} · ${t.schritt}` }))}
                   ausgewaehlt={teileartFilter}
                   onChange={setTeileartFilter}
+                />
+                <MehrfachFilter
+                  label="Dropdown"
+                  optionen={dropdowns.map((d) => ({ wert: d.code, titel: `${d.nr} · ${d.bezeichnung}` }))}
+                  ausgewaehlt={dropdownFilter}
+                  onChange={setDropdownFilter}
                 />
               </>
             ) : null}
@@ -905,9 +903,9 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
                 onClick={() => {
                   setSuche('')
                   setSerienFilter([])
-                  setGruppenFilter([])
-                  setStatusFilter([])
                   setTeileartFilter([])
+                  setStatusFilter([])
+                  setDropdownFilter([])
                 }}
               >
                 Filter zurücksetzen
@@ -1052,7 +1050,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
                     <span className={styles.gruppeName}>{r.artikel?.bezeichnung ?? 'unbekannter Artikel'}</span>
                     {r.artikel ? (
                       <span className={styles.gruppeMeta}>
-                        {r.artikel.teileart} · {r.artikel.produktgruppe} · {r.artikel.artikelgruppe} · {r.artikel.einheit}
+                        {r.artikel.teileart} · {r.artikel.dropdown} · {r.artikel.einheit}
                       </span>
                     ) : null}
                     <span className={styles.gruppeAchsen}>

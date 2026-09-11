@@ -1,7 +1,7 @@
 /* =====================================================================
    Grafische Aufschlüsselung einer Artikelnummer.
 
-   Vier Blöcke nebeneinander, darunter je eine Spalte mit Rolle und
+   Drei Blöcke nebeneinander, darunter je eine Spalte mit Rolle und
    Klartextwert. Bewusst kein Bild und kein SVG: So bleibt der Text
    markierbar, skaliert mit der Schriftgröße und liest sich auch für
    Screenreader in der richtigen Reihenfolge.
@@ -9,12 +9,12 @@
 
 .wurzel {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3, 12px);
   margin: var(--space-4, 16px) 0;
 }
 
-/* Auf schmalen Fenstern untereinander — vier Spalten wären dort unlesbar. */
+/* Auf schmalen Fenstern untereinander — drei Spalten wären dort unlesbar. */
 @media (max-width: 640px) {
   .wurzel {
     grid-template-columns: 1fr;

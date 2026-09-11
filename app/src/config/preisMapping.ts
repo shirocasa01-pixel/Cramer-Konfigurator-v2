@@ -7,7 +7,7 @@
  * Gegenüber der Vorgänger-Fassung ist die Adressierung eine andere: statt Kategorie-
  * und Unterkategorie-Klartext steht hier die **Artikelnummer**. Damit hängt die
  * Kalkulation nicht mehr an Zeichenketten aus einer PDF-Extraktion —
- * `'Refugium Ausstattung' / 'Korpus 18 Raster (235cm hoch)'` wird zu `10-10-05-0003`,
+ * `'Refugium Ausstattung' / 'Korpus 18 Raster (235cm hoch)'` wird zu `10-001-0003`,
  * und die Rasterstufe ist eine Achse statt Teil eines Textes.
  *
  * ┌──────────────────────────────────────────────────────────────────────────┐
@@ -116,7 +116,7 @@ export interface SerienRegel {
    *
    * Automatisch umschalten lässt sich das heute NICHT, aus zwei belegbaren Gründen:
    *
-   *   1. Der Atrium-Korpus `10-10-05-0001` trägt den Modus `AVO` — er ist für
+   *   1. Der Atrium-Korpus `10-001-0001` trägt den Modus `AVO` — er ist für
    *      Refugium gar nicht freigegeben. Ihn trotzdem zu ziehen, hieße die
    *      Serien-Freigabe zu umgehen.
    *   2. Seine 75 Preiszeilen tragen im Stamm selbst den Vorbehalt „Best-effort
@@ -141,18 +141,18 @@ export const serienRegeln: Record<string, SerienRegel> = {
     id: 'refugium',
     konfigurationsart: 'BAUTEIL',
     korpus: {
-      artikel: '10-10-05-0003', // Korpus (Refugium) — BREITE × RASTER
+      artikel: '10-001-0003', // Korpus (Refugium) — BREITE × RASTER
       nutztRaster: true,
       // Refugium-Korpi sind ausschließlich in Decoboard lieferbar ⇒ keine PG-Achse.
     },
     mittelseite: {
-      artikel: '10-10-10-0001', // Mittelseite (2 cm)
+      artikel: '10-002-0001', // Mittelseite (2 cm)
       rasterInBreite: true,
     },
     // Refugium-Korpi bringen ihre linke Seite mit — es fehlt nur die Abschlusswand rechts.
     mittelseitenRegel: 'abschluss',
     aussenset: {
-      artikel: '10-10-15-0001', // Aussenset — BREITE(=Raster) × PG
+      artikel: '10-003-0001', // Aussenset — BREITE(=Raster) × PG
       rasterInBreite: true,
       nutztPg: true,
     },
@@ -187,15 +187,15 @@ export function getSerienRegel(serieId: string | undefined): SerienRegel | undef
 
 /** Front-Typ (`config/frontCatalog.ts`) → Artikel im Preisblatt. */
 export const frontLookups: Record<string, BauteilLookup> = {
-  drehtuer: { artikel: '20-20-05-0001', nutztLiniePg: true, nutztRaster: true },
-  schiebetuer: { artikel: '20-20-10-0001', nutztLiniePg: true, nutztRaster: true },
-  'schiebetuer-zwei': { artikel: '20-20-15-0001', nutztLiniePg: true },
-  schuebe: { artikel: '20-20-20-0001', nutztLiniePg: true, nutztRaster: true, nutztTiefe: true },
-  stauraumklappe: { artikel: '20-20-25-0004', nutztLiniePg: true },
-  hochstellklappe: { artikel: '20-20-25-0001', nutztLiniePg: true },
+  drehtuer: { artikel: '20-006-0001', nutztLiniePg: true, nutztRaster: true },
+  schiebetuer: { artikel: '20-007-0001', nutztLiniePg: true, nutztRaster: true },
+  'schiebetuer-zwei': { artikel: '20-008-0001', nutztLiniePg: true },
+  schuebe: { artikel: '20-009-0001', nutztLiniePg: true, nutztRaster: true, nutztTiefe: true },
+  stauraumklappe: { artikel: '20-010-0004', nutztLiniePg: true },
+  hochstellklappe: { artikel: '20-010-0001', nutztLiniePg: true },
   // 20-20-25-0002 heißt ebenfalls „Schreibklappe", trägt aber nur eine VARIANTE-Achse
   // mit einer einzigen Zelle (Aufpreis). Die Grundtabelle ist -0003.
-  schreibklappe: { artikel: '20-20-25-0003', nutztLiniePg: true },
+  schreibklappe: { artikel: '20-010-0003', nutztLiniePg: true },
   // „Offen (Regal)" ist kein Bauteil und erzeugt bewusst keine Preisposition.
 }
 
@@ -277,27 +277,27 @@ export function schubRasterFuerHoehe(hoeheCm: number | undefined): number {
 
 /** Ausstattungs-Option (`config/equipment.ts`) → Artikel im Preisblatt. */
 export const ausstattungLookups: Record<string, BauteilLookup> = {
-  einlegeboden: { artikel: '40-40-05-0001' },
-  glasboden: { artikel: '40-40-05-0002' },
-  rollboden: { artikel: '40-40-05-0003' },
-  kleiderlift: { artikel: '40-40-10-0001' },
-  'einlegeboden-kleiderstange': { artikel: '40-40-10-0002' },
-  innenschublade: { artikel: '40-40-15-0001', nutztRaster: true },
-  rollkorb: { artikel: '40-40-15-0002' },
-  'innenspiegel-drehtuer': { artikel: '40-40-25-0001' },
-  krawattenspange: { artikel: '40-40-50-0012' },
-  'led-syncro': { artikel: '50-50-05-0008' },
-  'led-band-aluprofil': { artikel: '50-50-05-0006', breiteAusKorpushoehe: true },
-  'kleiderlift-conero': { artikel: '40-40-50-0006' },
-  'guertel-krawattenauszug-conero': { artikel: '40-40-50-0005' },
-  'schuhablage-conero': { artikel: '40-40-50-0007' },
-  'schubladenunterteilung-craft': { artikel: '40-40-50-0011' },
-  'hemdeinsatz-craft': { artikel: '40-40-50-0008' },
-  'rollboden-schuhablage-craft': { artikel: '40-40-50-0010' },
-  kleiderbuegelhalter: { artikel: '40-40-50-0009' },
+  einlegeboden: { artikel: '40-014-0001' },
+  glasboden: { artikel: '40-014-0002' },
+  rollboden: { artikel: '40-014-0003' },
+  kleiderlift: { artikel: '40-015-0001' },
+  'einlegeboden-kleiderstange': { artikel: '40-015-0002' },
+  innenschublade: { artikel: '40-016-0001', nutztRaster: true },
+  rollkorb: { artikel: '40-016-0002' },
+  'innenspiegel-drehtuer': { artikel: '40-018-0001' },
+  krawattenspange: { artikel: '40-023-0012' },
+  'led-syncro': { artikel: '50-024-0008' },
+  'led-band-aluprofil': { artikel: '50-024-0006', breiteAusKorpushoehe: true },
+  'kleiderlift-conero': { artikel: '40-023-0006' },
+  'guertel-krawattenauszug-conero': { artikel: '40-023-0005' },
+  'schuhablage-conero': { artikel: '40-023-0007' },
+  'schubladenunterteilung-craft': { artikel: '40-023-0011' },
+  'hemdeinsatz-craft': { artikel: '40-023-0008' },
+  'rollboden-schuhablage-craft': { artikel: '40-023-0010' },
+  kleiderbuegelhalter: { artikel: '40-023-0009' },
   // Verblendungen: im Vorgänger-Tool noch „auf Anfrage", jetzt mit Preis je laufendem Meter.
-  'verblendung-frontbuendig': { artikel: '70-90-10-0001' },
-  'verblendung-korpusbuendig': { artikel: '70-90-10-0002' },
+  'verblendung-frontbuendig': { artikel: '90-038-0001' },
+  'verblendung-korpusbuendig': { artikel: '90-038-0002' },
 }
 
 /**
@@ -306,23 +306,23 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
  */
 export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
   'container-conero': {
-    A: { artikel: '40-40-20-0001' },
-    B: { artikel: '40-40-20-0002' },
-    C: { artikel: '40-40-20-0003' },
-    D: { artikel: '40-40-20-0004' },
-    E: { artikel: '40-40-20-0005' },
-    F: { artikel: '40-40-20-0006' },
+    A: { artikel: '40-017-0001' },
+    B: { artikel: '40-017-0002' },
+    C: { artikel: '40-017-0003' },
+    D: { artikel: '40-017-0004' },
+    E: { artikel: '40-017-0005' },
+    F: { artikel: '40-017-0006' },
   },
   'container-craft': {
-    A: { artikel: '40-40-20-0015' },
-    B: { artikel: '40-40-20-0016' },
-    C: { artikel: '40-40-20-0017' },
+    A: { artikel: '40-017-0015' },
+    B: { artikel: '40-017-0016' },
+    C: { artikel: '40-017-0017' },
   },
   // Der Basis-Container führt seine Höhe als Rasterachse (4,5 R und 6 R) statt als
   // eigenen Artikel — die Variante wird deshalb in eine Rasterstufe übersetzt.
   container: {
-    '4,5R': { artikel: '40-40-20-0019', nutztRaster: true },
-    '6R': { artikel: '40-40-20-0019', nutztRaster: true },
+    '4,5R': { artikel: '40-017-0019', nutztRaster: true },
+    '6R': { artikel: '40-017-0019', nutztRaster: true },
   },
 }
 
@@ -345,7 +345,7 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
 }
 
 /** Aufpreis Deckplatte Rauchglas (Container) — eigener Artikel, keine Achse. */
-export const CONTAINER_RAUCHGLAS_ARTIKEL = '40-40-20-0018'
+export const CONTAINER_RAUCHGLAS_ARTIKEL = '40-017-0018'
 
 /**
  * Korpus-Nennbreiten in der Reihenfolge, in der die Preisliste sie führt.
@@ -356,7 +356,7 @@ const RAUCHGLAS_BREITEN_CM = [50, 60, 100]
 /**
  * ÜBERGANGSLÖSUNG — Aufpreis der Rauchglas-Deckplatte über die Korpusbreite.
  *
- * Der Artikel `40-40-20-0018` führt drei Preiszeilen (210 / 220 / 230 €), aber KEINE
+ * Der Artikel `40-017-0018` führt drei Preiszeilen (210 / 220 / 230 €), aber KEINE
  * Achse: In der Mappe steht nicht, welcher Betrag zu welcher Breite gehört. Die
  * Zuordnung über die Zeilenreihenfolge ist deshalb eine ANNAHME — sie folgt der
  * Reihenfolge, in der Preisliste S. 26 und der Container-Artikel selbst die Breiten
@@ -396,9 +396,9 @@ export interface ZuschlagRegel {
 }
 
 export const prozentZuschlaege: Record<string, ZuschlagRegel> = {
-  wandhaengend: { artikel: '70-90-05-0008', basis: 'moebelpreis' },
-  sichtrueckwand: { artikel: '70-90-05-0004', basis: 'moebelpreis' },
-  raumteiler: { artikel: '70-90-05-0001', basis: 'moebelpreis' },
+  wandhaengend: { artikel: '90-037-0008', basis: 'moebelpreis' },
+  sichtrueckwand: { artikel: '90-037-0004', basis: 'moebelpreis' },
+  raumteiler: { artikel: '90-037-0001', basis: 'moebelpreis' },
 }
 
 /**

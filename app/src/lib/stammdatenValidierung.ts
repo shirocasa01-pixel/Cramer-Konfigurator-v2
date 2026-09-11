@@ -6,8 +6,8 @@
  *   • die Verwaltung, die nach dem Bearbeiten erneut prüft und die Marke wieder entfernt.
  *
  * Die Regeln lesen ihre zulässigen Werte aus den Stammdaten selbst (Teilearten,
- * Produktgruppen, Artikelgruppen, Preislogiken, Oberflächenkategorien) — eine neue
- * Artikelgruppe in der Mappe ist damit sofort gültig, ohne Code-Änderung.
+ * Dropdowns, Preislogiken, Oberflächenkategorien) — ein neues Dropdown in der Mappe
+ * ist damit sofort gültig, ohne Code-Änderung.
  *
  * GRUNDSATZ: Prüfen heißt hier NICHT ablehnen. Ein unvollständiger Datensatz wird
  * übernommen und markiert. Ein Import, der bei der ersten krummen Zeile abbricht,
@@ -16,9 +16,8 @@
  */
 
 import {
-  artikelgruppen,
+  dropdowns,
   preislogiken,
-  produktgruppen,
   teilearten,
   type Artikel,
   type Filiale,
@@ -61,8 +60,7 @@ export function pruefeArtikel(a: Artikel): string[] {
   }
   if (leer(a.bezeichnung)) probleme.push('Bezeichnung fehlt.')
   pruefeAuswahl(a.teileart, teilearten.map((t) => t.code), 'Teileart', probleme)
-  pruefeAuswahl(a.produktgruppe, produktgruppen.map((p) => p.code), 'Produktgruppe', probleme)
-  pruefeAuswahl(a.artikelgruppe, artikelgruppen.map((g) => g.code), 'Artikelgruppe', probleme)
+  pruefeAuswahl(a.dropdown, dropdowns.map((d) => d.code), 'Dropdown', probleme)
   pruefeAuswahl(a.preislogik, preislogiken.map((p) => p.code), 'Preislogik', probleme)
   pruefeAuswahl(a.status, ARTIKEL_STATUS, 'Status', probleme)
   if (leer(a.modus)) probleme.push('Modus fehlt — ohne ihn ist der Artikel für keine Serie freigegeben.')

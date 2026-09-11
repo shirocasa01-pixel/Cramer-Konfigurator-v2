@@ -76,8 +76,7 @@ const ARTIKEL_SPALTEN: [string, (a: Artikel) => string][] = [
   ['Bezeichnung', (a) => a.bezeichnung],
   ['Bezeichnung 2', (a) => a.bezeichnung2],
   ['Teileart', (a) => a.teileart],
-  ['Produktgruppe', (a) => a.produktgruppe],
-  ['Artikelgruppe', (a) => a.artikelgruppe],
+  ['Dropdown', (a) => a.dropdown],
   ['Modus', (a) => a.modus],
   ['Preislogik', (a) => a.preislogik],
   ['Einheit', (a) => a.einheit],
@@ -101,8 +100,7 @@ const PREIS_SPALTEN: [string, (p: Preiszeile, a: Artikel | undefined) => string]
   // damit der Export für sich allein lesbar ist. Der Import ignoriert sie.
   ['Bezeichnung', (_p, a) => a?.bezeichnung ?? ''],
   ['Teileart', (_p, a) => a?.teileart ?? ''],
-  ['Produktgruppe', (_p, a) => a?.produktgruppe ?? ''],
-  ['Artikelgruppe', (_p, a) => a?.artikelgruppe ?? ''],
+  ['Dropdown', (_p, a) => a?.dropdown ?? ''],
   ['Modus', (_p, a) => a?.modus ?? ''],
   ['Preislogik', (_p, a) => a?.preislogik ?? ''],
   ['Einheit', (_p, a) => a?.einheit ?? ''],
@@ -256,9 +254,10 @@ function leseArtikelBlatt(blatt: GelesenesBlatt, meldungen: string[]): Artikel[]
       kurzzeichen: z['Kurzzeichen'] ?? '',
       bezeichnung: z['Bezeichnung'] ?? '',
       bezeichnung2: z['Bezeichnung 2'] ?? '',
-      teileart: (z['Teileart'] ?? '') as Artikel['teileart'],
-      produktgruppe: (z['Produktgruppe'] ?? '') as Artikel['produktgruppe'],
-      artikelgruppe: (z['Artikelgruppe'] ?? '') as Artikel['artikelgruppe'],
+      // Alt-Mappen kennen noch „Produktgruppe" bzw. „Artikelgruppe". Beide werden als
+      // Aliase akzeptiert, damit eine vor der Umstellung exportierte Datei nicht wertlos wird.
+      teileart: (z['Teileart'] ?? z['Produktgruppe'] ?? '') as Artikel['teileart'],
+      dropdown: (z['Dropdown'] ?? z['Artikelgruppe'] ?? '') as Artikel['dropdown'],
       modus: z['Modus'] ?? '',
       preislogik: (z['Preislogik'] ?? '') as Artikel['preislogik'],
       einheit: z['Einheit'] ?? '',

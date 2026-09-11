@@ -45,7 +45,7 @@ export interface KalkulationsPanelProps {
 /** Artikel-Kontext einer Position: Nummer, Kurzzeichen, Teileart, Produktgruppe. */
 function ArtikelKontext({ position }: { position: PricingSnapshotPosition }) {
   if (!position.artikelnummer) return null
-  const klassifikation = [position.teileart, position.produktgruppe, position.artikelgruppe]
+  const klassifikation = [position.teileart, position.dropdown]
     .filter(Boolean)
     .join(' · ')
   return (

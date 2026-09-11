@@ -11,7 +11,7 @@
 import { modusErlaubt, parseModus, normalizeModus, istSonderanfertigung } from '../src/lib/modus.ts'
 import { SERIEN_CODES } from '../src/data/stammdaten.generated.ts'
 import {
-  artikelFuerSerie, berater, dropdownsFuerSchritt, findePreis,
+  artikelFuerSerie, getBerater, dropdownsFuerSchritt, findePreis,
   parseArtikelnummer, schritte, serienVon,
 } from '../src/lib/stammdaten.ts'
 
@@ -55,16 +55,21 @@ const refugium = artikelFuerSerie('refugium')
 ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 109)
 ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 43)
 ok('kein Refugium-Artikel ohne "R" im Modus', refugium.every((a) => a.modus.toUpperCase().includes('R')))
-ok('Abdeckplatten sind für Refugium gesperrt', !refugium.some((a) => a.artikelgruppe === 'ABDECKPLATTE'))
-ok('Abdeckplatten sind für Atrium frei', artikelFuerSerie('atrium').some((a) => a.artikelgruppe === 'ABDECKPLATTE'))
+ok('Abdeckplatten sind für Refugium gesperrt', !refugium.some((a) => a.dropdown === 'ABDECKPLATTE'))
+ok('Abdeckplatten sind für Atrium frei', artikelFuerSerie('atrium').some((a) => a.dropdown === 'ABDECKPLATTE'))
 ok('unbekannte Serie liefert leere Liste', artikelFuerSerie('gibtsnicht').length === 0)
 ok('serienVon("APOS") = Atrium, Publicum, Porticus, Supersonus',
   serienVon('APOS').map((s) => s.name).join(', ') === 'Atrium, Publicum, Porticus, Supersonus')
-ok('Preis-Lookup 10-10-20-0001 / „-80cm" = 186 EUR', findePreis('10-10-20-0001', ['-80cm'])?.preis === 186)
-ok('Artikelnummer 30-30-05-0011 zerlegt sich in 4 Blöcke',
-  parseArtikelnummer('30-30-05-0011')?.artikelgruppe === '05')
-ok('unvollständige Artikelnummer → null', parseArtikelnummer('30-30-05') === null)
-ok('3 aktive Berater aus „40 Mitarbeiter"', berater.length === 3 && berater[0].name === 'Anna Berger')
+ok('Preis-Lookup 10-004-0001 / „-80cm" = 186 EUR', findePreis('10-004-0001', ['-80cm'])?.preis === 186)
+ok('Artikelnummer 30-012-0011 zerlegt sich in 3 Blöcke', (() => {
+  const t = parseArtikelnummer('30-012-0011')
+  return t?.teileart === '30' && t?.dropdown === '012' && t?.laufend === '0011'
+})())
+// Das alte Vier-Block-Format darf nicht mehr durchgehen — sonst wandern Altnummern
+// unbemerkt weiter durchs System.
+ok('altes Vier-Block-Format → null', parseArtikelnummer('30-30-05-0011') === null)
+ok('unvollständige Artikelnummer → null', parseArtikelnummer('30-012') === null)
+ok('3 aktive Berater aus „40 Mitarbeiter"', (() => { const b = getBerater(); return b.length === 3 && b[0].name === 'Anna Berger' })())
 
 gruppe('F) Schritte und Dropdowns je Serie (aus Modus + Artikelgruppe)')
 for (const serieId of ['refugium', 'tavolo', 'cavum', 'atrium']) {

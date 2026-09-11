@@ -26,6 +26,7 @@ import { STAMMDATEN_XLSX, LOGIK_MD, SHEETS, REPO_ROOT } from './lib/paths.js'
 import { ACHSEN_REPARATUREN, findeReparatur } from './lib/achsen-reparatur.js'
 import { readProgramCodes, parseModus } from './lib/modus.js'
 import { openWorkbook, readTable } from './lib/xlsx-raw.js'
+import { baueNummernMigration } from './lib/nummern-migration.js'
 import { splitSections, findSection, parseTables, parseCodeBlocks, plain } from './lib/markdown.js'
 
 const OUT = path.join(REPO_ROOT, 'src', 'data', 'stammdaten.generated.ts')
@@ -223,8 +224,10 @@ function pruefe(xl, md) {
     if (fehltInExcel.length) warn(`${label}: im Markdown, nicht in der Excel — ${fehltInExcel.join(', ')}`)
   }
 
-  vergleiche('Teileart-Codes', codeSet(xl.teilearten, 'Code'), codeSet(md.teilearten, 'code'))
-  vergleiche('Produktgruppen-Codes', codeSet(xl.produktgruppen, 'Code'), codeSet(md.produktgruppen, 'code'))
+  // Die Mappe fuehrt weiter das alte Vier-Block-Schema; verglichen wird deshalb gegen
+  // die Markdown-Angaben zu Produktgruppen und Artikelgruppen. Die alte Spalte
+  // „Teileart" wird nicht mehr ausgewertet (siehe lib/nummern-migration.js).
+  vergleiche('Teilearten (bisher Produktgruppen)', codeSet(xl.produktgruppen, 'Code'), codeSet(md.produktgruppen, 'code'))
 
   // Artikelgruppen: über (Produktgruppe, Nr) vergleichen – die Klartext-Namen weichen ab.
   const excelAg = new Set(xl.artikelgruppen.map((r) => `${r['Produktgruppe']}/${r['Nr (Stelle 3)']}`))
@@ -234,16 +237,14 @@ function pruefe(xl, md) {
   // Referenzintegrität innerhalb der Mappe
   const pgCodes = codeSet(xl.produktgruppen, 'Code')
   const agCodes = codeSet(xl.artikelgruppen, 'Code')
-  const taCodes = codeSet(xl.teilearten, 'Code')
   const plCodes = codeSet(xl.preislogiken, 'Code')
   const achsCodes = codeSet(xl.achsen, 'Code')
   const artikelNummern = new Set(xl.artikel.map((r) => r['Artikelnummer']))
 
   for (const a of xl.artikel) {
     const wo = `Artikel ${a['Artikelnummer']}`
-    if (!pgCodes.has(a['Produktgruppe'])) warn(`${wo}: unbekannte Produktgruppe "${a['Produktgruppe']}"`)
-    if (!agCodes.has(a['Artikelgruppe'])) warn(`${wo}: unbekannte Artikelgruppe "${a['Artikelgruppe']}"`)
-    if (!taCodes.has(a['Teileart'])) warn(`${wo}: unbekannte Teileart "${a['Teileart']}"`)
+    if (!pgCodes.has(a['Produktgruppe'])) warn(`${wo}: unbekannte Teileart "${a['Produktgruppe']}"`)
+    if (!agCodes.has(a['Artikelgruppe'])) warn(`${wo}: unbekanntes Dropdown "${a['Artikelgruppe']}"`)
     if (!plCodes.has(a['Preislogik'])) warn(`${wo}: unbekannte Preislogik "${a['Preislogik']}"`)
     for (let i = 1; i <= 5; i++) {
       const ach = a[`Achse ${i}`]
@@ -269,7 +270,7 @@ function pruefe(xl, md) {
 // Modul erzeugen
 // ---------------------------------------------------------------------------
 
-function erzeugeModul(xl, md, anleitung, meta) {
+function erzeugeModul(xl, md, anleitung, meta, mig) {
   const serienIds = xl.serienCodes.map((p) => p.id)
   const statusDomain = [...new Set([...anleitung.artikelStatusDomain, ...xl.artikel.map((a) => a['Status'])])].filter(Boolean)
   const preisStatus = [...new Set(xl.preise.map((p) => p['Status']).filter(Boolean))]
@@ -305,9 +306,10 @@ function erzeugeModul(xl, md, anleitung, meta) {
     '/** Alle Serien-Kürzel in kanonischer Reihenfolge — Eingabe für `parseModus()`. */',
     `export const SERIEN_CODES = [${xl.serienCodes.map((p) => s(p.code)).join(', ')}] as const`,
     '',
-    `export type TeileartCode = ${union(xl.teilearten.map((r) => r['Code']))}`,
-    `export type ProduktgruppeCode = ${union(xl.produktgruppen.map((r) => r['Code']))}`,
-    `export type ArtikelgruppeCode = ${union(xl.artikelgruppen.map((r) => r['Code']))}`,
+    '/** Teileart = oberste Kategorie, zugleich der Hauptschritt im Konfigurator. */',
+    `export type TeileartCode = ${union(xl.produktgruppen.map((r) => r['Code']))}`,
+    '/** Dropdown = ein konkretes Auswahlfeld im Konfigurator. */',
+    `export type DropdownCode = ${union(xl.artikelgruppen.map((r) => r['Code']))}`,
     `export type PreislogikCode = ${union(xl.preislogiken.map((r) => r['Code']))}`,
     `export type AchseCode = ${union(xl.achsen.map((r) => r['Code']))}`,
     `export type ArtikelStatus = ${union(statusDomain)}`,
@@ -334,9 +336,10 @@ function erzeugeModul(xl, md, anleitung, meta) {
     '  kurzzeichen: string',
     '  bezeichnung: string',
     '  bezeichnung2: string',
+    '  /** Block 1 der Artikelnummer — Hauptschritt im Konfigurator. */',
     '  teileart: TeileartCode',
-    '  produktgruppe: ProduktgruppeCode',
-    '  artikelgruppe: ArtikelgruppeCode',
+    '  /** Block 2 der Artikelnummer — das Auswahlfeld, in dem der Artikel erscheint. */',
+    '  dropdown: DropdownCode',
     '  /**',
     '   * Serien-Freigabe als reine Buchstaben (GROSS = Standard, klein = Sonderanfertigung).',
     '   * Nicht selbst zerlegen — `src/lib/modus.ts` bzw. `src/lib/stammdaten.ts` benutzen.',
@@ -374,30 +377,32 @@ function erzeugeModul(xl, md, anleitung, meta) {
     '  ref: number | null',
     '}',
     '',
-    '/** Produktgruppe = ein Schritt im Konfigurator. */',
-    'export interface Produktgruppe {',
+    '/** Teileart = oberste Kategorie und zugleich der Hauptschritt im Konfigurator. */',
+    'export interface Teileart {',
+    '  /** Block 1 der Artikelnummer, zweistellig. */',
     '  nr: string',
-    '  code: ProduktgruppeCode',
+    '  code: TeileartCode',
     '  reihenfolge: number',
     '  bezeichnung: string',
     '  /** Klartext des Konfigurator-Schritts. */',
     '  schritt: string',
     '}',
     '',
-    '/** Artikelgruppe = ein Dropdown innerhalb eines Schritts. */',
-    'export interface Artikelgruppe {',
+    '/** Dropdown = ein konkretes Auswahlfeld im Konfigurator. */',
+    'export interface Dropdown {',
+    '  /** Block 2 der Artikelnummer, dreistellig und systemweit eindeutig. */',
     '  nr: string',
-    '  code: ArtikelgruppeCode',
-    '  produktgruppe: ProduktgruppeCode',
+    '  code: DropdownCode',
+    '  /** Zu welchem Hauptschritt das Auswahlfeld gehört. */',
     '  teileart: TeileartCode',
     '  /** Titel des Dropdowns. */',
     '  bezeichnung: string',
-    '  /** Nummernkreis-Präfix, z. B. „30-30-05-". */',
+    '  /** Nummernkreis-Präfix, z. B. 30-012- */',
     '  nummernkreis: string',
     '  anzahlArtikel: number | null',
+    '  /** Präfix im alten Vier-Block-Schema — Brücke zur Mappe und zu Altbeständen. */',
+    '  alterNummernkreis: string',
     '}',
-    '',
-    'export interface Teileart { nr: string; code: TeileartCode; bezeichnung: string; bedeutung: string }',
     'export interface Preislogik { code: PreislogikCode; bedeutung: string }',
     'export interface Achse { code: AchseCode; bedeutung: string }',
     '',
@@ -462,13 +467,12 @@ function erzeugeModul(xl, md, anleitung, meta) {
       .map(s)
     push(
       `  ${obj({
-        artikelnummer: s(a['Artikelnummer']),
+        artikelnummer: s(mig.nummernMap.get(a['Artikelnummer']) ?? a['Artikelnummer']),
         kurzzeichen: s(a['Kurzzeichen']),
         bezeichnung: s(a['Bezeichnung']),
         bezeichnung2: s(a['Bezeichnung 2']),
-        teileart: s(a['Teileart']),
-        produktgruppe: s(a['Produktgruppe']),
-        artikelgruppe: s(a['Artikelgruppe']),
+        teileart: s(a['Produktgruppe']),
+        dropdown: s(a['Artikelgruppe']),
         modus: s(a['Modus']),
         preislogik: s(a['Preislogik']),
         einheit: s(a['Einheit']),
@@ -514,7 +518,7 @@ function erzeugeModul(xl, md, anleitung, meta) {
     })
     push(
       `  ${obj({
-        artikel: s(p['Artikel']),
+        artikel: s(mig.nummernMap.get(p['Artikel']) ?? p['Artikel']),
         a: `[${werte.map(s).join(', ')}]`,
         preis: num(p['Preis']),
         status: s(p['Status']),
@@ -527,35 +531,29 @@ function erzeugeModul(xl, md, anleitung, meta) {
 
   // --- Wertelisten -------------------------------------------------------------------
   push(
-    'export const produktgruppen: readonly Produktgruppe[] = [',
-    ...xl.produktgruppen.map((r) =>
-      `  ${obj({
-        nr: s(r['Nr (Stelle 2)']),
-        code: s(r['Code']),
-        reihenfolge: num(r['Reihenfolge']) ?? 0,
-        bezeichnung: s(r['Bezeichnung']),
-        schritt: s(r['Schritt im Konfigurator']),
-      })},`,
-    ),
-    ']',
-    '',
-    'export const artikelgruppen: readonly Artikelgruppe[] = [',
-    ...xl.artikelgruppen.map((r) =>
-      `  ${obj({
-        nr: s(r['Nr (Stelle 3)']),
-        code: s(r['Code']),
-        produktgruppe: s(r['Produktgruppe']),
-        teileart: s(r['Teileart']),
-        bezeichnung: s(r['Bezeichnung (Dropdown-Titel)']),
-        nummernkreis: s(r['Nummernkreis']),
-        anzahlArtikel: num(r['Artikel']),
-      })},`,
-    ),
-    ']',
-    '',
     'export const teilearten: readonly Teileart[] = [',
-    ...xl.teilearten.map((r) =>
-      `  ${obj({ nr: s(r['Nr (Stelle 1)']), code: s(r['Code']), bezeichnung: s(r['Bezeichnung']), bedeutung: s(r['Bedeutung']) })},`,
+    ...mig.teilearten.map((t) =>
+      `  ${obj({
+        nr: s(t.nr),
+        code: s(t.code),
+        reihenfolge: num(t.reihenfolge) ?? 0,
+        bezeichnung: s(t.bezeichnung),
+        schritt: s(t.schritt),
+      })},`,
+    ),
+    ']',
+    '',
+    'export const dropdowns: readonly Dropdown[] = [',
+    ...mig.dropdowns.map((d) =>
+      `  ${obj({
+        nr: s(d.nr),
+        code: s(d.code),
+        teileart: s(d.teileart),
+        bezeichnung: s(d.bezeichnung),
+        nummernkreis: s(d.nummernkreis),
+        anzahlArtikel: num(d.anzahlArtikel),
+        alterNummernkreis: s(d.alterNummernkreis),
+      })},`,
     ),
     ']',
     '',
@@ -652,7 +650,10 @@ function erzeugeModul(xl, md, anleitung, meta) {
     ` * \`${md.beispielNummer ?? ''}\` = ${md.bloecke.map((b) => b.name).join(' · ')}`,
     ` */`,
     'export const artikelnummerLogik = {',
-    `  muster: ${s(anleitung.nummernMuster)},`,
+    // Das Muster steht in „00 Anleitung" noch im alten Vier-Block-Format. Massgeblich
+        // ist das Diagramm im Markdown, aus dem auch die Bloecke stammen — sonst
+        // widerspraechen sich Muster und Bloecke im selben Objekt.
+        `  muster: ${s(md.bloecke.length ? md.bloecke.map((b) => (b.name === 'Teileart' ? 'TT' : b.name === 'Dropdown' ? 'DDD' : 'NNNN')).join('-') : anleitung.nummernMuster)},`,
     `  beispiel: ${s(md.beispielNummer ?? '')},`,
     `  trennzeichen: ${s('-')},`,
     '  bloecke: [',
@@ -677,23 +678,24 @@ function main() {
   console.log(c.bold('\nSCHRITT 3 — Stammdaten-Modul erzeugen'))
 
   const xl = ladeExcel()
+  const mig = baueNummernMigration(xl)
   const md = ladeMarkdown()
   const anleitung = ladeAnleitung(xl.anleitung)
   const meta = ladeMeta(xl.metaRows)
   pruefe(xl, md)
 
-  const code = erzeugeModul(xl, md, anleitung, meta)
+  const code = erzeugeModul(xl, md, anleitung, meta, mig)
 
   console.log(c.dim(`  ${path.basename(STAMMDATEN_XLSX)}`))
   console.log(
     `    ${xl.artikel.length} Artikel · ${xl.preise.length} Preiszeilen · ${xl.serienCodes.length} Serien · ` +
-      `${xl.produktgruppen.length} Produktgruppen · ${xl.artikelgruppen.length} Artikelgruppen`,
+      `${mig.teilearten.length} Teilearten · ${mig.dropdowns.length} Dropdowns`,
   )
   console.log(`    ${xl.mitarbeiter.length} Mitarbeiter · ${xl.filialen.length} Filialen · ${xl.kunden.length} Kunden`)
   console.log(c.dim(`  ${path.basename(LOGIK_MD)}`))
   console.log(
     `    ${md.bloecke.length} Nummern-Blöcke (${md.bloecke.map((b) => b.name).join(' · ')}) · ` +
-      `${md.teilearten.length} Teilearten · ${md.artikelgruppen.length} Artikelgruppen · ${md.beispiele.length} Beispiele`,
+      `${md.beispiele.length} Beispiele`,
   )
 
   if (reparaturenAngewandt.length) {

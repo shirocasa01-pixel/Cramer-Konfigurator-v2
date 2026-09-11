@@ -85,9 +85,10 @@ export interface KalkPosition {
   /** Kurzzeichen als Lesehilfe. */
   kurzzeichen?: string
   /** Teileart / Produktgruppe / Artikelgruppe im Klartext. */
+  /** Hauptschritt im Konfigurator (Block 1 der Artikelnummer). */
   teileart?: string
-  produktgruppe?: string
-  artikelgruppe?: string
+  /** Auswahlfeld, aus dem der Artikel stammt (Block 2 der Artikelnummer). */
+  dropdown?: string
   /** Die aufgelösten Achsen A1–A5 mit Bedeutung und Wert. */
   achsen: AufgelloesteAchse[]
   einheit?: string
@@ -207,8 +208,7 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     artikelnummer: lookup.artikel,
     kurzzeichen: stamm?.kurzzeichen,
     teileart: stamm?.teileart,
-    produktgruppe: stamm?.produktgruppe,
-    artikelgruppe: stamm?.artikelgruppe,
+    dropdown: stamm?.dropdown,
     einheit: stamm?.einheit,
     menge: eingabe.menge,
   }
@@ -350,8 +350,7 @@ function baueKorpusPositionen(
         artikelnummer: regel.korpus!.artikel,
         kurzzeichen: stamm?.kurzzeichen,
         teileart: stamm?.teileart,
-        produktgruppe: stamm?.produktgruppe,
-        artikelgruppe: stamm?.artikelgruppe,
+        dropdown: stamm?.dropdown,
         einheit: stamm?.einheit,
         achsen: [],
         menge: 1,
@@ -708,8 +707,7 @@ function baueAusstattungsPositionen(
           artikelnummer: CONTAINER_RAUCHGLAS_ARTIKEL,
           kurzzeichen: stamm?.kurzzeichen,
           teileart: stamm?.teileart,
-          produktgruppe: stamm?.produktgruppe,
-          artikelgruppe: stamm?.artikelgruppe,
+          dropdown: stamm?.dropdown,
           einheit: stamm?.einheit,
           seite: zeile?.seite,
           achsen: [],
@@ -789,8 +787,7 @@ function baueZuschlaege(draft: Draft, moebelpreis: number, meldungen: KalkMeldun
         artikelnummer: regel.artikel,
         kurzzeichen: stamm?.kurzzeichen,
         teileart: stamm?.teileart,
-        produktgruppe: stamm?.produktgruppe,
-        artikelgruppe: stamm?.artikelgruppe,
+        dropdown: stamm?.dropdown,
         einheit: stamm?.einheit,
         achsen: [],
         menge: 1,
