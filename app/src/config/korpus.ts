@@ -45,16 +45,23 @@ const AUSSEN_ABDECKPLATTE_GROUPS = [ALLE_MATERIALGRUPPEN]
  * Punkt 5.3 — Dietmars Beispiel: „Korpi mittel (teilweise offen) >> Korpus innen
  * daher furniert." Neben Decoboard steht deshalb auch Furnier zur Auswahl.
  *
- * ACHTUNG Preisfolge: Der Refugium-Korpus `10-10-05-0003` trägt im Preisblatt nur
- * die Achsen BREITE × RASTER — keine Preisgruppe. Eine von Decoboard abweichende
- * Innenausführung hat dort also keine eigene Preiszeile; die Kalkulation weist das
- * als Hinweis aus, statt den Decoboard-Preis stillschweigend zu übernehmen.
+ * WARUM GENAU DIESE VIER GRUPPEN
+ * Die Innenausführung bestimmt seit der Preisgruppen-Umstellung den Preis von Korpus
+ * UND Innenausstattung — Dietmar Cramer, Überarbeitung 6, S. 2: „Das Material der
+ * Ausstattung orientiert sich immer am Material des Innenkorpus." Cramer hat Aufpreise
+ * für PG 2, 3 und 4 vorgegeben; angeboten wurden hier aber nur Decoboard (PG 1) und
+ * Furnier (PG 3). PG 2 und PG 4 waren damit nur über „anders" erreichbar, und die Hälfte
+ * der hinterlegten Preiszeilen im Normalbetrieb tot. Mattlack (PG 2) und Xtreme Plus
+ * (PG 4) sind deshalb ergänzt — dieselben vier Gruppen wie beim Abschlussset.
+ *
+ * Gläser fehlen bewusst: eine Schrankinnenseite aus Glas gibt es nicht. Wer sie doch
+ * braucht, nimmt „anders" und beschreibt sie im Freitext.
  */
 const innenArea: KorpusArea = {
   id: 'innen',
   label: 'a. Innen',
   hint: 'Innenausführung – nur bei Velare / Refugium',
-  materialGroupIds: ['decoboard', 'furnier'],
+  materialGroupIds: ['decoboard', 'mattlack', 'furnier', 'xtreme-plus'],
   allowCustom: true,
   requiresInnenSeries: true,
   required: true,

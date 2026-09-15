@@ -20,6 +20,7 @@ import { demoEntwurf } from '../src/data/demoEntwurf.ts'
 import { artikel, preise } from '../src/data/stammdaten.generated.ts'
 import { getVisibleKorpusAreas } from '../src/config/korpus.ts'
 import { getSeries } from '../src/config/productCatalog.ts'
+import { resolvePriceGroup } from '../src/lib/materialRules.ts'
 import { BETROFFENE_ARTIKEL, PG_FAKTOREN, PG_STUFEN, runde2 } from './lib/refugium-pg.js'
 import {
   ATRIUM,
@@ -342,6 +343,42 @@ const decoTiefen = [31, 41, 60].map((t) => korpusPos(berechneEntwurf(mitTiefe(t,
 pruefe(
   decoTiefen.every((v) => v === decoTiefen[0]),
   `Decoboard ist über 31/41/60 cm preisgleich (${decoTiefen.join(' / ')} €)`,
+)
+
+// ---------------------------------------------------------------------------
+console.log(c.bold('\nH — Alle vier Preisgruppen sind über die Innenausführung erreichbar'))
+// ---------------------------------------------------------------------------
+/*
+ * Die Preiszeilen für PG 2–4 nützen nichts, wenn der Berater die zugehörige Oberfläche
+ * gar nicht auswählen kann. Diese Prüfung verbindet beide Seiten: Sie liest die
+ * Materialgruppen des Bereichs „Innen" und löst ihre Preisgruppen über dieselbe
+ * Funktion auf, die auch der Konfigurator benutzt.
+ */
+const innenBereich = getVisibleKorpusAreas(refugium, 'komplett').find((a) => a.id === 'innen')
+pruefe(innenBereich != null, 'Bereich „a. Innen" ist für Refugium sichtbar')
+
+const erreichbar = new Map()
+for (const gruppeId of innenBereich?.materialGroupIds ?? []) {
+  const pg = resolvePriceGroup(gruppeId, undefined)
+  if (pg) erreichbar.set(pg, gruppeId)
+}
+for (const pg of PG_STUFEN) {
+  pruefe(
+    erreichbar.has(pg),
+    `${pg} über die Innenausführung wählbar  ${c.dim(erreichbar.get(pg) ?? 'KEINE Gruppe')}`,
+    'keine Materialgruppe dieses Bereichs trägt diese Preisgruppe',
+  )
+}
+
+// Und der Preis muss dann auch wirklich anders herauskommen.
+const preiseJePg = new Map()
+for (const [pg, gruppeId] of erreichbar) {
+  const e = berechneEntwurf(mitInnenausfuehrung(gruppeId, undefined, pg))
+  preiseJePg.set(pg, korpusPos(e)?.einzelpreis)
+}
+pruefe(
+  new Set(preiseJePg.values()).size === preiseJePg.size,
+  `Jede Preisgruppe liefert einen eigenen Korpuspreis: ${[...preiseJePg].map(([p, v]) => `${p}=${v} €`).join(' · ')}`,
 )
 
 // ---------------------------------------------------------------------------
