@@ -11,7 +11,7 @@ import {
 import { breitenWarnung, hoehenWarnung, tiefenWarnung } from '../../lib/dimensionsValidation'
 import { frontAufteilung, mmZuCm } from '../../lib/frontbreiten'
 import { formatMassZahl } from '../../lib/format'
-import type { KorpusEinheit, KorpusGrunddaten } from '../../types'
+import type { KorpusEinheit, KorpusGrunddaten, VerblendungArt } from '../../types'
 import styles from './KorpusMasseSection.module.css'
 
 const HEIGHT_MODES: Array<{ key: KorpusGrunddaten['heightMode']; label: string }> = [
@@ -30,6 +30,16 @@ const ABSCHLUSS_POSITIONS: Array<{ key: NonNullable<KorpusGrunddaten['abschlussS
   { key: 'links', label: 'nur links' },
   { key: 'rechts', label: 'nur rechts' },
   { key: 'beide', label: 'links & rechts' },
+]
+/**
+ * Verblendung (Überarbeitung 6, S. 7): eine Reihe sich ausschließender Auswahlen statt
+ * zweier Häkchen — „Es kann nur die Verblendung korpusbündig oder Verblendung frontbündig
+ * ausgewählt werden. Beides ist nicht möglich."
+ */
+const VERBLENDUNG_ARTEN: Array<{ key: VerblendungArt; label: string }> = [
+  { key: 'keine', label: 'keine Verblendung' },
+  { key: 'korpusbuendig', label: 'korpusbündig' },
+  { key: 'frontbuendig', label: 'frontbündig' },
 ]
 
 /** Neue Korpus-Einheit (Standard: 60er, Lochreihe an). */
@@ -68,6 +78,7 @@ export function KorpusMasseSection({ value, onChange }: Props) {
   const depthCm = resolveDepthCm(value)
   const isSondertiefe = value.depthMode === 'custom' && depthCm != null && depthCm < 60
   const abschluss = value.abschlussSet ?? { position: 'keine' as const }
+  const verblendung = value.verblendung ?? { art: 'keine' as const }
   const fussleiste = value.fussleiste ?? { enabled: false }
 
   const warnHoehe = hoehenWarnung(resolveHeightCm(value))
@@ -251,6 +262,51 @@ export function KorpusMasseSection({ value, onChange }: Props) {
             ist im Außenmaß unten berücksichtigt. Das Material wird im nächsten Schritt
             „Material" zusammen mit den übrigen Materialien festgelegt.
           </p>
+        ) : null}
+      </section>
+
+      {/*
+        Verblendung — Überarbeitung 6, S. 7: aus der Ausstattung hinter der Front hierher
+        verlegt, „unter ‚3. Maße' zwischen ‚Fußleistenausschnitt' und ‚Abschlusset'".
+        Sie gilt für das ganze Möbel, nicht je Segment.
+      */}
+      <section className={styles.block} aria-label="Verblendung">
+        <h2 className={styles.blockTitle}>Verblendung</h2>
+        <div className={styles.chips}>
+          {VERBLENDUNG_ARTEN.map((v) => (
+            <button
+              key={v.key}
+              type="button"
+              className={verblendung.art === v.key ? styles.chipActive : styles.chip}
+              onClick={() => patch({ verblendung: { ...verblendung, art: v.key } })}
+              aria-pressed={verblendung.art === v.key}
+            >
+              {v.label}
+            </button>
+          ))}
+        </div>
+        {verblendung.art !== 'keine' ? (
+          <>
+            <div className={styles.customRow}>
+              <TextField
+                label="Laufmeter (lfm)"
+                inputMode="decimal"
+                placeholder="z. B. 2,4"
+                value={verblendung.lfm ?? ''}
+                onChange={(e) => patch({ verblendung: { ...verblendung, lfm: e.target.value } })}
+              />
+              <TextField
+                label="Position"
+                placeholder="z. B. links, oben"
+                value={verblendung.positionNote ?? ''}
+                onChange={(e) => patch({ verblendung: { ...verblendung, positionNote: e.target.value } })}
+              />
+            </div>
+            <p className={styles.note}>
+              Korpusbündig und frontbündig schließen einander aus. Bei Schiebetürschränken ist die
+              Verblendung nur seitlich möglich.
+            </p>
+          </>
         ) : null}
       </section>
 

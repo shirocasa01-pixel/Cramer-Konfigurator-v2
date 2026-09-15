@@ -357,7 +357,51 @@ export function makeEquipmentItem(optionId: string): SegmentEquipmentItem {
   const choices = equipmentChoiceDefaults(option)
   if (Object.keys(choices).length > 0) item.choices = choices
   if (option?.heightMode && option.heightMode !== 'keine') item.hoehen = [{ modus: 'raster' }]
+  // Überarbeitung 6, S. 5: Das Standardformat steht von Anfang an im Feld und bleibt
+  // überschreibbar. Leert der Berater es wieder, greift derselbe Standard beim Lesen
+  // (`formatFuerAnzeige`) — er muss ihn also nicht von Hand wiederherstellen.
+  if (option?.formatStandard) item.formatNote = option.formatStandard
   return item
+}
+
+/**
+ * ENTFERNT ABGEWÄHLTE AUSSTATTUNG AUS ALLEN SEGMENTEN.
+ *
+ * Überarbeitung 6, S. 1: Wird eine Option in der Vorauswahl (Schritt 6) abgewählt,
+ * verschwand sie bisher nur aus der Oberfläche von Schritt 8 — das bereits erfasste
+ * Teil blieb im Entwurf und damit in Kalkulation, Zusammenfassung und AV-PDF stehen.
+ * Der Entwurf wird deshalb an derselben Stelle mitgeführt, an der die Vorauswahl fällt.
+ *
+ * Ein entferntes Teil darf auch kein Bezugsziel mehr sein, sonst zeigt die
+ * Schubladenunterteilung auf eine Schublade, die es nicht mehr gibt.
+ *
+ * Gibt `fronts` UNVERÄNDERT zurück, wenn nichts zu entfernen ist. Die Identität ist hier
+ * kein Detail: Aufrufer in `useEffect` erkennen daran, dass kein Schreibvorgang nötig ist.
+ */
+export function entferneAbgewaehlteAusstattung(
+  fronts: FrontsData | undefined,
+  erlaubteOptionIds: readonly string[],
+): FrontsData | undefined {
+  if (!fronts?.columns?.length) return fronts
+  const erlaubt = new Set(erlaubteOptionIds)
+  let geaendert = false
+
+  const columns = fronts.columns.map((spalte) => {
+    const items = spalte.equipment
+    if (!items?.length) return spalte
+    const bleibt = items.filter((i) => erlaubt.has(i.optionId))
+    if (bleibt.length === items.length) return spalte
+    geaendert = true
+    const vorhandeneIds = new Set(bleibt.map((i) => i.id))
+    return {
+      ...spalte,
+      equipment: bleibt.map((i) =>
+        i.bezugId && !vorhandeneIds.has(i.bezugId) ? { ...i, bezugId: undefined } : i,
+      ),
+    }
+  })
+
+  return geaendert ? { ...fronts, columns } : fronts
 }
 
 /**

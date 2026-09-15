@@ -305,6 +305,16 @@ export function describeKorpusGrunddatenZeilen(g: KorpusGrunddaten): KorpusGrund
     }
   }
 
+  // Verblendung steht seit Überarbeitung 6 (S. 7) hier statt bei der Ausstattung — in
+  // derselben Reihenfolge wie in der Maske: zwischen Abschlussset und Fußleistenausschnitt.
+  const v = g.verblendung
+  if (v && v.art !== 'keine') {
+    const teile = [v.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig']
+    if (v.lfm?.trim()) teile.push(`${v.lfm.trim()} lfm`)
+    if (v.positionNote?.trim()) teile.push(v.positionNote.trim())
+    rows.push({ label: 'Verblendung', value: teile.join(' · ') })
+  }
+
   if (g.fussleiste?.enabled) {
     rows.push({
       label: 'Fußleistenausschnitt',

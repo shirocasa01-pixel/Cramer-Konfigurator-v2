@@ -483,6 +483,27 @@ export interface Fussleiste {
 }
 
 /**
+ * Verblendung (Schritt „Maße", zwischen Abschlussset und Fußleistenausschnitt).
+ *
+ * Überarbeitung 6, S. 7: „Es kann nur die Verblendung korpusbündig oder Verblendung
+ * frontbündig ausgewählt werden. Beides ist nicht möglich." Deshalb EIN Feld mit drei
+ * Werten statt zweier Häkchen — die Ausschließlichkeit steckt damit im Datentyp und
+ * kann in keiner Oberfläche umgangen werden.
+ *
+ * Bis Überarbeitung 5 lag die Verblendung je Segment in der Ausstattung hinter der
+ * Front; sie gilt aber für das ganze Möbel und steht deshalb jetzt bei den Maßen.
+ */
+export type VerblendungArt = 'keine' | 'korpusbuendig' | 'frontbuendig'
+
+export interface Verblendung {
+  art: VerblendungArt
+  /** Laufmeter für die Kalkulation (Freitext, z. B. „2,4"). */
+  lfm?: string
+  /** Position – Freitext (z. B. „links, oben"). */
+  positionNote?: string
+}
+
+/**
  * Korpus-Grunddaten (Schritt 4, Refugium) – strukturiert & KOORDINATENFÄHIG:
  * Höhe/Tiefe zentral, Breite je Korpus, Positionen ableitbar (`computeKorpusKoordinaten`).
  * Bewusste Basis für die spätere 2D/3D-Visualisierung. Vollständig JSON-serialisierbar.
@@ -501,6 +522,8 @@ export interface KorpusGrunddaten {
   /** Korpus-Einheiten von links nach rechts. */
   korpusse: KorpusEinheit[]
   abschlussSet?: AbschlussSet
+  /** Verblendung des Möbels – korpusbündig ODER frontbündig (Überarbeitung 6, S. 7). */
+  verblendung?: Verblendung
   fussleiste?: Fussleiste
   /** Sonderformen (Ecklösungen/Abschrägungen) – nur Erfassung, nicht berechnet (Freitext). */
   sonderformen?: string

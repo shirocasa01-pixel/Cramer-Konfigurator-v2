@@ -47,6 +47,19 @@ export function equipmentVariantLabel(option: EquipmentOption | undefined, value
 }
 
 /**
+ * Format eines Teils für Anzeige und AV — mit dem Katalog-Standard als Rückfall.
+ *
+ * Überarbeitung 6, S. 5 zum Innenspiegel: „Kann vom Verkäufer überschrieben werden. Aber
+ * wenn er nichts einträgt, soll 40x120 übernommen werden." Ein leeres Feld ist damit
+ * keine offene Angabe, sondern die Zustimmung zum Standardformat.
+ */
+export function formatFuerAnzeige(item: SegmentEquipmentItem): string | undefined {
+  const eingabe = item.formatNote?.trim()
+  if (eingabe) return eingabe
+  return getEquipmentOption(item.optionId)?.formatStandard
+}
+
+/**
  * Menschlich lesbare Beschreibung eines konfigurierten Ausstattungs-Elements
  * (Zusammenfassung & AV-PDF). Beispiel:
  *   „Container · 6 Raster · 2× · ca. auf 120 cm · Deckplatte Rauchglas".
@@ -78,7 +91,8 @@ export function describeEquipmentItem(item: SegmentEquipmentItem, alle: SegmentE
     if (zielLabel) parts.push(`${option?.bezug?.label ?? 'Bezug'} ${zielLabel}`)
   }
 
-  if (item.formatNote?.trim()) parts.push(item.formatNote.trim())
+  const format = formatFuerAnzeige(item)
+  if (format) parts.push(format)
   const seiten = beschreibeSeiten(item)
   if (seiten) parts.push(`Position: ${seiten}`)
   if (item.positionNote?.trim()) parts.push(`Position: ${item.positionNote.trim()}`)

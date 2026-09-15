@@ -133,6 +133,15 @@ export interface EquipmentOption {
   /** Platzhalter des Format-Freitextes. */
   formatPlaceholder?: string
   /**
+   * Vorbelegung des Format-Freitextes. Überarbeitung 6, S. 5 (Innenspiegel):
+   * „Standardformat 40x120cm sollte vorausgefüllt sein. Kann vom Verkäufer überschrieben
+   * werden. Aber wenn er nichts einträgt soll 40x120 übernommen werden." Deshalb wird der
+   * Wert beim Anlegen gesetzt UND bei leerem Feld als Standard ausgewiesen.
+   */
+  formatStandard?: string
+  /** Platzhalter des Notiz-Freitextes; sonst der allgemeine Platzhalter. */
+  notePlaceholder?: string
+  /**
    * Position als Kästchen statt Freitext. Fachberater: „Ich finde es immer gut, wenn wenig
    * geschrieben werden muß. Daher würde ich 3 Kästchen zum anhaken vorgeben:
    * Links & rechts | links | rechts."
@@ -270,34 +279,47 @@ export const equipmentCategories: EquipmentCategory[] = [
         hint: 'Steht immer am Schrankboden; Breite an Korpusbreite; Material wie Innenkorpus.',
       },
       {
+        // Überarbeitung 6, S. 2: „Beim Rollboden muss auch für jeden der 4 Böden (Anzahl)
+        // eine eigene Höhe definiert werden. So wie bei den Einlegeböden."
         id: 'rollboden',
         label: 'Rollboden',
         detailFields: ['qty'],
         heightMode: 'raster-oder-boden',
-        hint: 'Material wie Innenkorpus.',
+        heightPerPiece: true,
+        hint: 'Material wie Innenkorpus. Je Boden eine eigene Einbauhöhe.',
       },
       {
+        // Überarbeitung 6, S. 3: „Bei mehreren Innenschubladen müssen wir auch die Position
+        // der 2., 3. oder 4. Schublade definieren können."
         id: 'innenschublade',
         label: 'Innenschublade',
         variants: SCHUBLADE_RASTER,
         variantLabel: 'Schubladenhöhe (Raster)',
         detailFields: ['qty'],
         heightMode: 'raster-oder-boden',
-        hint: 'An Korpusbreite angepasst; statt Griff 3 cm Spalt zum Greifen.',
+        heightPerPiece: true,
+        hint: 'An Korpusbreite angepasst; statt Griff 3 cm Spalt zum Greifen. Je Schublade eine eigene Einbauhöhe.',
       },
       {
+        // Überarbeitung 6, S. 4: Position je Rollkorb definierbar; das Notizfeld ist
+        // ausdrücklich gestrichen („Notiz ist nicht notwendig").
         id: 'rollkorb',
         label: 'Rollkorb',
-        detailFields: ['qty', 'note'],
+        detailFields: ['qty'],
         heightMode: 'raster-oder-boden',
+        heightPerPiece: true,
         korpusBreitenCm: ROLLKORB_BREITEN_CM,
-        hint: 'Nur im 50er, 60er und 100er Korpus — er wird nicht in Sondergrößen gefertigt.',
+        hint: 'Nur im 50er, 60er und 100er Korpus — er wird nicht in Sondergrößen gefertigt. Je Korb eine eigene Einbauhöhe.',
       },
       {
         id: 'innenspiegel-drehtuer',
         label: 'Innenspiegel für Drehtür',
         frontTypes: ['drehtuer'],
         detailFields: ['format', 'note'],
+        // Überarbeitung 6, S. 5: Standardformat vorbelegen, Notizfeld fragt nach der Position.
+        formatStandard: '40 × 120 cm',
+        formatPlaceholder: '40 × 120 cm',
+        notePlaceholder: 'z. B. genaue Position',
         hint: 'Format 40 × 120 cm; gewünschte Drehtür bzw. Sonderformat angeben.',
       },
       {
@@ -307,14 +329,25 @@ export const equipmentCategories: EquipmentCategory[] = [
         maxProKorpus: 1,
         hint: 'Je Korpus nur einer; erst ab 45er Korpus möglich.',
       },
-      { id: 'glasboden', label: 'Glasboden', detailFields: ['qty'], heightMode: 'raster', choices: [GLASART] },
+      {
+        // Überarbeitung 6, S. 5: „Bei mehreren Glasböden müssen wir auch die Position der
+        // 2., 3. oder 4. Glasboden definieren."
+        id: 'glasboden',
+        label: 'Glasboden',
+        detailFields: ['qty'],
+        heightMode: 'raster',
+        heightPerPiece: true,
+        choices: [GLASART],
+        hint: 'Je Boden eine eigene Einbauhöhe.',
+      },
       {
         // Die 47-cm-Regel steht im PDF unter DIESER Kachel, nicht unter dem Innenspiegel.
         id: 'krawattenspange',
         label: 'Krawattenspange',
         detailFields: ['qty', 'position'],
         minFrontBreiteCm: 47,
-        positionPlaceholder: 'z. B. links',
+        // Überarbeitung 6, S. 6: Die Position wird als Höhe angegeben.
+        positionPlaceholder: 'z. B. Höhe',
         hint: 'Nicht bei Fronten unter 47 cm.',
       },
       {
@@ -327,39 +360,28 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         // Format + Position als Freitext — die Vorlage zeigt hier weder Rasterhöhe
         // noch Seiten-Kästchen, nur einen genaueren Platzhalter für die Position.
+        // Überarbeitung 6, S. 6: „Anzahl der Revisionsklappen … abfragen."
         id: 'revisionsklappe',
         label: 'Revisionsklappe',
-        detailFields: ['format', 'position'],
+        detailFields: ['qty', 'format', 'position'],
         formatPlaceholder: 'z. B. 40 × 20 cm',
         positionPlaceholder: 'z. B. genaue Angabe der Position',
       },
       {
+        // Überarbeitung 6, S. 6: „… und Anzahl der Rückwandausschnitte abfragen."
         id: 'rueckwandausschnitt',
         label: 'Rückwandausschnitt',
-        detailFields: ['format', 'position'],
+        detailFields: ['qty', 'format', 'position'],
         formatPlaceholder: 'z. B. 40 × 20 cm',
         positionPlaceholder: 'z. B. genaue Angabe der Position',
       },
     ],
   },
-  {
-    id: 'verblendung',
-    label: 'Verblendung',
-    options: [
-      {
-        id: 'verblendung-korpusbuendig',
-        label: 'Verblendung korpusbündig',
-        detailFields: ['lfm', 'position'],
-        hint: 'Bei Schiebetürschrank nur seitlich möglich. Lfm für Kalkulation angeben.',
-      },
-      {
-        id: 'verblendung-frontbuendig',
-        label: 'Verblendung frontbündig',
-        detailFields: ['lfm', 'position'],
-        hint: 'Bei Schiebetürschrank nur seitlich möglich. Lfm für Kalkulation angeben.',
-      },
-    ],
-  },
+  // Die Kategorie „Verblendung" ist mit Überarbeitung 6 (S. 7) aus der Ausstattung
+  // entfallen: „Bitte diese Abfrage bei Ausstattung rausnehmen. Die Verblendung soll
+  // unter ‚3. Maße' zwischen ‚Fußleistenausschnitt' und ‚Abschlusset' eingefügt werden."
+  // Sie wird dort als EINE Auswahl je Möbel erfasst (`KorpusGrunddaten.verblendung`),
+  // korpusbündig ODER frontbündig — beides zusammen gibt es nicht.
   {
     id: 'beleuchtung',
     label: 'Beleuchtung',
@@ -377,7 +399,9 @@ export const equipmentCategories: EquipmentCategory[] = [
         label: 'LED-Band Aluprofil',
         // „Anzahl gibt es nicht. Der Preis leitet sich vom Korpus ab."
         positionSeiten: true,
-        hint: 'Preis ergibt sich aus der Korpushöhe – keine Stückzahl. Seiten werden aufgedoppelt (2 statt 1).',
+        // Überarbeitung 6, S. 8: „Wenn links + rechts ausgewählt wird, muss VK mal 2
+        // gerechnet werden. Da links und rechts ein LED-Band verbaut wird."
+        hint: 'Preis ergibt sich aus der Korpushöhe – keine Stückzahl. Bei „Links & rechts" wird der Preis je Schrankseite gerechnet, also doppelt.',
       },
     ],
   },
@@ -390,7 +414,8 @@ export const equipmentCategories: EquipmentCategory[] = [
         label: 'Container Craft',
         variants: CRAFT_MODELLE,
         variantLabel: 'Craft-Modell',
-        detailFields: ['rauchglas', 'note'],
+        // Überarbeitung 6, S. 9: „Dieses Notizfeld kann gelöscht werden."
+        detailFields: ['rauchglas'],
         hint: 'Am Boden aufgesetzt; Breite an Korpusbreite; Material wie Innenkorpus.',
       },
       {
@@ -426,7 +451,8 @@ export const equipmentCategories: EquipmentCategory[] = [
         // durch die Korpusbreite ermittelt."
         preisAusKorpusbreite: true,
         heightMode: 'raster-oder-boden',
-        detailFields: ['position'],
+        // Überarbeitung 6, S. 10: „Benötigte Anzahl?" — der Preis ist ein Stückpreis.
+        detailFields: ['qty', 'position'],
       },
     ],
   },
@@ -439,9 +465,10 @@ export const equipmentCategories: EquipmentCategory[] = [
         label: 'Container Conero',
         variants: CONERO_MODELLE,
         variantLabel: 'Conero-Modell',
-        detailFields: ['rauchglas', 'note'],
-        heightMode: 'raster-oder-boden',
-        hint: 'Material wie Innenkorpus. Modelle G/H nur für 100er Korpus.',
+        // Überarbeitung 6, S. 11: „Notiz + Einbauhöhe löschen. Steht immer am Boden."
+        detailFields: ['rauchglas'],
+        heightMode: 'keine',
+        hint: 'Steht immer am Schrankboden. Material wie Innenkorpus. Modelle G/H nur für 100er Korpus.',
       },
       {
         id: 'kleiderlift-conero',
@@ -466,6 +493,18 @@ export const equipmentCategories: EquipmentCategory[] = [
   },
 ]
 
+/**
+ * AUS DEM KATALOG GENOMMENE OPTIONEN — nur für Klartext in Meldungen.
+ *
+ * Entwürfe, die vor der Umstellung gespeichert wurden, tragen diese IDs weiterhin. Sie
+ * werden nicht mehr bepreist; die Kalkulation sagt aber, was weggefallen ist und wohin
+ * es gewandert ist. Ohne diese Tabelle stünde dort die nackte ID.
+ */
+export const AUSGELAUFENE_AUSSTATTUNG: Record<string, string> = {
+  'verblendung-korpusbuendig': 'Verblendung korpusbündig (jetzt im Schritt „Maße")',
+  'verblendung-frontbuendig': 'Verblendung frontbündig (jetzt im Schritt „Maße")',
+}
+
 // --- Abgeleitete Nachschlage-Helfer -------------------------------------------
 const OPTION_INDEX: Map<string, EquipmentOption> = new Map(
   equipmentCategories.flatMap((cat) => cat.options.map((opt) => [opt.id, opt])),
@@ -476,6 +515,11 @@ const CATEGORY_OF: Map<string, EquipmentCategory> = new Map(
 
 export function getEquipmentOption(id: string | undefined): EquipmentOption | undefined {
   return id ? OPTION_INDEX.get(id) : undefined
+}
+
+/** Anzeigename einer Option — auch für inzwischen entfallene IDs. */
+export function equipmentAnzeigename(id: string): string {
+  return OPTION_INDEX.get(id)?.label ?? AUSGELAUFENE_AUSSTATTUNG[id] ?? id
 }
 
 export function getEquipmentCategoryOf(id: string | undefined): EquipmentCategory | undefined {

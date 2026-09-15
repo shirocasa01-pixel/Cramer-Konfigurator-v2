@@ -260,6 +260,20 @@ export function indexToCol(n) {
 }
 
 /**
+ * Setzt eine ZAHL in eine bestehende Zelle. Zellformat bleibt erhalten, ein zuvor
+ * dort stehender Shared String wird durch einen echten Zahlenwert ersetzt — sonst
+ * bliebe die Spalte in Excel Text und ließe sich weder summieren noch sortieren.
+ * Gibt `false` zurück, wenn die Zelle nicht existiert.
+ */
+export function setCellNumber(sheetState, ref, zahl) {
+  const re = cellRegex(ref)
+  const m = re.exec(sheetState.xml)
+  if (!m) return false
+  sheetState.xml = sheetState.xml.replace(re, `<c ${keepRefAndStyle(m[0], ref)}><v>${zahl}</v></c>`)
+  return true
+}
+
+/**
  * Setzt einen Text in eine Zelle und LEGT SIE AN, falls sie noch nicht existiert
  * (leere Zellen fehlen in der Datei schlicht). Zellformat wird von der Nachbarzelle
  * links bzw. der Vorgängerzeile übernommen, damit die Spalte einheitlich aussieht.
@@ -291,9 +305,20 @@ export function setOrCreateCellString(sheetState, ref, text) {
 }
 
 /**
- * Hängt eine Zeile ans Blattende an. `values` ist eine Map Spaltenbuchstabe → Text;
+ * Hängt eine Zeile ans Blattende an. `values` ist eine Map Spaltenbuchstabe → Wert;
  * leere Werte werden übersprungen. Zellformate werden aus der letzten Datenzeile
  * übernommen, `<dimension>` wird mitgezogen.
+ *
+ * Drei Wertformen, weil ein Preisblatt genau diese drei Zellarten führt:
+ *
+ *   'Text'                    → Shared String   (Artikelnummer, Status, Achsenwert)
+ *   42.5                      → Zahl            (Preis, Seite, Ref) — sonst wäre die
+ *                                                Spalte plötzlich Text und in Excel
+ *                                                weder rechtsbündig noch summierbar
+ *   { f: 'A1+1', v: '2' }     → Formel mit zwischengespeichertem Wert (die Spalten
+ *                                                B–I von „20 Preise" spiegeln „10 Artikel"
+ *                                                per INDEX/MATCH; eine angehängte Zeile
+ *                                                ohne Formel bliebe dort leer)
  *
  * @returns die neue Zeilennummer
  */
@@ -315,8 +340,15 @@ export function appendRow(sheetState, values) {
     .sort((a, b) => colIndex(a[0]) - colIndex(b[0]))
     .map(([col, v]) => {
       const style = styleByCol.get(col) ?? fallbackStyle
+      const attrs = `r="${col}${newRow}"${style != null ? ` s="${style}"` : ''}`
+      if (typeof v === 'number') {
+        return `<c ${attrs}><v>${v}</v></c>`
+      }
+      if (typeof v === 'object' && v.f) {
+        return `<c ${attrs} t="str"><f>${xmlEscape(v.f)}</f><v>${xmlEscape(String(v.v ?? ''))}</v></c>`
+      }
       const idx = internSharedString(sheetState.wb, String(v))
-      return `<c r="${col}${newRow}"${style != null ? ` s="${style}"` : ''} t="s"><v>${idx}</v></c>`
+      return `<c ${attrs} t="s"><v>${idx}</v></c>`
     })
     .join('')
 

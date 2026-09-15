@@ -11,3 +11,6 @@ dist-ssr
 .env
 .env*
 !.env.example
+
+# Automatische Sicherungen der Stammdaten-Mappe (entstehen bei jeder Migration).
+Cramer-Stammdaten.backup-*.xlsx

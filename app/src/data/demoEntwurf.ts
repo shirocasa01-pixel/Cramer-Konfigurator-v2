@@ -75,7 +75,9 @@ export const demoEntwurf: Draft = {
             fieldValues: { material: { material: mattlackSchwarzgrau } },
           },
         ],
-        equipment: [{ id: 'q3', optionId: 'led-band-aluprofil', qty: 2 }],
+        // Die Menge des LED-Bands folgt seit Überarbeitung 6 (S. 8) der Seitenwahl:
+        // „Links & rechts" heißt zwei Bänder und damit den doppelten Preis.
+        equipment: [{ id: 'q3', optionId: 'led-band-aluprofil', seiten: { links: true, rechts: true } }],
       },
       {
         id: 'c3',

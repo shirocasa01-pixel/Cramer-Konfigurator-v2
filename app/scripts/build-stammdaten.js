@@ -495,8 +495,13 @@ function erzeugeModul(xl, md, anleitung, meta, mig) {
     ' * Preiszellen. Gelesen werden laut „00 Anleitung" nur Artikel, A1–A5, Preis, Status und',
     ' * Seite — die übrigen Spalten des Blattes sind Formeln auf „10 Artikel" und werden hier',
     ' * bewusst NICHT gespiegelt, damit es genau eine Quelle der Wahrheit gibt.',
+    ' *',
+    ' * AUFGETEILT IN BLÖCKE: Ein einziges Array-Literal dieser Größe kann der',
+    ' * TypeScript-Prüfer nicht mehr prüfen — er bricht mit TS2590 („union type that is too',
+    ' * complex to represent") ab. Die Grenze wurde mit den Preisgruppen-Zeilen der',
+    ' * Refugium-Innenausstattung überschritten. Mehrere kleinere Literale prüft er',
+    ' * einzeln; zusammengesetzt ist das Ergebnis Wert für Wert dasselbe Array.',
     ' */',
-    'export const preise: readonly Preiszeile[] = [',
   )
   // Achsen-Bedeutung je Artikel — nötig, um eine Reparatur der richtigen Spalte zuzuordnen.
   const achsenVonArtikel = new Map(
@@ -505,7 +510,7 @@ function erzeugeModul(xl, md, anleitung, meta, mig) {
       [1, 2, 3, 4, 5].map((i) => a[`Achse ${i}`]).filter((x) => x && !/^\d+$/.test(x)),
     ]),
   )
-  for (const p of xl.preise) {
+  const preisZeilen = xl.preise.map((p) => {
     const achsen = achsenVonArtikel.get(p['Artikel']) ?? []
     const werte = ['A1', 'A2', 'A3', 'A4', 'A5'].map((k, i) => {
       const roh = p[k] ?? ''
@@ -516,17 +521,25 @@ function erzeugeModul(xl, md, anleitung, meta, mig) {
       reparaturenAngewandt.push({ ...fix, zeile: p._row })
       return fix.richtig
     })
-    push(
-      `  ${obj({
-        artikel: s(mig.nummernMap.get(p['Artikel']) ?? p['Artikel']),
-        a: `[${werte.map(s).join(', ')}]`,
-        preis: num(p['Preis']),
-        status: s(p['Status']),
-        seite: s(p['Seite']),
-        ref: num(p['Ref']),
-      })},`,
-    )
+    return `  ${obj({
+      artikel: s(mig.nummernMap.get(p['Artikel']) ?? p['Artikel']),
+      a: `[${werte.map(s).join(', ')}]`,
+      preis: num(p['Preis']),
+      status: s(p['Status']),
+      seite: s(p['Seite']),
+      ref: num(p['Ref']),
+    })},`
+  })
+
+  const BLOCK = 400
+  const blockNamen = []
+  for (let i = 0; i < preisZeilen.length; i += BLOCK) {
+    const name = `preiseBlock${blockNamen.length + 1}`
+    blockNamen.push(name)
+    push(`const ${name}: readonly Preiszeile[] = [`, ...preisZeilen.slice(i, i + BLOCK), ']', '')
   }
+  push(`export const preise: readonly Preiszeile[] = [`)
+  for (const name of blockNamen) push(`  ...${name},`)
   push(']', '')
 
   // --- Wertelisten -------------------------------------------------------------------

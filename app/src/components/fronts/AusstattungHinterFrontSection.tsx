@@ -251,7 +251,7 @@ export function AusstattungHinterFrontSection({
                         {option.detailFields?.includes('note') ? (
                           <TextField
                             label={EQUIPMENT_FIELD_LABEL.note}
-                            placeholder="z. B. Sonderausstattung, Griff …"
+                            placeholder={option.notePlaceholder ?? 'z. B. Sonderausstattung, Griff …'}
                             value={item.note ?? ''}
                             onChange={(e) => patchItem(item.id, { note: e.target.value })}
                           />
@@ -280,6 +280,17 @@ export function AusstattungHinterFrontSection({
                               ? ` (Korpus ${masse.korpusRaster} Raster – der oberste ist der Korpusdeckel)`
                               : ''}
                             . Zentimeter nur als Sonderhöhe.
+                          </span>
+                          {/*
+                            Überarbeitung 6, S. 3 & 4: „Hier müssen wir definieren, was es
+                            bedeutet, eine Schublade auf einer Höhe von 2 Raster einzubauen.
+                            Die Unterkante der Innenschublade befindet sich also auf einer
+                            Höhe von 2 Raster." Dieselbe Lesart gilt für jedes eingebaute
+                            Teil — sie gehört deshalb an den Höhenblock, nicht an eine Option.
+                          */}
+                          <span className={styles.hoehenHinweis}>
+                            Die Rasterhöhe bezeichnet die <strong>Unterkante</strong> des Teils: „2 Raster"
+                            heißt, das Teil sitzt mit seiner Unterkante auf Raster 2.
                           </span>
                         </div>
                       ) : null}

@@ -29,7 +29,7 @@
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
-import { getEquipmentOption } from '../config/equipment.ts'
+import { equipmentAnzeigename, getEquipmentOption, type EquipmentOption } from '../config/equipment.ts'
 import {
   anzahlMittelseiten,
   ausstattungLookups,
@@ -45,14 +45,21 @@ import {
   liniePgAchsenwert,
   prozentZuschlaege,
   schubRasterFuerHoehe,
+  verblendungLookups,
   type BauteilLookup,
   type SerienRegel,
 } from '../config/preisMapping.ts'
 import { meta } from '../data/stammdaten.generated.ts'
 import { resolveDepthCm, resolveHeightCm, resolveKorpusBreiteCm } from './korpusMass.ts'
-import { findePreis, getArtikelNr, verfuegbareRaster, type AufgelloesteAchse } from './preisLookup.ts'
+import {
+  findePreis,
+  getArtikelNr,
+  verfuegbareRaster,
+  verfuegbareTiefen,
+  type AufgelloesteAchse,
+} from './preisLookup.ts'
 import { getPreisListe } from './stammdatenStore.ts'
-import { korpusOffsetMm, loeseRasterAuf } from './raster.ts'
+import { NENNMASS_TOLERANZ_MM, hoeheFuerRaster, korpusOffsetMm, loeseRasterAuf } from './raster.ts'
 import type {
   Draft,
   FrontElement,
@@ -61,6 +68,7 @@ import type {
   PositionsStatus,
   PriceBucket,
   PriceGroup,
+  SegmentEquipmentItem,
 } from '../types/index.ts'
 
 // Beide Aufzählungen liegen zentral in `types/index.ts`, weil der Preis-Snapshot
@@ -150,6 +158,26 @@ function zahl(v: string | undefined | null): number | undefined {
 
 function pgVon(sel: MaterialSelection | undefined): PriceGroup | undefined {
   return sel?.priceGroup
+}
+
+/**
+ * PREISGRUPPE DER INNENAUSSTATTUNG EINES SEGMENTS.
+ *
+ * Dietmar Cramer, Überarbeitung 6, S. 2: „Das Material der Ausstattung orientiert sich
+ * immer am Material des Innenkorpus. Es muss also nicht extra gewählt werden. Ist der
+ * Innenkorpus Decoboard, ist auch die Ausstattung in Decoboard."
+ *
+ * Die Kette lautet damit:
+ *   Innenausführung → Oberfläche → Preisgruppe (aus den Stammdaten) → Preiszeile
+ *
+ * Wo das Innenmaterial je Korpus getrennt gewählt wurde, gilt das des Korpus, hinter
+ * dem das Teil sitzt — sonst die einheitliche Auswahl. Der Berater wählt nie eine
+ * Preisgruppe; sie ist eine kaufmännische Eigenschaft der Oberfläche.
+ */
+function innenPgFuerKorpus(draft: Draft, index: number): PriceGroup | undefined {
+  const korpusId = draft.korpusGrunddaten?.korpusse?.[index]?.id
+  const jeKorpus = korpusId ? draft.korpusInnenJeKorpus?.[korpusId] : undefined
+  return pgVon(jeKorpus) ?? pgVon(draft.korpus?.innen)
 }
 
 let lfd = 0
@@ -287,12 +315,16 @@ function leseKorpusKontext(draft: Draft, regel: SerienRegel, meldungen: KalkMeld
       })
     } else {
       const verfuegbar = verfuegbareRaster(regel.korpus.artikel)
-      const aufloesung = loeseRasterAuf(hoeheCm, offset, verfuegbar)
+      // Nennmaß-Toleranz nur fuer die KORPUS-Hoehe: „21 Raster (~274 cm)" ist ein
+      // gerundeter Anzeigewert (rechnerisch 273,4 cm) und darf nicht auf die
+      // unbepreiste Stufe 22 kippen. Die Frontberechnung weiter unten bleibt ohne
+      // Toleranz — dort gibt es keine gerundeten Nennmasse.
+      const aufloesung = loeseRasterAuf(hoeheCm, offset, verfuegbar, NENNMASS_TOLERANZ_MM)
       kontext.bepreistesRaster = aufloesung.bepreistesRaster ?? undefined
       if (aufloesung.bepreistesRaster == null) {
         meldungen.push({
           schwere: 'fehler',
-          text: `Höhe ${hoeheCm} cm liegt über der größten bepreisten Korpus-Stufe (${verfuegbar[verfuegbar.length - 1]} R) – Sondermaß, AV-Prüfung.`,
+          text: `Höhe ${hoeheCm} cm liegt über der größten bepreisten Korpus-Stufe (${verfuegbar[verfuegbar.length - 1]} R ≈ ${hoeheFuerRaster(verfuegbar[verfuegbar.length - 1], offset)} cm) – Sondermaß, AV-Prüfung.`,
         })
       } else if (aufloesung.istSondermass || aufloesung.angehoben) {
         kontext.rasterHinweis = `Höhe ${hoeheCm} cm ist kein Rastermaß (rechnerisch ${aufloesung.raster} R). Bepreist mit ${aufloesung.bepreistesRaster} R ≈ ${aufloesung.bepreisteHoeheCm} cm.`
@@ -330,6 +362,7 @@ function baueKorpusPositionen(
   meldungen: KalkMeldung[],
 ): KalkPosition[] {
   const positionen: KalkPosition[] = []
+  const korpiOhnePg: number[] = []
   if (!regel.korpus || kontext.bepreistesRaster == null) return positionen
 
   // Punkt 5.13.3: Sondertiefe ⇒ der Standard-Korpuspreis gilt nicht. Begründung und
@@ -337,6 +370,29 @@ function baueKorpusPositionen(
   const nurStandard = regel.korpusNurStandardtiefe
   const sondertiefe =
     nurStandard != null && kontext.tiefeCm != null && kontext.tiefeCm !== nurStandard.standardTiefeCm
+
+  /*
+   * TIEFE ALS PREISACHSE.
+   *
+   * Die Preisliste führt drei Tiefenstufen (31 · 41 · 60 cm), der Berater gibt ein
+   * Zentimetermaß ein. Es gilt dieselbe Regel wie bei Breite und Raster: „Preis des
+   * nächstgrößeren Maßes" (Preisliste S. 13/14/15, Kopfzeile „Sondermaße").
+   *
+   * Aufgerundet wird HIER und nicht im Lookup, weil TIEFE dort ein harter Filter ist —
+   * 45 cm fände sonst keine Zeile und würde als „auf Anfrage" ausgewiesen, obwohl die
+   * Preisliste für diesen Fall ausdrücklich die 60er-Stufe vorsieht.
+   */
+  const tiefenStufen = regel.korpus.nutztTiefe ? verfuegbareTiefen(regel.korpus.artikel) : []
+  const bepreisteTiefe =
+    kontext.tiefeCm != null && tiefenStufen.length > 0
+      ? tiefenStufen.find((t) => t >= kontext.tiefeCm! - 0.001)
+      : undefined
+  if (regel.korpus.nutztTiefe && kontext.tiefeCm != null && bepreisteTiefe == null && tiefenStufen.length > 0) {
+    meldungen.push({
+      schwere: 'fehler',
+      text: `Korpustiefe ${kontext.tiefeCm} cm liegt über der größten bepreisten Stufe (${tiefenStufen[tiefenStufen.length - 1]} cm) – Sondermaß, AV-Prüfung.`,
+    })
+  }
 
   kontext.breiten.forEach((breite, i) => {
     if (sondertiefe && nurStandard) {
@@ -361,6 +417,23 @@ function baueKorpusPositionen(
       })
       return
     }
+    // Innenausführung je Korpus, sonst die einheitliche Auswahl — dieselbe Kette wie
+    // bei der Innenausstattung: Oberfläche → Preisgruppe → Preiszeile.
+    const innenPg = innenPgFuerKorpus(draft, i)
+    if (regel.korpus!.nutztPg && innenPg == null) korpiOhnePg.push(i + 1)
+
+    const hinweise = [
+      kontext.rasterHinweis,
+      regel.korpus!.nutztTiefe && bepreisteTiefe != null && kontext.tiefeCm != null
+        ? kontext.tiefeCm === bepreisteTiefe
+          ? `Tiefenstufe ${bepreisteTiefe} cm.`
+          : `Tiefe ${kontext.tiefeCm} cm ist keine Preisstufe – bepreist mit der nächstgrößeren Stufe ${bepreisteTiefe} cm.`
+        : null,
+      regel.korpus!.nutztPg && innenPg
+        ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
+        : null,
+    ].filter(Boolean)
+
     positionen.push(
       bauePosition({
         lookup: regel.korpus as BauteilLookup,
@@ -371,16 +444,81 @@ function baueKorpusPositionen(
         segment: i + 1,
         breiteCm: breite,
         raster: kontext.bepreistesRaster,
-        hinweis: kontext.rasterHinweis,
+        tiefeCm: bepreisteTiefe,
+        pg: innenPg,
+        hinweis: hinweise.length ? hinweise.join(' ') : undefined,
       }),
     )
   })
+
+  if (korpiOhnePg.length > 0) {
+    meldungen.push({
+      schwere: 'warnung',
+      text: `Für die Innenausführung ist keine Preisgruppe hinterlegt – Korpus ${korpiOhnePg.join(', ')} ist damit nicht bepreisbar. Bitte das Innenmaterial im Schritt „Material" festlegen.`,
+    })
+  }
 
   if (sondertiefe && nurStandard) {
     meldungen.push({
       schwere: 'warnung',
       text: `Sondertiefe ${kontext.tiefeCm} cm: Die Korpuspreise sind nicht automatisch ermittelbar – bitte über die AV klären.`,
     })
+  }
+
+  // Verblendung — seit Überarbeitung 6 (S. 7) eine Angabe je MÖBEL im Schritt „Maße"
+  // statt einer Ausstattungs-Option je Segment. Korpusbündig und frontbündig schließen
+  // einander aus; der Datentyp lässt deshalb nur eines von beidem zu.
+  const verblendung = draft.korpusGrunddaten?.verblendung
+  if (verblendung && verblendung.art !== 'keine') {
+    const lookup = verblendungLookups[verblendung.art]
+    if (lookup) {
+      const lfm = verblendung.lfm?.trim()
+      const teile = [
+        `Verblendung ${verblendung.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig'} — einmal je Möbel.`,
+        verblendung.positionNote?.trim() ? `Position: ${verblendung.positionNote.trim()}.` : null,
+        // Der Artikel ist nach laufendem Meter bepreist, die Menge steht aber weiterhin
+        // auf 1: Ob die Laufmeter den Preis vervielfachen, ist mit Cramer noch nicht
+        // geklärt. Solange das offen ist, wird der erfasste Wert AUSGEWIESEN statt still
+        // eingerechnet — ein stillschweigend multiplizierter Preis wäre nicht prüfbar.
+        lfm
+          ? `Erfasst: ${lfm} lfm. Der Betrag ist der Preis je laufendem Meter und wird derzeit NICHT mit den Laufmetern multipliziert – bitte in der AV prüfen.`
+          : 'Ohne Laufmeter-Angabe – der Betrag ist der Preis je laufendem Meter.',
+      ].filter(Boolean)
+      positionen.push(
+        bauePosition({
+          lookup,
+          menge: 1,
+          bucket: 'korpus',
+          herkunft: 'gewaehlt',
+          hinweis: teile.join(' '),
+        }),
+      )
+    }
+  }
+
+  // Fußleistenausschnitt — einmal je Möbel, nicht je Korpus: Die Preiszeile trägt die
+  // Einheit „EUR/für 2 Seiten" und meint damit das ganze Möbel.
+  if (draft.korpusGrunddaten?.fussleiste?.enabled && regel.fussleistenausschnitt) {
+    const masse = [
+      draft.korpusGrunddaten.fussleiste.hoeheCm?.trim()
+        ? `Höhe ${draft.korpusGrunddaten.fussleiste.hoeheCm} cm`
+        : null,
+      draft.korpusGrunddaten.fussleiste.tiefeCm?.trim()
+        ? `Tiefe ${draft.korpusGrunddaten.fussleiste.tiefeCm} cm`
+        : null,
+    ].filter(Boolean)
+    positionen.push(
+      bauePosition({
+        lookup: regel.fussleistenausschnitt,
+        menge: 1,
+        bucket: 'korpus',
+        herkunft: 'abgeleitet',
+        label: 'Fußleistenausschnitt',
+        hinweis: masse.length
+          ? `Aus dem Fußleistenausschnitt (${masse.join(' · ')}) — einmal je Möbel.`
+          : 'Aus dem Fußleistenausschnitt — einmal je Möbel.',
+      }),
+    )
   }
 
   // Punkt 5.3: Führt der Korpus-Artikel keine Preisgruppen-Achse, ist eine von
@@ -422,14 +560,32 @@ function baueKorpusPositionen(
 
   if (regel.aussenset) {
     // Ohne ausdrückliches „keine" gilt: der Möbelblock wird seitlich abgeschlossen.
-    const position = draft.korpusGrunddaten?.abschlussSet?.position
+    const abschluss = draft.korpusGrunddaten?.abschlussSet
+    const position = abschluss?.position
     if (position !== 'keine') {
+      /*
+       * PREISGRUPPE DES AUSSENSETS.
+       *
+       * Das Außenset IST die sichtbare Außenseite; sein Material wird im Schritt
+       * „Material" unter „Abschlussset" gewählt — bei Bedarf links und rechts getrennt.
+       * Deshalb steht diese Auswahl jetzt an erster Stelle.
+       *
+       * Bis zur Abschaffung des Bereichs „Korpus außen" wurde die Preisgruppe von dort
+       * gelesen. Diese Kette bleibt als RÜCKFALL erhalten: Serien, die den Außenkorpus
+       * weiterhin führen (Atrium, Velare, Publicum), und Refugium-Entwürfe, die vor der
+       * Umstellung gespeichert wurden, behalten damit exakt ihren bisherigen Preis.
+       */
       const aussenPg =
-        pgVon(draft.korpus?.aussen) ?? pgVon(draft.korpus?.aussenLinks) ?? pgVon(draft.korpus?.aussenRechts)
+        pgVon(abschluss?.material) ??
+        pgVon(abschluss?.materialLinks) ??
+        pgVon(abschluss?.materialRechts) ??
+        pgVon(draft.korpus?.aussen) ??
+        pgVon(draft.korpus?.aussenLinks) ??
+        pgVon(draft.korpus?.aussenRechts)
       if (!aussenPg) {
         meldungen.push({
           schwere: 'fehler',
-          text: 'Für das Außenset fehlt die Preisgruppe – bitte Material des Außenkorpus festlegen.',
+          text: 'Für das Außenset fehlt die Preisgruppe – bitte im Schritt „Material" das Material des Abschlusssets festlegen.',
         })
       }
       positionen.push(
@@ -605,21 +761,75 @@ function griffArtikel() {
 // Stufe 4c: Innenausstattung
 // ---------------------------------------------------------------------------
 
+/**
+ * ZÄHLT EIN ERFASSTES AUSSTATTUNGSTEIL NOCH?
+ *
+ * Überarbeitung 6, S. 1: „Wenn ich Ausstattungselemente aus der Planung wieder entferne,
+ * werden sie nicht in der Kalkulation gelöscht … Der Preis passt sich also nicht an."
+ *
+ * Ursache: Die Vorauswahl (Schritt 6) und die Erfassung je Segment (Schritt 8) sind zwei
+ * getrennte Stellen im Entwurf. Wird eine Option in Schritt 6 abgewählt, verschwindet sie
+ * aus der Oberfläche von Schritt 8 — das bereits erfasste Teil blieb aber im Entwurf
+ * stehen und wurde weiter bepreist. Sichtbar war es nirgends mehr, bezahlt schon.
+ *
+ * Zwei Bedingungen, beide notwendig:
+ *   1. Die Option gibt es im Katalog noch (z. B. NICHT mehr die Verblendung, die mit
+ *      Überarbeitung 6 in den Schritt „Maße" gewandert ist).
+ *   2. Sie steht in der Vorauswahl. Fehlt die Vorauswahl ganz (Altbestand, andere
+ *      Serien), wird NICHT gefiltert — eine Regel ohne Datengrundlage darf nichts
+ *      wegrechnen.
+ */
+function istAusstattungAktiv(draft: Draft, optionId: string): boolean {
+  if (!getEquipmentOption(optionId)) return false
+  const vorauswahl = draft.ausstattung?.selected
+  if (!Array.isArray(vorauswahl)) return true
+  return vorauswahl.includes(optionId)
+}
+
+/**
+ * Menge eines Ausstattungsteils.
+ *
+ * Bei Optionen, deren Position über die Schrankseiten erfasst wird (LED-Band), ist die
+ * Seitenwahl zugleich die Stückzahl. Überarbeitung 6, S. 8: „Wenn links + rechts
+ * ausgewählt wird, muss VK mal 2 gerechnet werden. Da links und rechts ein LED-Band
+ * verbaut wird. Bei 18 Raster also mit 1000 € statt 500 €." Der Artikel ist mit der
+ * Einheit „EUR/Schrankseite" genau so geschlüsselt.
+ *
+ * Ohne Seitenangabe (Altbestand) bleibt die erfasste Menge maßgeblich — ein Entwurf,
+ * in dem jemand die 2 von Hand eingetragen hat, darf sich nicht still halbieren.
+ */
+function mengeFuerAusstattung(item: SegmentEquipmentItem, option: EquipmentOption | undefined): number {
+  if (option?.positionSeiten && item.seiten) {
+    return item.seiten.links && item.seiten.rechts ? 2 : 1
+  }
+  return item.qty ?? 1
+}
+
 function baueAusstattungsPositionen(
   draft: Draft,
   kontext: KorpusKontext,
   meldungen: KalkMeldung[],
 ): KalkPosition[] {
   const positionen: KalkPosition[] = []
+  const entfernt = new Set<string>()
+  const ohnePg = new Set<string>()
 
   ;(draft.fronts?.columns ?? []).forEach((spalte, spaltenIndex) => {
     const segment = spaltenIndex + 1
     const segmentBreite = kontext.breiten[spaltenIndex]
+    const innenPg = innenPgFuerKorpus(draft, spaltenIndex)
 
     ;(spalte.equipment ?? []).forEach((item) => {
       const option = getEquipmentOption(item.optionId)
       const label = option?.label ?? item.optionId
-      const menge = item.qty ?? 1
+
+      // Aus der Planung entfernt ⇒ auch aus der Kalkulation.
+      if (!istAusstattungAktiv(draft, item.optionId)) {
+        entfernt.add(equipmentAnzeigename(item.optionId))
+        return
+      }
+
+      const menge = mengeFuerAusstattung(item, option)
 
       if (ausstattungOhnePreis.has(item.optionId)) {
         positionen.push({
@@ -675,6 +885,19 @@ function baueAusstattungsPositionen(
             schubRasterFuerHoehe(zahl(item.heightNote)))
         : undefined
 
+      // Die Preisgruppe kommt aus der Innenausführung — der Berater wählt sie nie.
+      // Fehlt sie (z. B. Innenmaterial „anders" ohne erkennbare Preisgruppe), wird das
+      // gemeldet statt still auf PG 1 zurückzufallen: ein zu billig ausgewiesenes
+      // Möbel fällt erst in der Auftragsprüfung auf, und dann ist es verkauft.
+      if (lookup.nutztPg && innenPg == null) ohnePg.add(label)
+
+      const hinweise = [
+        lookup.breiteAusKorpushoehe ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.' : null,
+        lookup.nutztPg && innenPg
+          ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
+          : null,
+      ].filter(Boolean)
+
       positionen.push(
         bauePosition({
           lookup,
@@ -685,10 +908,9 @@ function baueAusstattungsPositionen(
           segment,
           breiteCm,
           raster,
+          pg: innenPg,
           variante: varianten && !lookup.nutztRaster ? undefined : undefined,
-          hinweis: lookup.breiteAusKorpushoehe
-            ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.'
-            : undefined,
+          hinweis: hinweise.length ? hinweise.join(' ') : undefined,
         }),
       )
 
@@ -750,6 +972,22 @@ function baueAusstattungsPositionen(
         text: 'Kleiderstange ist im Korpus-Innenausbau aktiv, aber ohne Menge – bitte je Segment erfassen, damit sie kalkuliert werden kann.',
       })
     }
+  }
+
+  if (ohnePg.size > 0) {
+    meldungen.push({
+      schwere: 'warnung',
+      text: `Für die Innenausführung ist keine Preisgruppe hinterlegt – bei ${[...ohnePg].join(', ')} ist der Aufpreis damit nicht ermittelbar. Bitte das Innenmaterial im Schritt „Material" festlegen oder die Preisgruppe der Oberfläche in der Verwaltung ergänzen.`,
+    })
+  }
+
+  // Sichtbar machen, was nicht mehr mitgerechnet wird: Ein Preis, der ohne erkennbaren
+  // Grund sinkt, ist im Kundengespräch so unangenehm wie einer, der zu hoch steht.
+  if (entfernt.size > 0) {
+    meldungen.push({
+      schwere: 'info',
+      text: `Nicht mehr bepreist, weil in der Ausstattungs-Vorauswahl abgewählt oder nicht mehr im Katalog: ${[...entfernt].join(', ')}.`,
+    })
   }
 
   return positionen

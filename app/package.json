@@ -21,7 +21,9 @@
     "format:test": "node scripts/check-format.js",
     "mass:test": "node scripts/check-masse.js",
     "preis:test": "node scripts/check-preisprobe.js",
-    "seed:entwuerfe": "node scripts/seed-entwuerfe.js"
+    "seed:entwuerfe": "node scripts/seed-entwuerfe.js",
+    "data:migrate-pg": "node scripts/migrate-refugium-pg.js",
+    "pg:test": "node scripts/check-refugium-pg.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

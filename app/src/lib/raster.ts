@@ -111,20 +111,43 @@ export interface RasterAufloesung {
   angehoben: boolean
 }
 
+/**
+ * Toleranz für auf ganze Zentimeter gerundete NENNMASSE, in Millimetern.
+ *
+ * Die Rasterhöhen werden überall als gerundete Zentimeterwerte geführt — „21 Raster
+ * (~274 cm)" steht so im Auswahlfeld und in `RASTER_HEIGHT_CM`. Rechnerisch sind es
+ * 273,4 cm. Ohne Toleranz kippt genau dieses Nennmaß auf Raster 22, für das es keine
+ * Preiszeile gibt: Der Korpus verlöre seinen Preis, obwohl der Berater die
+ * Standardhöhe gewählt hat.
+ *
+ * Ein Zentimeter deckt die Rundung ab und lässt 275 cm bewusst darüberfallen — dort
+ * endet laut Preisliste die bepreiste Höhe.
+ */
+export const NENNMASS_TOLERANZ_MM = 10
+
 export function loeseRasterAuf(
   hoeheCm: number,
   offsetMm: number,
   verfuegbar?: readonly number[],
+  toleranzMm = 0,
 ): RasterAufloesung {
-  const raster = rasterFuerHoehe(hoeheCm, offsetMm)
+  // Die Toleranz wirkt wie ein größerer Offset: Sie zieht die Höhe knapp unter die
+  // nächste Stufe zurück, statt sie aufzurunden.
+  const raster = rasterFuerHoehe(hoeheCm, offsetMm + toleranzMm)
   const bepreistesRaster =
     verfuegbar && verfuegbar.length > 0 ? aufVerfuegbaresRaster(raster, verfuegbar) : raster
+
+  // Liegt die Höhe nur innerhalb der Rundungstoleranz über der Stufe, ist sie das
+  // Nennmaß dieser Stufe und kein Sondermaß.
+  const ueberstandMm = cmToMm(hoeheCm) - (raster * RASTER_MM + offsetMm)
+  const istNennmass = ueberstandMm >= 0 && ueberstandMm <= toleranzMm
+
   return {
     eingabeCm: hoeheCm,
     raster,
     bepreistesRaster,
     bepreisteHoeheCm: bepreistesRaster == null ? null : hoeheFuerRaster(bepreistesRaster, offsetMm),
-    istSondermass: !istExaktesRastermass(hoeheCm, offsetMm),
+    istSondermass: !istExaktesRastermass(hoeheCm, offsetMm) && !istNennmass,
     angehoben: bepreistesRaster != null && bepreistesRaster !== raster,
   }
 }

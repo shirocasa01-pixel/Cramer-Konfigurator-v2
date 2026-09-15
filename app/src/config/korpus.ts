@@ -1,5 +1,5 @@
-import { ALLE_MATERIALGRUPPEN } from './materialMatrix'
-import type { ProductSeries } from './productCatalog'
+import { ALLE_MATERIALGRUPPEN } from './materialMatrix.ts'
+import type { ProductSeries } from './productCatalog.ts'
 
 /**
  * Korpus-Bereiche (Phase 4) als Konfiguration. Legt fest, welche Materialgruppen
@@ -23,6 +23,12 @@ export interface KorpusArea {
   noneLabel?: string
   /** Nur sichtbar, wenn die Serie „Innen“ aktiviert (Korpus-Regel Velare/Refugium). */
   requiresInnenSeries?: boolean
+  /**
+   * Gehört zum Außenkorpus und entfällt bei Serien mit `hasAussenkorpus: false`.
+   * Als Merkmal am Bereich statt als Aufzählung von IDs in der Regel weiter unten —
+   * eine neue Außen-Variante ist damit automatisch mit abgedeckt.
+   */
+  istAussenkorpus?: boolean
   /** Pflichtbereich (sofern sichtbar) – erzwungene Progression. */
   required: boolean
 }
@@ -56,6 +62,7 @@ const innenArea: KorpusArea = {
 const aussenArea: KorpusArea = {
   id: 'aussen',
   label: 'b. Außen (komplett)',
+  istAussenkorpus: true,
   hint: 'Farbe / Material des gesamten Außenkorpus',
   materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
   allowCustom: true,
@@ -64,6 +71,7 @@ const aussenArea: KorpusArea = {
 const aussenLinksArea: KorpusArea = {
   id: 'aussenLinks',
   label: 'b1. Außen – Seite links',
+  istAussenkorpus: true,
   hint: 'Material der linken Seite',
   materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
   allowCustom: true,
@@ -72,6 +80,7 @@ const aussenLinksArea: KorpusArea = {
 const aussenRechtsArea: KorpusArea = {
   id: 'aussenRechts',
   label: 'b2. Außen – Seite rechts',
+  istAussenkorpus: true,
   hint: 'Material der rechten Seite',
   materialGroupIds: AUSSEN_ABDECKPLATTE_GROUPS,
   allowCustom: true,
@@ -145,6 +154,12 @@ export const korpusAreas: KorpusArea[] = [innenArea, aussenArea, abdeckplatteAre
 /**
  * Regel: Welche Korpus-Bereiche sind für Serie & Modus sichtbar?
  * „Innen“ nur bei Velare/Refugium; „getrennt“ ersetzt „Außen“ durch links/rechts.
+ *
+ * DIESE FUNKTION IST DIE EINZIGE STELLE, an der über die Sichtbarkeit entschieden wird —
+ * Material-Schritt, Pflichtprüfung (`isKorpusComplete`), Zusammenfassung und AV-PDF
+ * lesen alle von hier. Ein Bereich, der hier fehlt, ist damit überall weg: keine
+ * Eingabe, keine Pflicht, keine Ausgabe. Genau deshalb steht die Regel hier und nicht
+ * je Komponente.
  */
 export function getVisibleKorpusAreas(
   series: ProductSeries | undefined,
@@ -157,6 +172,9 @@ export function getVisibleKorpusAreas(
     if (area.requiresInnenSeries && !series?.korpusInnen) return false
     // Serien-Filtering: Abdeckplatte für Serien ohne Abdeckplatte ausblenden (z. B. Refugium).
     if (area.id === 'abdeckplatte' && series?.hasAbdeckplatte === false) return false
+    // Serien-Filtering: Kleiderschränke haben keine sichtbare Außenfläche des Korpus —
+    // die Seiten sind das Abschlussset, die Vorderseite die Front (Refugium).
+    if (area.istAussenkorpus && series?.hasAussenkorpus === false) return false
     return true
   })
 }

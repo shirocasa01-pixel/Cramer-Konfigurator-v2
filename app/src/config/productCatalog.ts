@@ -17,7 +17,7 @@
  *      `schritte` in `src/lib/stammdaten.ts`.
  */
 
-import { getSerie, serien } from '../lib/stammdaten'
+import { getSerie, serien } from '../lib/stammdaten.ts'
 
 export interface ProductSeries {
   id: string
@@ -56,6 +56,21 @@ export interface ProductSeries {
    * Außenkorpus ist sichtbar; dort trägt die Unterscheidung weiterhin.
    */
   hasAussenkorpusModus?: boolean
+  /**
+   * Serien-Filtering: `false` entfernt den Material-Bereich „Korpus außen" vollständig
+   * (auch die getrennten Varianten links/rechts). `undefined`/`true` ⇒ sichtbar.
+   *
+   * Hintergrund: Bei einem Kleiderschrank gibt es keine sichtbare Außenfläche des
+   * Korpus. Jede Oberfläche ist an anderer Stelle bereits festgelegt —
+   *
+   *     Korpus innen   →  Innenausführung
+   *     Seiten außen   →  Abschlussset (eigene Materialwahl, links/rechts trennbar)
+   *     Front          →  Fronten-Auswahl
+   *
+   * Die zusätzliche Abfrage war damit redundant und hat im schlimmsten Fall eine
+   * Preisgruppe geliefert, die zu keiner sichtbaren Fläche gehört.
+   */
+  hasAussenkorpus?: boolean
 }
 
 export interface ProductGroup {
@@ -81,6 +96,7 @@ const SERIEN_UI_REGELN: Record<string, Omit<ProductSeries, 'id' | 'name'>> = {
     hasSichtRueckwand: false,
     korpusRaster: true,
     hasAussenkorpusModus: false,
+    hasAussenkorpus: false,
   },
 }
 

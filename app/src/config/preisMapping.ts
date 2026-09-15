@@ -108,23 +108,20 @@ export interface SerienRegel {
   mittelseitenRegel?: MittelseitenRegel
   /** Abgeleitet: seitlicher Abschluss des Möbelblocks. */
   aussenset?: BauteilLookup
+  /**
+   * Aufpreis für den Fußleistenausschnitt. Wird EINMAL je Möbel berechnet, nicht je
+   * Korpus — die Preiszeile trägt die Einheit „EUR/für 2 Seiten".
+   */
+  fussleistenausschnitt?: BauteilLookup
   /** Serienweite Hinweise, die als INFO-Meldung erscheinen. */
   hinweise?: string[]
   /**
-   * Punkt 5.13.3 — Dietmar: „Bei Sondertiefen gelten dann die Atriumpreise von der
-   * Seite 13 bzw. 14."
+   * Serien, bei denen NUR die Standardtiefe bepreisbar ist: Jede abweichende Tiefe
+   * wird als „auf Anfrage" ausgewiesen, mit `grund` als Begründung.
    *
-   * Automatisch umschalten lässt sich das heute NICHT, aus zwei belegbaren Gründen:
-   *
-   *   1. Der Atrium-Korpus `10-001-0001` trägt den Modus `AVO` — er ist für
-   *      Refugium gar nicht freigegeben. Ihn trotzdem zu ziehen, hieße die
-   *      Serien-Freigabe zu umgehen.
-   *   2. Seine 75 Preiszeilen tragen im Stamm selbst den Vorbehalt „Best-effort
-   *      Spaltenzuordnung; Originaltabelle zur Prüfung empfohlen".
-   *
-   * Bis beides geklärt ist, wird die Korpus-Position bei Sondertiefe als
-   * „auf Anfrage" ausgewiesen — mit genau diesem Grund. Ein aus unsicheren Zeilen
-   * gezogener Preis wäre im Kundengespräch teurer als eine offene Position.
+   * Für Refugium gilt das ausdrücklich NICHT — Sondertiefen von 31–60 cm werden mit
+   * den normalen Korpuspreisen gerechnet (Preisblatt S. 26). Das Feld bleibt für
+   * Serien erhalten, deren Tiefenpreise nicht im Stamm liegen.
    */
   korpusNurStandardtiefe?: { standardTiefeCm: number; grund: string }
 }
@@ -141,9 +138,14 @@ export const serienRegeln: Record<string, SerienRegel> = {
     id: 'refugium',
     konfigurationsart: 'BAUTEIL',
     korpus: {
-      artikel: '10-001-0003', // Korpus (Refugium) — BREITE × RASTER
+      artikel: '10-001-0003', // Korpus (Refugium) — BREITE × RASTER × TIEFE × PG
       nutztRaster: true,
-      // Refugium-Korpi sind ausschließlich in Decoboard lieferbar ⇒ keine PG-Achse.
+      nutztTiefe: true,
+      nutztPg: true,
+      // Die Preisgruppe kommt aus der Innenausführung, die Tiefe aus den Maßen. Beide
+      // Achsen stehen seit der Korpus-Migration im Preisblatt (scripts/lib/refugium-korpus.js):
+      // PG 1 ist der gedruckte Decoboard-Preis, PG 2–4 die Atrium-Preise derselben
+      // Breite und Tiefe (Preisliste S. 13 / 14 / 15).
     },
     mittelseite: {
       artikel: '10-002-0001', // Mittelseite (2 cm)
@@ -156,14 +158,17 @@ export const serienRegeln: Record<string, SerienRegel> = {
       rasterInBreite: true,
       nutztPg: true,
     },
-    korpusNurStandardtiefe: {
-      standardTiefeCm: 60,
-      grund:
-        'Bei Sondertiefe gelten laut Vorgabe die Atriumpreise (Preisliste S. 13/14). Der Atrium-Korpus 10-10-05-0001 ist im Stamm jedoch nur für A/V/O freigegeben und seine Preiszeilen tragen den Vorbehalt „Best-effort Spaltenzuordnung" – deshalb hier keine automatische Umbepreisung.',
+    fussleistenausschnitt: {
+      // „Vertiefte Aussenseiten fuer Fussleistenausschnitt/Verkabelung" — Festpreis,
+      // Einheit „EUR/für 2 Seiten", also einmal je Möbel und nicht je Korpus.
+      artikel: '50-027-0007',
+      label: 'Fußleistenausschnitt',
     },
     hinweise: [
       'Refugium hat serienmäßig keine Abdeckplatte (Programmvergleich S. 6).',
-      'Die 64er Lochreihe ist Serienstandard und damit keine Preisposition.',
+      'Die 32er Lochreihe ist Serienstandard und damit keine Preisposition.',
+      'Die Korpustiefe ist eine eigene Preisachse (31 · 41 · 60 cm); Zwischenmaße werden auf die nächstgrößere Stufe bepreist.',
+      'In Decoboard (PG 1) ist der Korpuspreis für alle drei Tiefen gleich (Preisblatt S. 26). Bei abweichender Innenausführung gelten die Atrium-Korpuspreise (S. 13 / 14 / 15).',
       'Der 21-Raster-Preis enthält den 20-%-Aufschlag gegenüber 18 Raster bereits (Preisblatt S. 26) – er wird deshalb nicht zusätzlich aufgeschlagen.',
     ],
   },
@@ -275,14 +280,25 @@ export function schubRasterFuerHoehe(hoeheCm: number | undefined): number {
 // Ausstattung
 // ---------------------------------------------------------------------------
 
-/** Ausstattungs-Option (`config/equipment.ts`) → Artikel im Preisblatt. */
+/**
+ * Ausstattungs-Option (`config/equipment.ts`) → Artikel im Preisblatt.
+ *
+ * `nutztPg` markiert die Artikel, deren Preisblatt seit der PG-Migration eine
+ * Preisgruppen-Achse führt (siehe `scripts/lib/refugium-pg.js`). Die Preisgruppe kommt
+ * aus der INNENAUSFÜHRUNG des Korpus — Dietmar Cramer, Überarbeitung 6, S. 2: „Das
+ * Material der Ausstattung orientiert sich immer am Material des Innenkorpus. Es muss
+ * also nicht extra gewählt werden."
+ *
+ * Wo `nutztPg` fehlt, hat der Artikel im Preisblatt bewusst nur einen Preis — Cramer:
+ * „Wenn ihr von mir keine Info bekommt, ist nur der Preis in der Preisgruppe 1 relevant."
+ */
 export const ausstattungLookups: Record<string, BauteilLookup> = {
   einlegeboden: { artikel: '40-014-0001' },
   glasboden: { artikel: '40-014-0002' },
-  rollboden: { artikel: '40-014-0003' },
+  rollboden: { artikel: '40-014-0003', nutztPg: true },
   kleiderlift: { artikel: '40-015-0001' },
   'einlegeboden-kleiderstange': { artikel: '40-015-0002' },
-  innenschublade: { artikel: '40-016-0001', nutztRaster: true },
+  innenschublade: { artikel: '40-016-0001', nutztRaster: true, nutztPg: true },
   rollkorb: { artikel: '40-016-0002' },
   'innenspiegel-drehtuer': { artikel: '40-018-0001' },
   krawattenspange: { artikel: '40-023-0012' },
@@ -291,13 +307,20 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
   'kleiderlift-conero': { artikel: '40-023-0006' },
   'guertel-krawattenauszug-conero': { artikel: '40-023-0005' },
   'schuhablage-conero': { artikel: '40-023-0007' },
-  'schubladenunterteilung-craft': { artikel: '40-023-0011' },
-  'hemdeinsatz-craft': { artikel: '40-023-0008' },
-  'rollboden-schuhablage-craft': { artikel: '40-023-0010' },
+  'schubladenunterteilung-craft': { artikel: '40-023-0011', nutztPg: true },
+  'hemdeinsatz-craft': { artikel: '40-023-0008', nutztPg: true },
+  'rollboden-schuhablage-craft': { artikel: '40-023-0010', nutztPg: true },
   kleiderbuegelhalter: { artikel: '40-023-0009' },
-  // Verblendungen: im Vorgänger-Tool noch „auf Anfrage", jetzt mit Preis je laufendem Meter.
-  'verblendung-frontbuendig': { artikel: '90-038-0001' },
-  'verblendung-korpusbuendig': { artikel: '90-038-0002' },
+}
+
+/**
+ * Verblendung → Artikel. Seit Überarbeitung 6 (S. 7) keine Ausstattungs-Option mehr,
+ * sondern EINE Angabe je Möbel im Schritt „Maße" — korpusbündig ODER frontbündig.
+ * Die Schlüssel sind die Werte von `VerblendungArt`.
+ */
+export const verblendungLookups: Record<string, BauteilLookup> = {
+  frontbuendig: { artikel: '90-038-0001' },
+  korpusbuendig: { artikel: '90-038-0002' },
 }
 
 /**
@@ -306,20 +329,22 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
  */
 export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
   'container-conero': {
-    A: { artikel: '40-017-0001' },
-    B: { artikel: '40-017-0002' },
-    C: { artikel: '40-017-0003' },
-    D: { artikel: '40-017-0004' },
-    E: { artikel: '40-017-0005' },
-    F: { artikel: '40-017-0006' },
+    A: { artikel: '40-017-0001', nutztPg: true },
+    B: { artikel: '40-017-0002', nutztPg: true },
+    C: { artikel: '40-017-0003', nutztPg: true },
+    D: { artikel: '40-017-0004', nutztPg: true },
+    E: { artikel: '40-017-0005', nutztPg: true },
+    F: { artikel: '40-017-0006', nutztPg: true },
   },
   'container-craft': {
-    A: { artikel: '40-017-0015' },
-    B: { artikel: '40-017-0016' },
-    C: { artikel: '40-017-0017' },
+    A: { artikel: '40-017-0015', nutztPg: true },
+    B: { artikel: '40-017-0016', nutztPg: true },
+    C: { artikel: '40-017-0017', nutztPg: true },
   },
   // Der Basis-Container führt seine Höhe als Rasterachse (4,5 R und 6 R) statt als
   // eigenen Artikel — die Variante wird deshalb in eine Rasterstufe übersetzt.
+  // OHNE `nutztPg`: Er ist in Überarbeitung 6 nicht annotiert und trägt im Preisblatt
+  // weiterhin nur einen Preis (offene Rückfrage, siehe scripts/lib/refugium-pg.js).
   container: {
     '4,5R': { artikel: '40-017-0019', nutztRaster: true },
     '6R': { artikel: '40-017-0019', nutztRaster: true },

@@ -140,6 +140,32 @@ export function verfuegbareRaster(artikelnummer: string): number[] {
   return [...werte].sort((a, b) => a - b)
 }
 
+/**
+ * Die tatsächlich bepreisten Tiefenstufen eines Artikels (cm), aufsteigend.
+ *
+ * Gegenstück zu `verfuegbareRaster()`: Die Preisliste führt die Tiefe in Stufen
+ * (31 · 41 · 60 cm), der Berater gibt aber ein Zentimetermaß ein. Damit die
+ * Preislisten-Regel „Preis des nächstgrößeren Maßes" auch hier greift, muss die
+ * Kalkulation die Stufen kennen — genau wie bei den Rastern. Die Liste kommt aus
+ * den Daten, nicht aus einer Konstante: eine neue Tiefe in der Mappe wirkt sofort.
+ */
+export function verfuegbareTiefen(artikelnummer: string): number[] {
+  const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()
+  const art = artikelNachNummer.get(artikelnummer)
+  if (!art) return []
+  const index = art.achsen.indexOf('TIEFE')
+  if (index < 0) return []
+  const werte = new Set<number>()
+  for (const zeile of zeilenNachArtikel.get(artikelnummer) ?? []) {
+    // Das Komma ist in dieser Achse eine Aufzählung („25,30" = zwei Tiefen).
+    for (const teil of zeile.a[index].split(',')) {
+      const zahl = parseZahl(teil)
+      if (zahl != null) werte.add(zahl)
+    }
+  }
+  return [...werte].sort((a, b) => a - b)
+}
+
 /** Die bepreisten Breitenwerte eines Artikels, bereits eingeordnet. */
 export function verfuegbareBreiten(artikelnummer: string): BreitenWert[] {
   const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()

@@ -13,8 +13,11 @@ import { isSondertiefeDepth } from '../../lib/korpusMass'
 import {
   defaultSelectedEquipmentIds,
   equipmentCategories,
+  getEquipmentOption,
   isEquipmentAvailableInSondertiefe,
 } from '../../config/equipment'
+import { entferneAbgewaehlteAusstattung } from '../../lib/frontsHelpers'
+import type { Draft } from '../../types'
 import styles from './Ausstattung.module.css'
 
 /**
@@ -24,8 +27,22 @@ import styles from './Ausstattung.module.css'
  * Fronten") je Segment angeboten. Die beiden Einlegeboden-Essentials sind
  * standardmäßig aktiv (abwählbar). Bei Sondertiefe sind nur Einlegeböden möglich.
  */
+/**
+ * Patch für eine geänderte Vorauswahl — samt Aufräumen der bereits erfassten Teile.
+ *
+ * Überarbeitung 6, S. 1: Eine abgewählte Option muss auch aus den Segmenten und damit
+ * aus der Kalkulation verschwinden. Beides gehört in EINEN Schreibvorgang, sonst gibt es
+ * einen Zwischenzustand, in dem die Vorauswahl schon leer und der Preis noch alt ist.
+ */
+function auswahlPatch(aktuell: Draft, selected: string[]): Partial<Draft> {
+  const fronts = entferneAbgewaehlteAusstattung(aktuell.fronts, selected)
+  return fronts === aktuell.fronts
+    ? { ausstattung: { selected } }
+    : { ausstattung: { selected }, fronts }
+}
+
 export default function AusstattungPage() {
-  const { draft, updateDraft } = useDraft()
+  const { draft, updateDraftFrom } = useDraft()
   const navigate = useNavigate()
 
   const group = getProductGroup(draft?.productGroupId)
@@ -39,11 +56,16 @@ export default function AusstattungPage() {
     if (!draft || !isRefugium) return
     const current = draft.ausstattung?.selected
     let next = current ?? defaultSelectedEquipmentIds()
+    // Optionen, die es im Katalog nicht mehr gibt (Überarbeitung 6: die Verblendung ist
+    // in den Schritt „Maße" gewandert), fallen aus der Vorauswahl — und mit ihnen die
+    // dazu erfassten Teile. Sonst bliebe eine Auswahl stehen, die nirgends mehr sichtbar ist.
+    next = next.filter((id) => getEquipmentOption(id) !== undefined)
     if (sondertiefe) next = next.filter(isEquipmentAvailableInSondertiefe)
     const changed =
       !current || next.length !== current.length || next.some((id, i) => id !== current[i])
-    if (changed) updateDraft({ ausstattung: { selected: next } })
-  }, [draft, isRefugium, sondertiefe, updateDraft])
+    const verwaist = entferneAbgewaehlteAusstattung(draft.fronts, next) !== draft.fronts
+    if (changed || verwaist) updateDraftFrom((aktuell) => auswahlPatch(aktuell, next))
+  }, [draft, isRefugium, sondertiefe, updateDraftFrom])
 
   const selected = useMemo(() => new Set(draft?.ausstattung?.selected ?? []), [draft?.ausstattung?.selected])
 
@@ -64,7 +86,8 @@ export default function AusstattungPage() {
     const next = new Set(selected)
     if (next.has(optionId)) next.delete(optionId)
     else next.add(optionId)
-    updateDraft({ ausstattung: { selected: [...next] } })
+    // Abwählen heißt: raus aus der Vorauswahl UND raus aus den Segmenten (Überarbeitung 6, S. 1).
+    updateDraftFrom((aktuell) => auswahlPatch(aktuell, [...next]))
   }
 
   const selectedCount = selected.size
