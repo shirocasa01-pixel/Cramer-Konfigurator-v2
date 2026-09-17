@@ -59,6 +59,7 @@ import {
   saveWorkbook,
   writeFileWithRetry,
 } from './lib/xlsx-raw.js'
+import { schreibeWerteliste } from './lib/werteliste.js'
 
 const c = {
   bold: (s) => `\x1b[1m${s}\x1b[0m`,
@@ -115,8 +116,10 @@ function main() {
   const bericht = { artikel: 0, zeilen: 0, neueZeilen: 0, uebersprungen: 0, hinweise: [], unklar: [] }
 
   // --- 1) Wertelisten-Blätter -----------------------------------------------------
-  schreibeWerteliste(achsenBlatt, achsenTab, ACHSEN_KATALOG, dryRun, ['Code', 'Bedeutung'], 'Art')
-  schreibeWerteliste(logikBlatt, logikTab, PREISLOGIK_KATALOG, dryRun, ['Code', 'Bedeutung'])
+  if (!dryRun) {
+    schreibeWerteliste(achsenBlatt, achsenTab, ACHSEN_KATALOG, ['Code', 'Bedeutung'], 'Art')
+    schreibeWerteliste(logikBlatt, logikTab, PREISLOGIK_KATALOG, ['Code', 'Bedeutung'])
+  }
 
   // --- 2) Artikel + Preiszeilen ---------------------------------------------------
   /** Was je Artikel geplant ist — erst vollständig rechnen, dann schreiben. */
@@ -192,49 +195,6 @@ function main() {
   forceFullCalcOnLoad(wb)
   writeFileWithRetry(STAMMDATEN_XLSX, saveWorkbook(wb))
   console.log(c.green('  Geschrieben. Jetzt `npm run data:build` ausführen.\n'))
-}
-
-// ---------------------------------------------------------------------------
-// Wertelisten-Blätter
-// ---------------------------------------------------------------------------
-
-/**
- * Schreibt eine Werteliste vollständig neu: vorhandene Zeilen überschreiben,
- * überzählige leeren, fehlende anhängen. Eine dritte Spalte wird bei Bedarf angelegt.
- */
-function schreibeWerteliste(blatt, tab, eintraege, dryRun, spalten, zusatzSpalte) {
-  if (dryRun) return
-  const ersteZeile = 2
-  const spaltenRefs = spalten.map((n) => tab.header.get(n))
-  let zusatzRef = zusatzSpalte ? tab.header.get(zusatzSpalte) : undefined
-  if (zusatzSpalte && !zusatzRef) {
-    // Neue Spalte direkt rechts neben der letzten bekannten anlegen.
-    const letzte = [...tab.header.values()].sort()[tab.header.size - 1]
-    zusatzRef = String.fromCharCode(letzte.charCodeAt(0) + 1)
-    setOrCreateCellString(blatt, `${zusatzRef}1`, zusatzSpalte)
-  }
-
-  eintraege.forEach((eintrag, i) => {
-    const werte = [eintrag.code, eintrag.bedeutung]
-    if (i < tab.rows.length) {
-      const zeile = ersteZeile + i
-      spaltenRefs.forEach((ref, j) => setOrCreateCellString(blatt, `${ref}${zeile}`, werte[j]))
-      if (zusatzRef) setOrCreateCellString(blatt, `${zusatzRef}${zeile}`, eintrag.art ?? '')
-      return
-    }
-    const neu = {}
-    spaltenRefs.forEach((ref, j) => { neu[ref] = werte[j] })
-    if (zusatzRef && eintrag.art) neu[zusatzRef] = eintrag.art
-    appendRow(blatt, neu)
-  })
-
-  // Überzählige Altzeilen leeren.
-  for (let i = eintraege.length; i < tab.rows.length; i++) {
-    const zeile = ersteZeile + i
-    for (const ref of [...spaltenRefs, zusatzRef].filter(Boolean)) {
-      setOrCreateCellString(blatt, `${ref}${zeile}`, '')
-    }
-  }
 }
 
 // ---------------------------------------------------------------------------
