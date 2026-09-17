@@ -35,7 +35,6 @@ import {
   ausstattungLookups,
   ausstattungOhnePreis,
   containerLookups,
-  CONTAINER_AUSFUEHRUNG,
   containerRaster,
   rasterAusVariante,
   frontLookups,
@@ -218,8 +217,6 @@ interface PositionsEingabe {
   laengeCm?: number
   liniePg?: string
   pg?: PriceGroup
-  /** Ausführungsvariante („Deckplatte Rauchglas grau"). */
-  ausfuehrung?: string
   hinweis?: string
 }
 
@@ -277,7 +274,6 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     laengeCm: eingabe.laengeCm,
     liniePg: lookup.nutztLiniePg ? eingabe.liniePg : undefined,
     pg: lookup.nutztPg ? eingabe.pg : undefined,
-    ausfuehrung: lookup.nutztAusfuehrung ? eingabe.ausfuehrung : undefined,
   })
 
   const basisLabel = eingabe.label ?? lookup.label ?? stamm?.bezeichnung ?? lookup.artikel
@@ -983,6 +979,19 @@ function baueAusstattungsPositionen(
       }
 
       /*
+       * DECKPLATTE DES CONTAINERS.
+       *
+       * Seit der Varianten-Migration ist die Ausführung (Decoboard/Rauchglas) kein
+       * Achsenwert mehr, sondern ein eigener Artikel — jeder trägt seinen vollständigen
+       * Preis. `artikelBeiAuswahl` nennt den Artikel für die angehakte Rauchglas-Option;
+       * ohne Häkchen bleibt es beim Decoboard-Artikel aus `lookup.artikel`.
+       */
+      const aufgeloesterLookup: BauteilLookup =
+        item.rauchglas && lookup.artikelBeiAuswahl
+          ? { ...lookup, artikel: lookup.artikelBeiAuswahl }
+          : lookup
+
+      /*
        * HÖHE DES AUSSTATTUNGSTEILS.
        *
        * Zwei verschiedene Höhen kommen hier zusammen, und sie zu verwechseln kostet Geld:
@@ -1000,28 +1009,28 @@ function baueAusstattungsPositionen(
        */
       const rasterDesTeils =
         containerRaster[item.variant ?? ''] ?? rasterAusVariante(item.variant) ?? undefined
-      const hoeheCmFuerTeil = lookup.hoeheAusKorpus
+      const hoeheCmFuerTeil = aufgeloesterLookup.hoeheAusKorpus
         ? kontext.korpusHoeheCm ?? kontext.hoeheCm
         : rasterDesTeils != null
-          ? hoeheFuerRasterEtikett(lookup.artikel, rasterDesTeils)
+          ? hoeheFuerRasterEtikett(aufgeloesterLookup.artikel, rasterDesTeils)
           : schubHoeheCm(zahl(item.heightNote))
 
       // Die Preisgruppe kommt aus der Innenausführung — der Berater wählt sie nie.
       // Fehlt sie (z. B. Innenmaterial „anders" ohne erkennbare Preisgruppe), wird das
       // gemeldet statt still auf PG 1 zurückzufallen: ein zu billig ausgewiesenes
       // Möbel fällt erst in der Auftragsprüfung auf, und dann ist es verkauft.
-      if (lookup.nutztPg && innenPg == null) ohnePg.add(label)
+      if (aufgeloesterLookup.nutztPg && innenPg == null) ohnePg.add(label)
 
       const hinweise = [
-        lookup.hoeheAusKorpus ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.' : null,
-        lookup.nutztPg && innenPg
+        aufgeloesterLookup.hoeheAusKorpus ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.' : null,
+        aufgeloesterLookup.nutztPg && innenPg
           ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
           : null,
       ].filter(Boolean)
 
       positionen.push(
         bauePosition({
-          lookup,
+          lookup: aufgeloesterLookup,
           menge,
           bucket: 'innen',
           herkunft: 'gewaehlt',
@@ -1030,9 +1039,6 @@ function baueAusstattungsPositionen(
           breiteCm: segmentBreite,
           hoeheCm: hoeheCmFuerTeil,
           pg: innenPg,
-          // Die Deckplatte des Containers ist seit der Reform eine Ausführung mit
-          // vollständigem Preis — kein Aufpreis-Artikel mehr.
-          ausfuehrung: item.rauchglas ? CONTAINER_AUSFUEHRUNG.rauchglas : CONTAINER_AUSFUEHRUNG.decoboard,
           hinweis: hinweise.length ? hinweise.join(' ') : undefined,
         }),
       )

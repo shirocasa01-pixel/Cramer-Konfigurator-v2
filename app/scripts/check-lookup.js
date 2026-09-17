@@ -52,10 +52,12 @@ ok('Bereinigung ist idempotent', normalizeModus(normalizeModus('R,p/A', codeMap)
 
 gruppe('E) Echte Stammdaten')
 const refugium = artikelFuerSerie('refugium')
-// 107 statt 109: Die Achsen-Reform hat zwei Aufpreis-Artikel stillgelegt — „Front Glatt
-// (Aufpreis PG3)" und den Rauchglas-Aufpreis des Containers. Beide Beträge stecken jetzt
-// in echten Preiszeilen (Achse LINIE+PG bzw. AUSFÜHRUNG) statt in einem Zuschlagsartikel.
-ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 107)
+// 117 statt 109: Die Achsen-Reform hat zwei Aufpreis-Artikel stillgelegt — „Front Glatt
+// (Aufpreis PG3)" und den Rauchglas-Aufpreis des Containers (−2). Die Varianten-Migration
+// hat danach jede Ausführungsvariante zu einem eigenen Artikel gemacht: Decoboard und
+// Rauchglas sind jetzt zehn Container-Artikel statt einer Achse (+10 für Refugium:
+// Conero A–F, Craft A–C, Basis-Container).
+ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 117)
 ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 42)
 ok('kein Refugium-Artikel ohne "R" im Modus', refugium.every((a) => a.modus.toUpperCase().includes('R')))
 ok('Abdeckplatten sind für Refugium gesperrt', !refugium.some((a) => a.dropdown === 'ABDECKPLATTE'))

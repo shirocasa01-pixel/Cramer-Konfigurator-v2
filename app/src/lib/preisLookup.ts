@@ -153,8 +153,6 @@ export interface PreisAnfrage {
   liniePg?: string
   /** Material-Preisgruppe, wenn PG eine eigene Achse ist. */
   pg?: string
-  /** Ausführungsvariante des Artikels („Deckplatte Rauchglas grau"). */
-  ausfuehrung?: string
 }
 
 /** Eine aufgelöste Achse — Grundlage für die Klartext-Anzeige. */
@@ -259,15 +257,20 @@ function massAnfrage(code: AchseCode, anfrage: PreisAnfrage): number | undefined
   }
 }
 
-/** Der verlangte Wert für eine Merkmalsachse. */
+/**
+ * Der verlangte Wert für eine Merkmalsachse.
+ *
+ * AUSFÜHRUNG ist hier bewusst nicht mehr aufgeführt: Seit jede Ausführungsvariante ein
+ * eigener Artikel ist (Decoboard und Rauchglas z. B. als getrennte Container-Artikel),
+ * führt kein Artikel im Stamm diese Achse mehr — die Auswahl passiert über die
+ * Artikelnummer, nicht über einen Achsenwert.
+ */
 function merkmalAnfrage(code: AchseCode, anfrage: PreisAnfrage): string | undefined {
   switch (code) {
     case 'LINIE_PG':
       return anfrage.liniePg
     case 'PG':
       return anfrage.pg
-    case 'AUSFUEHRUNG':
-      return anfrage.ausfuehrung
     default:
       return undefined
   }

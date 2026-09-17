@@ -50,8 +50,13 @@ export interface BauteilLookup {
    * nach Korpushöhenklasse bepreist ist.
    */
   hoeheAusKorpus?: boolean
-  /** Ausführungsvariante als Achse mitgeben (Deckplatte Decoboard / Rauchglas). */
-  nutztAusfuehrung?: boolean
+  /**
+   * Zweiter Artikel für dieselbe Position, wenn eine Ausführung angehakt ist (Container
+   * mit Rauchglas-Deckplatte statt Decoboard). Jede Ausführung ist seit der Varianten-
+   * Migration ein eigener Artikel im Stamm — dieses Feld sagt nur, WELCHER der beiden
+   * gilt, wenn der Berater die Option ankreuzt. Ohne Häkchen bleibt es bei `artikel`.
+   */
+  artikelBeiAuswahl?: string
   /** Abweichende Anzeige-Bezeichnung; sonst kommt sie aus dem Artikelstamm. */
   label?: string
 }
@@ -342,28 +347,32 @@ export const verblendungLookups: Record<string, BauteilLookup> = {
 /**
  * Container-Varianten. Der Stamm führt jede Ausführung als eigenen Artikel, der
  * Konfigurator kennt eine Option mit Varianten-Auswahl.
+ *
+ * Die Deckplatte (Decoboard/Rauchglas) ist seit der Varianten-Migration KEINE Achse
+ * mehr, sondern ein eigener Artikel je Ausführung — `artikelBeiAuswahl` nennt den
+ * Artikel, der statt `artikel` gilt, sobald der Berater die Rauchglas-Option ankreuzt.
  */
 export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
   'container-conero': {
-    A: { artikel: '40-017-0001', nutztPg: true },
-    B: { artikel: '40-017-0002', nutztPg: true },
-    C: { artikel: '40-017-0003', nutztPg: true },
-    D: { artikel: '40-017-0004', nutztPg: true },
-    E: { artikel: '40-017-0005', nutztPg: true },
-    F: { artikel: '40-017-0006', nutztPg: true },
+    A: { artikel: '40-017-0001', artikelBeiAuswahl: '40-017-0020', nutztPg: true },
+    B: { artikel: '40-017-0002', artikelBeiAuswahl: '40-017-0021', nutztPg: true },
+    C: { artikel: '40-017-0003', artikelBeiAuswahl: '40-017-0022', nutztPg: true },
+    D: { artikel: '40-017-0004', artikelBeiAuswahl: '40-017-0023', nutztPg: true },
+    E: { artikel: '40-017-0005', artikelBeiAuswahl: '40-017-0024', nutztPg: true },
+    F: { artikel: '40-017-0006', artikelBeiAuswahl: '40-017-0025', nutztPg: true },
   },
   'container-craft': {
-    A: { artikel: '40-017-0015', nutztPg: true },
-    B: { artikel: '40-017-0016', nutztPg: true },
-    C: { artikel: '40-017-0017', nutztPg: true },
+    A: { artikel: '40-017-0015', artikelBeiAuswahl: '40-017-0026', nutztPg: true },
+    B: { artikel: '40-017-0016', artikelBeiAuswahl: '40-017-0027', nutztPg: true },
+    C: { artikel: '40-017-0017', artikelBeiAuswahl: '40-017-0028', nutztPg: true },
   },
   // Der Basis-Container führt seine Höhe als Rasterachse (4,5 R und 6 R) statt als
   // eigenen Artikel — die Variante wird deshalb in eine Rasterstufe übersetzt.
   // OHNE `nutztPg`: Er ist in Überarbeitung 6 nicht annotiert und trägt im Preisblatt
   // weiterhin nur einen Preis (offene Rückfrage, siehe scripts/lib/refugium-pg.js).
   container: {
-    '4,5R': { artikel: '40-017-0019', nutztHoehe: true },
-    '6R': { artikel: '40-017-0019', nutztHoehe: true },
+    '4,5R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true },
+    '6R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true },
   },
 }
 
@@ -390,22 +399,6 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
   const treffer = /^(\d+(?:[.,]\d+)?)\s*R$/i.exec(variante.trim())
   return treffer ? Number(treffer[1].replace(',', '.')) : undefined
 }
-
-/**
- * DECKPLATTE DES CONTAINERS — Werte der Achse AUSFÜHRUNG.
- *
- *   „Solche Aufpreis positionen sind schwierig … Lieber mit neuen Preiszeilen arbeiten."
- *
- * Bis zur Achsen-Reform gab es dafür einen eigenen Artikel „Aufpreis Container Deckplatte
- * Rauchglasfuellung" mit drei Preiszeilen OHNE Achse — welcher Betrag zu welcher Breite
- * gehörte, stand nirgends und musste aus der Zeilenreihenfolge geraten werden. Die
- * Migration hat diese Beträge in den Container selbst eingearbeitet: Jede Ausführung
- * trägt jetzt ihren vollständigen Preis, der Aufpreis-Artikel ist gesperrt.
- */
-export const CONTAINER_AUSFUEHRUNG = {
-  decoboard: 'Deckplatte Decoboard',
-  rauchglas: 'Deckplatte Rauchglas grau',
-} as const
 
 /**
  * Ausstattungs-Optionen ohne Preiszeile. Sie erzeugen bewusst eine Position mit Status
