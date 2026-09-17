@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   achsen as achsenKatalog,
   dropdowns,
@@ -43,6 +43,17 @@ import styles from './ArtikelDetailModal.module.css'
 
 const STATUS_WERTE = ['aktiv', 'gesperrt', 'entwurf'] as const
 const PREIS_STATUS_WERTE = ['fixed', 'on-request', 'note'] as const
+
+/**
+ * Eine Preiszeile im Formular-State, mit einer STABILEN Identität für React.
+ *
+ * `preisSchluessel()` ändert sich mit jedem Tastendruck (er hängt an `a`, den gerade
+ * bearbeiteten Achsenwerten). Verwendet man ihn als `key` einer Tabellenzeile, baut
+ * React die Zeile bei jeder Eingabe komplett neu — die Eingabefelder verlieren dabei
+ * den Fokus, als hätte man woanders hingeklickt. `_localId` entsteht einmal beim Anlegen
+ * der Zeile und bleibt über ihre gesamte Bearbeitung unverändert.
+ */
+type ZeilenEintrag = Preiszeile & { _localId: string }
 
 /**
  * Vorschläge für die rechte Hälfte der geteilten Zelle.
@@ -117,7 +128,11 @@ export function ArtikelDetailModal({
   const anlegen = artikel === null
   const [bereich, setBereich] = useState<Bereich>(startBereich)
   const [form, setForm] = useState<Artikel>(() => ({ ...(artikel ?? leererArtikel()) }))
-  const [zeilen, setZeilen] = useState<Preiszeile[]>(() => preiszeilen.map((z) => ({ ...z, a: [...z.a] as Achsenwerte })))
+  const [zeilen, setZeilen] = useState<ZeilenEintrag[]>(() =>
+    preiszeilen.map((z, i) => ({ ...z, a: [...z.a] as Achsenwerte, _localId: `zeile-${i}` })),
+  )
+  /** Zähler für neu angelegte Zeilen — fortlaufend, damit `_localId` nie kollidiert. */
+  const neueZeilenId = useRef(0)
   const [entfernt, setEntfernt] = useState<string[]>([])
   /** Rohe Tastatureingabe je Preiszeile, solange das Feld den Fokus hat. */
   const [preisEingaben, setPreisEingaben] = useState<Record<number, string>>({})
@@ -496,7 +511,7 @@ export function ArtikelDetailModal({
                   ) : null}
 
                   {zeilen.map((zeile, index) => (
-                    <tr key={`${preisSchluessel(zeile)}-${index}`}>
+                    <tr key={zeile._localId}>
                       {Array.from({ length: achsenAnzahl }, (_, i) => (
                         <td key={i}>
                           <Achsenzelle
@@ -593,7 +608,8 @@ export function ArtikelDetailModal({
                 className={styles.zeileHinzu}
                 disabled={anlegen}
                 title={anlegen ? 'Erst den Artikel speichern, dann Preiszeilen anlegen' : undefined}
-                onClick={() =>
+                onClick={() => {
+                  neueZeilenId.current += 1
                   setZeilen((zs) => [
                     ...zs,
                     {
@@ -603,9 +619,10 @@ export function ArtikelDetailModal({
                       status: 'fixed',
                       seite: '',
                       ref: null,
+                      _localId: `neu-${neueZeilenId.current}`,
                     },
                   ])
-                }
+                }}
               >
                 + Preiszeile hinzufügen
               </button>
