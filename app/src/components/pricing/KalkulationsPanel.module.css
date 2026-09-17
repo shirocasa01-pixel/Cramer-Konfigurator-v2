@@ -317,3 +317,18 @@
   color: var(--color-ink-muted);
   white-space: nowrap;
 }
+
+/* ---------------------------------------------------------------------------
+   TEILPOSITIONEN — mehrere Bezugsgrößen in einer Position.
+
+   Die drei Spalten Menge · Einzel · Betrag stapeln dieselbe Zeilenzahl, damit
+   „123 cm × 123 €/m²" und „1 × 123 €" waagerecht zueinander stehen und die Summe
+   in der Zeile des unteren Betrags landet.
+   --------------------------------------------------------------------------- */
+
+.teilStapel {
+  display: grid;
+  gap: 2px;
+  justify-items: end;
+  font-variant-numeric: tabular-nums;
+}

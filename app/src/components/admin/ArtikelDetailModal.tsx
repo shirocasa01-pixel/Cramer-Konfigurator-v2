@@ -10,6 +10,7 @@ import {
   type Preiszeile,
 } from '../../data/stammdaten.generated.ts'
 import { formatDezimal, parseEingabeDe } from '../../lib/format.ts'
+import { PREISARTEN, baueStufenwert, cmText, parseStufe } from '../../lib/preisAchsen.ts'
 import { parseModus } from '../../lib/modus.ts'
 import {
   aendereArtikel,
@@ -42,7 +43,29 @@ import styles from './ArtikelDetailModal.module.css'
 
 const STATUS_WERTE = ['aktiv', 'gesperrt', 'entwurf'] as const
 const PREIS_STATUS_WERTE = ['fixed', 'on-request', 'note'] as const
-const ACHSEN_CODES = achsenKatalog.map((a) => a.code)
+
+/**
+ * Vorschläge für die rechte Hälfte der geteilten Zelle.
+ *
+ * Sie sind ausdrücklich nur Vorschläge: Die Liste wird um die Etiketten ergänzt, die der
+ * Artikel schon benutzt, und bleibt frei beschreibbar. Ein fest verdrahteter Wertevorrat
+ * würde genau das wiederholen, was die Reform beseitigt hat — Wissen im Code statt in
+ * den Stammdaten.
+ */
+const BREITEN_ETIKETTEN = ['40er', '50er', '50/60er', '60er', '80er', '100er', '120er', '150er', 'Seite']
+const RASTER_ETIKETTEN = ['1R', '1,5R', '2R', '3R', '4R', '4,5R', '6R', '8R', '9R', '12R', '14R', '15R', '18R', '21R']
+const PREISART_WERTE = [PREISARTEN.FIX, PREISARTEN.CM, PREISARTEN.M, PREISARTEN.QM]
+
+/**
+ * Der Name einer Achse ohne ihre Erläuterung.
+ *
+ * Die Bedeutung aus Blatt „35 Achsen" führt beides in einem Satz: „HÖHE (cm + Raster) —
+ * Höhenstufe, wird aufgerundet". Ins Auswahlfeld passt nur der Name; die volle Bedeutung
+ * steht im Spaltenkopf der Preistabelle und als Tooltip.
+ */
+function achsenKurzname(bedeutung: string): string {
+  return bedeutung.split('—')[0].trim()
+}
 
 export interface ArtikelDetailModalProps {
   /** `null` ⇒ Anlegemodus. */
@@ -161,6 +184,26 @@ export function ArtikelDetailModal({
   }
 
   const achsenAnzahl = Math.max(form.achsen.length, 1)
+
+  /**
+   * Etiketten, die dieser Artikel in der Spalte schon führt — sie stehen im Dropdown
+   * ganz oben. So schreibt niemand versehentlich „60ER" neben „60er" und erzeugt damit
+   * eine zweite, nie getroffene Preisstufe.
+   */
+  const etikettVorschlaege = (spalte: number): string[] => {
+    const code = form.achsen[spalte]
+    const ausDaten = zeilen
+      .map((z) => parseStufe(z.a[spalte]).etikett)
+      .filter(Boolean)
+    const standard = code === 'HOEHE' ? RASTER_ETIKETTEN : code === 'BREITE' ? BREITEN_ETIKETTEN : []
+    return [...new Set([...ausDaten, ...standard])]
+  }
+
+  /** Freie Textwerte, die dieser Artikel in der Spalte schon führt (PG, LINIE+PG, AUSFÜHRUNG). */
+  const textVorschlaege = (spalte: number): string[] =>
+    [...new Set(zeilen.map((z) => (z.a[spalte] ?? '').trim()).filter(Boolean))].sort((a, b) =>
+      a.localeCompare(b, 'de'),
+    )
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Artikel bearbeiten">
@@ -412,9 +455,9 @@ export function ArtikelDetailModal({
                         }}
                       >
                         <option value="">—</option>
-                        {ACHSEN_CODES.map((c) => (
-                          <option key={c} value={c}>
-                            {c}
+                        {achsenKatalog.map((a) => (
+                          <option key={a.code} value={a.code} title={a.bedeutung}>
+                            {achsenKurzname(a.bedeutung)}
                           </option>
                         ))}
                       </select>
@@ -456,13 +499,14 @@ export function ArtikelDetailModal({
                     <tr key={`${preisSchluessel(zeile)}-${index}`}>
                       {Array.from({ length: achsenAnzahl }, (_, i) => (
                         <td key={i}>
-                          <input
-                            className={styles.zellInput}
-                            value={zeile.a[i] ?? ''}
-                            disabled={!form.achsen[i]}
-                            onChange={(e) => {
+                          <Achsenzelle
+                            code={form.achsen[i]}
+                            wert={zeile.a[i] ?? ''}
+                            etikettVorschlaege={etikettVorschlaege(i)}
+                            textVorschlaege={textVorschlaege(i)}
+                            onChange={(neu) => {
                               const neuA = [...zeile.a] as Achsenwerte
-                              neuA[i] = e.target.value
+                              neuA[i] = neu
                               setZeilen((zs) => zs.map((z, j) => (j === index ? { ...z, a: neuA } : z)))
                             }}
                           />
@@ -583,6 +627,121 @@ export function ArtikelDetailModal({
         </footer>
       </div>
     </div>
+  )
+}
+
+/**
+ * EINE ACHSENZELLE — die Eingabe richtet sich nach der Art der Achse.
+ *
+ * Stammdatenverwaltung Reform, 17.09.2026:
+ *
+ *   „Wenn BREITE (cm+__er) oder HÖHE (cm+Raster) gewählt sind, dann muss die Zelle
+ *    geteilt sein, links gibt man den Zentimeter-Schwellenwert an (ist ja matrix_auf)
+ *    und rechts Dropdown, wo man dann die Raster / __er wählen kann. Links vorformatiert
+ *    mit cm im Feld und rechts Raster / er, dass man klar erkennt, wo was rein soll."
+ *
+ * Vier Fälle:
+ *
+ *   stufe     geteilt: Zentimeter | gedruckte Bezeichnung (Dropdown mit Freitext)
+ *   mass      nur Zentimeter; leer = die Achse benennt bloß das Maß für die Menge
+ *   preisart  geschlossene Auswahl: Fixpreis · €/cm · €/m · €/m²
+ *   text/liste  Freitext mit Vorschlägen aus den übrigen Zeilen desselben Artikels
+ *
+ * Gespeichert wird immer EIN String in der Zelle („60 cm | 60er"). Die Teilung ist eine
+ * Eingabehilfe, kein zweites Datenfeld — die Mappe behält ihre fünf Achsenspalten.
+ */
+function Achsenzelle({
+  code,
+  wert,
+  etikettVorschlaege,
+  textVorschlaege,
+  onChange,
+}: {
+  code: AchseCode | undefined
+  wert: string
+  etikettVorschlaege: string[]
+  textVorschlaege: string[]
+  onChange: (wert: string) => void
+}) {
+  const art = code ? achsenKatalog.find((a) => a.code === code)?.art : undefined
+  const listenId = `achsenwerte-${code ?? 'leer'}`
+
+  if (!code) {
+    return <input className={styles.zellInput} value={wert} disabled readOnly />
+  }
+
+  if (art === 'preisart') {
+    return (
+      <select className={styles.zellInput} value={wert} onChange={(e) => onChange(e.target.value)}>
+        <option value="">{PREISARTEN.FIX} (Vorgabe)</option>
+        {PREISART_WERTE.map((p) => (
+          <option key={p} value={p}>
+            {p}
+          </option>
+        ))}
+      </select>
+    )
+  }
+
+  if (art === 'stufe' || art === 'mass') {
+    const { cm, etikett } = parseStufe(wert)
+    const setze = (neuCm: number | null, neuEtikett: string) =>
+      onChange(neuCm == null && !neuEtikett ? '' : baueStufenwert(neuCm, neuEtikett))
+
+    const cmFeld = (
+      <span className={styles.masseingabe}>
+        <input
+          className={styles.zellInput}
+          inputMode="decimal"
+          value={cm == null ? '' : cmText(cm)}
+          aria-label="Zentimeter-Schwellenwert"
+          onChange={(e) => {
+            const roh = e.target.value.trim().replace(',', '.')
+            const zahl = roh === '' ? null : Number(roh)
+            setze(zahl != null && Number.isFinite(zahl) ? zahl : null, etikett)
+          }}
+        />
+        <span className={styles.masseinheit}>cm</span>
+      </span>
+    )
+
+    // Maßachsen tragen kein Etikett — sie benennen nur, welches Maß die Menge liefert.
+    if (art === 'mass') return cmFeld
+
+    return (
+      <span className={styles.geteilteZelle}>
+        {cmFeld}
+        <input
+          className={[styles.zellInput, styles.etikettFeld].join(' ')}
+          list={listenId}
+          value={etikett}
+          placeholder={code === 'HOEHE' ? 'Raster' : 'er'}
+          aria-label={code === 'HOEHE' ? 'Rasterbezeichnung' : 'Breitenbezeichnung'}
+          onChange={(e) => setze(cm, e.target.value)}
+        />
+        <datalist id={listenId}>
+          {etikettVorschlaege.map((v) => (
+            <option key={v} value={v} />
+          ))}
+        </datalist>
+      </span>
+    )
+  }
+
+  return (
+    <>
+      <input
+        className={styles.zellInput}
+        list={listenId}
+        value={wert}
+        onChange={(e) => onChange(e.target.value)}
+      />
+      <datalist id={listenId}>
+        {textVorschlaege.map((v) => (
+          <option key={v} value={v} />
+        ))}
+      </datalist>
+    </>
   )
 }
 

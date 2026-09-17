@@ -23,28 +23,35 @@ import type { PriceGroup } from '../types/index.ts'
 // Bauteil-Zuordnung
 // ---------------------------------------------------------------------------
 
-/** Beschreibt, wie ein Bauteil im Preisblatt gefunden wird. */
+/**
+ * Beschreibt, wie ein Bauteil im Preisblatt gefunden wird.
+ *
+ * Seit der Achsen-Reform sagen die Schalter nur noch, WOHER ein Wert kommt — nicht mehr,
+ * ob der Artikel eine bestimmte Achse führt. Das steht im Artikel selbst; ein Wert für
+ * eine Achse, die es nicht gibt, filtert schlicht nicht. Verschwunden sind damit die
+ * beiden Notbehelfe `rasterInBreite` (Rasterstufe stand in der Breitenspalte) und
+ * `breiteAusKorpushoehe` (Korpushöhe stand in der Breitenspalte) — beide Artikel führen
+ * jetzt eine echte Höhenachse in Zentimetern.
+ */
 export interface BauteilLookup {
   /** Artikelnummer im Stamm — der Schlüssel. */
   artikel: string
-  /**
-   * Die Rasterstufe steht bei diesem Artikel in der BREITEN-Achse („18R"/„21R")
-   * statt in einer eigenen Rasterachse. Betrifft Mittelseite und Außenset.
-   */
-  rasterInBreite?: boolean
   /** Preisgruppe als eigene Achse mitgeben (Außenset PG1–PG4). */
   nutztPg?: boolean
   /** Stil-Linie + PG als kombinierten Achsenwert mitgeben (Fronten). */
   nutztLiniePg?: boolean
-  /** Tiefe als Achse mitgeben (Schubladen). */
+  /** Tiefe als Achse mitgeben (Schubladen, Korpus). */
   nutztTiefe?: boolean
-  /** Rasterstufe als eigene Achse mitgeben. */
-  nutztRaster?: boolean
+  /** Höhe als Achse mitgeben. */
+  nutztHoehe?: boolean
   /**
-   * Statt der Segmentbreite die Korpushöhe als Breitenwert verwenden — das LED-Band
-   * ist nach Korpushöhenklasse bepreist („bis 18Raster (235cm)").
+   * Nicht die Bauteilhöhe, sondern die KORPUSHÖHE ist der Höhenwert. Betrifft die
+   * abgeleiteten Teile des Möbelblocks (Mittelseite, Außenset) und das LED-Band, das
+   * nach Korpushöhenklasse bepreist ist.
    */
-  breiteAusKorpushoehe?: boolean
+  hoeheAusKorpus?: boolean
+  /** Ausführungsvariante als Achse mitgeben (Deckplatte Decoboard / Rauchglas). */
+  nutztAusfuehrung?: boolean
   /** Abweichende Anzeige-Bezeichnung; sonst kommt sie aus dem Artikelstamm. */
   label?: string
 }
@@ -138,8 +145,8 @@ export const serienRegeln: Record<string, SerienRegel> = {
     id: 'refugium',
     konfigurationsart: 'BAUTEIL',
     korpus: {
-      artikel: '10-001-0003', // Korpus (Refugium) — BREITE × RASTER × TIEFE × PG
-      nutztRaster: true,
+      artikel: '10-001-0003', // Korpus (Refugium) — BREITE × HÖHE × TIEFE × PG
+      nutztHoehe: true,
       nutztTiefe: true,
       nutztPg: true,
       // Die Preisgruppe kommt aus der Innenausführung, die Tiefe aus den Maßen. Beide
@@ -149,13 +156,15 @@ export const serienRegeln: Record<string, SerienRegel> = {
     },
     mittelseite: {
       artikel: '10-002-0001', // Mittelseite (2 cm)
-      rasterInBreite: true,
+      nutztHoehe: true,
+      hoeheAusKorpus: true,
     },
     // Refugium-Korpi bringen ihre linke Seite mit — es fehlt nur die Abschlusswand rechts.
     mittelseitenRegel: 'abschluss',
     aussenset: {
       artikel: '10-003-0001', // Aussenset — BREITE(=Raster) × PG
-      rasterInBreite: true,
+      nutztHoehe: true,
+      hoeheAusKorpus: true,
       nutztPg: true,
     },
     fussleistenausschnitt: {
@@ -192,14 +201,15 @@ export function getSerienRegel(serieId: string | undefined): SerienRegel | undef
 
 /** Front-Typ (`config/frontCatalog.ts`) → Artikel im Preisblatt. */
 export const frontLookups: Record<string, BauteilLookup> = {
-  drehtuer: { artikel: '20-006-0001', nutztLiniePg: true, nutztRaster: true },
-  schiebetuer: { artikel: '20-007-0001', nutztLiniePg: true, nutztRaster: true },
+  drehtuer: { artikel: '20-006-0001', nutztLiniePg: true, nutztHoehe: true },
+  schiebetuer: { artikel: '20-007-0001', nutztLiniePg: true, nutztHoehe: true },
   'schiebetuer-zwei': { artikel: '20-008-0001', nutztLiniePg: true },
-  schuebe: { artikel: '20-009-0001', nutztLiniePg: true, nutztRaster: true, nutztTiefe: true },
+  schuebe: { artikel: '20-009-0001', nutztLiniePg: true, nutztHoehe: true, nutztTiefe: true },
   stauraumklappe: { artikel: '20-010-0004', nutztLiniePg: true },
   hochstellklappe: { artikel: '20-010-0001', nutztLiniePg: true },
-  // 20-20-25-0002 heißt ebenfalls „Schreibklappe", trägt aber nur eine VARIANTE-Achse
-  // mit einer einzigen Zelle (Aufpreis). Die Grundtabelle ist -0003.
+  // 20-010-0002 hieß ebenfalls „Schreibklappe", trug aber nur eine einzige Preiszelle
+  // (den Aufpreis für die Ledereinlage). Die Achsen-Reform hat ihn aufgelöst: Die
+  // Grundtabelle -0003 führt die Ledereinlage jetzt als AUSFÜHRUNG mit vollem Preis.
   schreibklappe: { artikel: '20-010-0003', nutztLiniePg: true },
   // „Offen (Regal)" ist kein Bauteil und erzeugt bewusst keine Preisposition.
 }
@@ -249,7 +259,7 @@ export function liniePgAchsenwert(styleLineId: string | undefined, pg: PriceGrou
  *
  *   FESTPREIS / Stück   Ein Stückgriff, wie ihn die Griff-Auswahl einer Front anbietet.
  *                       Er gehört zur Tür und wird nicht noch einmal berechnet.
- *   PRO_LFM u. a.       Nach laufendem Meter oder anders bepreist — das ist kein
+ *   MATRIX mit PREISART Nach laufendem Meter oder je m² bepreist — das ist kein
  *                       Standardgriff, sondern ein eigenes Bauteil (Edge-Kantengriff)
  *                       und bleibt eine eigene Position.
  *
@@ -266,14 +276,20 @@ export function griffImFrontpreisEnthalten(artikel: { preislogik: string; einhei
 }
 
 /**
- * Schub-Rasterstufe aus der Fronthöhe (1 R ≈ 12,5 cm · 1,5 R ≈ 18,9 cm · 2 R ≈ 25,3 cm),
- * aufgerundet auf die nächstgrößere lieferbare Stufe.
+ * Schubhöhe für den Preis-Lookup.
+ *
+ * Vor der Achsen-Reform musste die Fronthöhe hier in eine Rasterstufe (1 · 1,5 · 2)
+ * übersetzt werden, weil die Preiszeilen nach Rastern geschlüsselt waren. Heute trägt
+ * die Höhenachse ihre Zentimeter selbst (12,5 · 18,9 · 25,3 cm) und rundet auf — die
+ * Fronthöhe kann unverändert durchgereicht werden.
+ *
+ * Bleibt nur der Rückfall: Ohne erfasste Höhe gilt die mittlere Standardstufe, damit
+ * ein unfertiger Entwurf einen Preis zeigt statt einer Lücke.
  */
-export function schubRasterFuerHoehe(hoeheCm: number | undefined): number {
-  if (hoeheCm == null) return 1.5
-  if (hoeheCm <= 12.5) return 1
-  if (hoeheCm <= 18.9) return 1.5
-  return 2
+export const SCHUB_STANDARDHOEHE_CM = 18.9
+
+export function schubHoeheCm(hoeheCm: number | undefined): number {
+  return hoeheCm ?? SCHUB_STANDARDHOEHE_CM
 }
 
 // ---------------------------------------------------------------------------
@@ -298,12 +314,12 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
   rollboden: { artikel: '40-014-0003', nutztPg: true },
   kleiderlift: { artikel: '40-015-0001' },
   'einlegeboden-kleiderstange': { artikel: '40-015-0002' },
-  innenschublade: { artikel: '40-016-0001', nutztRaster: true, nutztPg: true },
+  innenschublade: { artikel: '40-016-0001', nutztHoehe: true, nutztPg: true },
   rollkorb: { artikel: '40-016-0002' },
   'innenspiegel-drehtuer': { artikel: '40-018-0001' },
   krawattenspange: { artikel: '40-023-0012' },
   'led-syncro': { artikel: '50-024-0008' },
-  'led-band-aluprofil': { artikel: '50-024-0006', breiteAusKorpushoehe: true },
+  'led-band-aluprofil': { artikel: '50-024-0006', nutztHoehe: true, hoeheAusKorpus: true },
   'kleiderlift-conero': { artikel: '40-023-0006' },
   'guertel-krawattenauszug-conero': { artikel: '40-023-0005' },
   'schuhablage-conero': { artikel: '40-023-0007' },
@@ -346,12 +362,18 @@ export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
   // OHNE `nutztPg`: Er ist in Überarbeitung 6 nicht annotiert und trägt im Preisblatt
   // weiterhin nur einen Preis (offene Rückfrage, siehe scripts/lib/refugium-pg.js).
   container: {
-    '4,5R': { artikel: '40-017-0019', nutztRaster: true },
-    '6R': { artikel: '40-017-0019', nutztRaster: true },
+    '4,5R': { artikel: '40-017-0019', nutztHoehe: true },
+    '6R': { artikel: '40-017-0019', nutztHoehe: true },
   },
 }
 
-/** Varianten-Bezeichnung des Basis-Containers → Rasterstufe im Preisblatt. */
+/**
+ * Varianten-Bezeichnung des Basis-Containers → Raster-ETIKETT der Höhenachse.
+ *
+ * Die Zentimeter dahinter stehen in den Stammdaten („57,3 cm | 4,5R"), nicht hier:
+ * Der Lookup löst das Etikett über die Preiszeilen des Artikels auf. Damit ändert eine
+ * neue Containerhöhe in der Mappe nichts am Code.
+ */
 export const containerRaster: Record<string, number> = { '4,5R': 4.5, '6R': 6 }
 
 /**
@@ -369,35 +391,21 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
   return treffer ? Number(treffer[1].replace(',', '.')) : undefined
 }
 
-/** Aufpreis Deckplatte Rauchglas (Container) — eigener Artikel, keine Achse. */
-export const CONTAINER_RAUCHGLAS_ARTIKEL = '40-017-0018'
-
 /**
- * Korpus-Nennbreiten in der Reihenfolge, in der die Preisliste sie führt.
- * Der Container selbst ist genau so geschlüsselt: 50er · 60er · 100er.
- */
-const RAUCHGLAS_BREITEN_CM = [50, 60, 100]
-
-/**
- * ÜBERGANGSLÖSUNG — Aufpreis der Rauchglas-Deckplatte über die Korpusbreite.
+ * DECKPLATTE DES CONTAINERS — Werte der Achse AUSFÜHRUNG.
  *
- * Der Artikel `40-017-0018` führt drei Preiszeilen (210 / 220 / 230 €), aber KEINE
- * Achse: In der Mappe steht nicht, welcher Betrag zu welcher Breite gehört. Die
- * Zuordnung über die Zeilenreihenfolge ist deshalb eine ANNAHME — sie folgt der
- * Reihenfolge, in der Preisliste S. 26 und der Container-Artikel selbst die Breiten
- * führen (50er, 60er, 100er).
+ *   „Solche Aufpreis positionen sind schwierig … Lieber mit neuen Preiszeilen arbeiten."
  *
- * Auf ausdrückliche Vorgabe so umgesetzt, bis die BREITE-Achse in den Excel-Stammdaten
- * gepflegt ist. Danach ersetzt ein normaler Achsen-Lookup diese Funktion; bis dahin
- * trägt die Position einen Hinweis, damit die Herkunft des Betrags im Angebot sichtbar
- * bleibt. Passt die Breite nicht oder stimmt die Zeilenzahl nicht, wird BEWUSST nichts
- * geraten — dann bleibt die Position „auf Anfrage".
+ * Bis zur Achsen-Reform gab es dafür einen eigenen Artikel „Aufpreis Container Deckplatte
+ * Rauchglasfuellung" mit drei Preiszeilen OHNE Achse — welcher Betrag zu welcher Breite
+ * gehörte, stand nirgends und musste aus der Zeilenreihenfolge geraten werden. Die
+ * Migration hat diese Beträge in den Container selbst eingearbeitet: Jede Ausführung
+ * trägt jetzt ihren vollständigen Preis, der Aufpreis-Artikel ist gesperrt.
  */
-export function rauchglasAufpreisIndex(korpusBreiteCm: number | undefined): number | null {
-  if (korpusBreiteCm == null) return null
-  const index = RAUCHGLAS_BREITEN_CM.indexOf(korpusBreiteCm)
-  return index >= 0 ? index : null
-}
+export const CONTAINER_AUSFUEHRUNG = {
+  decoboard: 'Deckplatte Decoboard',
+  rauchglas: 'Deckplatte Rauchglas grau',
+} as const
 
 /**
  * Ausstattungs-Optionen ohne Preiszeile. Sie erzeugen bewusst eine Position mit Status
@@ -406,25 +414,27 @@ export function rauchglasAufpreisIndex(korpusBreiteCm: number | undefined): numb
 export const ausstattungOhnePreis = new Set<string>(['revisionsklappe', 'rueckwandausschnitt'])
 
 // ---------------------------------------------------------------------------
-// Prozentuale Zuschläge
+// Prozentuale Zuschläge — ersatzlos entfallen
 // ---------------------------------------------------------------------------
 
-/**
- * Zuschläge, deren Prozentsatz im Preisblatt steht (`PROZENT_MOEBEL`). Die Vorgänger-
- * Fassung hatte diese Stufe nur als Platzhalter vorbereitet; die Sätze liegen jetzt
- * als Artikel vor und werden von dort gelesen — nicht aus dem Code.
+/*
+ * Die Preislogiken PROZENT_ARTIKEL, PROZENT_MOEBEL und PROZENT_AUFTRAG sind mit der
+ * Reform gestrichen:
+ *
+ *   „Prozent Artikel, Prozent Möbel, Prozent Auftragssumme … bitte ganz streichen. Das
+ *    kann am Ende, wenn der Endpreis vom Konfigurator steht, vom Verkäufer entschieden
+ *    werden. Der Konfigurator soll den Katalog-/Listenpreis [zeigen]. Für die Flexibilität
+ *    des Verkäufers haben wir ja im Abschluss die Unterteilung von kalkuliertem Preis und
+ *    der Eingabe des Angebotspreises."
+ *
+ * Die betroffenen Artikel (Raumteiler, Sichtrückwand, wandhängende Kastenmöbel, Überhöhe)
+ * bleiben im Stamm — mit Preislogik AUF_ANFRAGE und dem Prozentsatz in der Bemerkung.
+ * Sie erscheinen damit weiterhin als Position, tragen aber keinen automatisch
+ * aufgeschlagenen Betrag mehr.
+ *
+ * Montage- und Lieferzuschlag sind davon NICHT betroffen: Das sind ausdrücklich
+ * Service-Aufschläge, ihre Sätze stehen in „50 Meta" und werden weiter gerechnet.
  */
-export interface ZuschlagRegel {
-  artikel: string
-  /** Worauf der Prozentsatz wirkt. */
-  basis: 'moebelpreis' | 'auftragssumme'
-}
-
-export const prozentZuschlaege: Record<string, ZuschlagRegel> = {
-  wandhaengend: { artikel: '90-037-0008', basis: 'moebelpreis' },
-  sichtrueckwand: { artikel: '90-037-0004', basis: 'moebelpreis' },
-  raumteiler: { artikel: '90-037-0001', basis: 'moebelpreis' },
-}
 
 /**
  * Ableitung der Preisgruppe aus Materialart und Farbsystem.

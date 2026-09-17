@@ -1,4 +1,12 @@
-import { artikel, artikelnummerLogik, dropdowns, serien, teilearten } from '../../data/stammdaten.generated.ts'
+import {
+  achsen,
+  artikel,
+  artikelnummerLogik,
+  dropdowns,
+  preislogiken,
+  serien,
+  teilearten,
+} from '../../data/stammdaten.generated.ts'
 import { NummernSchema } from '../ui/NummernSchema.tsx'
 import styles from './Handbuch.module.css'
 
@@ -136,7 +144,7 @@ export function Handbuch() {
               <tr><td className={styles.mono}>Teileart</td><td>Block 1 — der Hauptschritt im Konfigurator.</td></tr>
               <tr><td className={styles.mono}>Dropdown</td><td>Block 2 — <strong>die wichtigste Angabe</strong>. Sie entscheidet, in welchem Auswahlfeld der Artikel auftaucht.</td></tr>
               <tr><td className={styles.mono}>Modus</td><td>Für welche Serien freigegeben. GROSS = Standard, klein = Sonderanfertigung (Abschnitt 7).</td></tr>
-              <tr><td className={styles.mono}>Preislogik</td><td>Wie der Preis entsteht: fester Stückpreis, Matrix, Aufpreis oder Prozentzuschlag.</td></tr>
+              <tr><td className={styles.mono}>Preislogik</td><td>Wie der Preis entsteht — es gibt nur noch drei Werte: Festpreis, Matrix, auf Anfrage (Abschnitt 7a).</td></tr>
               <tr><td className={styles.mono}>Einheit</td><td>Stück, lfm, m², %. Bestimmt, womit die Menge multipliziert wird.</td></tr>
               <tr><td className={styles.mono}>Achsen · Achse 1–5</td><td>Was die Spalten A1–A5 der Preiszeilen bei <em>diesem</em> Artikel bedeuten (Abschnitt 8).</td></tr>
               <tr><td className={styles.mono}>Preiszellen</td><td>Wie viele Preiswerte laut Grundstand zu erwarten sind — Kontrollzahl gegen Lücken.</td></tr>
@@ -447,23 +455,121 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
             Dieselbe Spalte heißt bei einem anderen Artikel etwas anderes.
           </p>
           <pre className={styles.schema}>
-            {`20-006-0001  Drehtür     Achsen: BREITE × RASTER × LINIE_PG
+            {`20-006-0001  Drehtür     Achsen: BREITE × HÖHE × LINIE+PG
 
-   A1 Breite     A2 Raster     A3 Linie+PG      →   Preis
-   ──────────    ──────────    ───────────          ────────
-   T60-230       18            Glatt2               348,00 €
-   T60-230       21            Glatt2               402,00 €
-   T100-230      18            Glatt2               487,00 €
+   A1 Breite          A2 Höhe           A3 Linie+PG   →   Preis
+   ───────────────    ──────────────    ───────────       ────────
+   60 cm | 60er       230 cm | 18R      Glatt2            348,00 €
+   60 cm | 60er       268,5 cm | 21R    Glatt2            402,00 €
+   100 cm | 100er     230 cm | 18R      Glatt2            487,00 €
 
-10-003-0001  Aussenset   Achsen: BREITE × PG
-   A1 = 18R          A2 = PG2                       →  359,00 €`}
+10-003-0001  Aussenset   Achsen: HÖHE × PG
+   A1 = 235 cm | 18R      A2 = PG2                    →   359,00 €`}
           </pre>
           <p>
             Das ist die Matrix: Jede Kombination der Achsenwerte ist ein Feld mit genau einem Preis.
             Beim Suchen gilt die Regel „Preis des nächstgrößeren Maßes" — eine Breite von 70 cm nimmt
-            das 100er-Bracket, wenn es kein 70er gibt. Liegt die Anforderung über dem größten
+            die 100er-Stufe, wenn es keine 70er gibt. Liegt die Anforderung über dem größten
             bepreisten Wert, entsteht bewusst <strong>keine</strong> Schätzung, sondern eine Position
             „auf Anfrage" für die Arbeitsvorbereitung.
+          </p>
+
+          <h4 className={styles.h3}>Warum Zentimeter neben der Bezeichnung stehen</h4>
+          <p>
+            „18 Raster" ist keine Maßeinheit. Beim Refugium-Korpus sind das 235,0 cm, bei der
+            Drehtür 230 cm — und „60er" heißt je nach Bauteil 59 cm, 59,5 cm oder 60,5 cm. Eine
+            Achse, die man nur mit Zusatzwissen über den Artikel lesen kann, ist deshalb keine
+            Achse, sondern eine Abkürzung.
+          </p>
+          <p>
+            Maßachsen tragen darum <strong>zwei Angaben in einer Zelle</strong>: links den
+            Zentimeter-Schwellenwert, rechts die Bezeichnung aus der gedruckten Preisliste. Gerechnet
+            wird mit den Zentimetern — der einzigen Größe, die über alle Artikel dasselbe bedeutet.
+            Im Fenster „Preise &amp; Achsen" ist die Zelle entsprechend geteilt: links das Feld mit
+            der Einheit <code>cm</code>, rechts das Auswahlfeld für Raster bzw. „___er".
+          </p>
+
+          <h4 className={styles.h3}>Die elf Achsen</h4>
+          <table className={styles.tabelle}>
+            <thead>
+              <tr>
+                <th>Achse</th>
+                <th>Wert</th>
+                <th>Verhalten</th>
+              </tr>
+            </thead>
+            <tbody>
+              {achsen.map((a) => (
+                <tr key={a.code}>
+                  <td className={styles.mono}>{a.code}</td>
+                  <td>{a.bedeutung}</td>
+                  <td>
+                    {a.art === 'stufe'
+                      ? 'Zentimeter + Bezeichnung; wird auf die nächstgrößere Stufe gerundet'
+                      : a.art === 'mass'
+                        ? 'Zentimeter; leer = benennt nur, welches Maß die Menge liefert'
+                        : a.art === 'liste'
+                          ? 'Text; Komma ist eine Aufzählung („PG3,PG4")'
+                          : a.art === 'preisart'
+                            ? 'Bezugsgröße des Betrags: Fixpreis · €/cm · €/m · €/m²'
+                            : 'Text, exakt'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+
+        {/* ---------------------------------------------------------------- */}
+        <section className={styles.abschnitt}>
+          <h3 className={styles.h2}>7a · Preislogik — es gibt nur noch drei</h3>
+          <p>
+            Früher stand jede Rechenart als eigene Preislogik im Stamm: Satzpreis, pro laufendem
+            Meter, pro Quadratmeter, Grundpreis plus Quadratmeter, drei Prozent-Varianten. Das sah
+            bequem aus, war aber ein Mischsystem — was ein Betrag bedeutete, stand halb in der
+            Preislogik und halb im Einheitentext („EUR/Stk zzgl. 525 EUR/m²"), und gerechnet wurde
+            davon nichts.
+          </p>
+          <table className={styles.tabelle}>
+            <thead>
+              <tr>
+                <th>Preislogik</th>
+                <th>Bedeutung</th>
+              </tr>
+            </thead>
+            <tbody>
+              {preislogiken.map((p) => (
+                <tr key={p.code}>
+                  <td className={styles.mono}>{p.code}</td>
+                  <td>{p.bedeutung}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p>
+            Alles andere ist jetzt eine <strong>Achse</strong>. Die Achse{' '}
+            <code className={styles.mono}>PREISART</code> sagt, worauf sich ein Betrag bezieht, und
+            die Maßachsen sagen, welches Maß die Menge liefert. Ein Artikel mit Grundpreis
+            <em> und</em> Quadratmeterpreis führt deshalb schlicht zwei Preiszeilen — und die
+            Kalkulation zeigt beide:
+          </p>
+          <pre className={styles.schema}>
+            {`Wandpaneele                       Menge        Preis        Summe
+   PREISART = Fixpreis            1        ×   75,00 €
+   PREISART = €/m²             1,48 m²     ×  150,00 €     297,00 €`}
+          </pre>
+          <p>
+            <strong>Prozentuale Zuschläge sind ersatzlos gestrichen.</strong> Der Konfigurator weist
+            den Listenpreis aus; ob und wie viel darauf kommt, entscheidet die Verkäuferin oder der
+            Verkäufer im Abschluss über den Angebotspreis — dort stehen kalkulierter Preis und
+            Angebotspreis ohnehin nebeneinander. Montage und regionale Lieferung bleiben davon
+            unberührt: Das sind Service-Aufschläge, ihre Sätze stehen in „50 Meta".
+          </p>
+          <p>
+            <strong>Aufpreis-Artikel sind aufgelöst.</strong> Wo früher ein eigener Artikel nur einen
+            Zuschlag trug — der Rauchglas-Aufpreis des Containers etwa —, führt der Basisartikel
+            heute eine Ausführung mit vollständigem Preis. Zwei Stellen für einen Preis sind eine zu
+            viel: Man findet die zweite erst, wenn sie fehlt.
           </p>
         </section>
 

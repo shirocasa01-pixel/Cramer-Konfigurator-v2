@@ -52,15 +52,19 @@ ok('Bereinigung ist idempotent', normalizeModus(normalizeModus('R,p/A', codeMap)
 
 gruppe('E) Echte Stammdaten')
 const refugium = artikelFuerSerie('refugium')
-ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 109)
-ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 43)
+// 107 statt 109: Die Achsen-Reform hat zwei Aufpreis-Artikel stillgelegt — „Front Glatt
+// (Aufpreis PG3)" und den Rauchglas-Aufpreis des Containers. Beide Beträge stecken jetzt
+// in echten Preiszeilen (Achse LINIE+PG bzw. AUSFÜHRUNG) statt in einem Zuschlagsartikel.
+ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 107)
+ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 42)
 ok('kein Refugium-Artikel ohne "R" im Modus', refugium.every((a) => a.modus.toUpperCase().includes('R')))
 ok('Abdeckplatten sind für Refugium gesperrt', !refugium.some((a) => a.dropdown === 'ABDECKPLATTE'))
 ok('Abdeckplatten sind für Atrium frei', artikelFuerSerie('atrium').some((a) => a.dropdown === 'ABDECKPLATTE'))
 ok('unbekannte Serie liefert leere Liste', artikelFuerSerie('gibtsnicht').length === 0)
 ok('serienVon("APOS") = Atrium, Publicum, Porticus, Supersonus',
   serienVon('APOS').map((s) => s.name).join(', ') === 'Atrium, Publicum, Porticus, Supersonus')
-ok('Preis-Lookup 10-004-0001 / „-80cm" = 186 EUR', findePreis('10-004-0001', ['-80cm'])?.preis === 186)
+// Seit der Achsen-Reform trägt die Breitenachse ihren Zentimeter-Schwellenwert.
+ok('Preis-Lookup 10-004-0001 / „80 cm" = 186 EUR', findePreis('10-004-0001', ['80 cm'])?.preis === 186)
 ok('Artikelnummer 30-012-0011 zerlegt sich in 3 Blöcke', (() => {
   const t = parseArtikelnummer('30-012-0011')
   return t?.teileart === '30' && t?.dropdown === '012' && t?.laufend === '0011'

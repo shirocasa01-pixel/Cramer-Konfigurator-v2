@@ -86,8 +86,13 @@ type Bereich = 'artikel' | 'preise' | 'oberflaechen' | 'berater' | 'filialen' | 
 
 const j = (...c: (string | false | undefined)[]) => c.filter(Boolean).join(' ')
 
+/**
+ * Der Name einer Achse für Spaltenköpfe — ohne die Erläuterung dahinter.
+ * Die volle Bedeutung („… — Höhenstufe, wird aufgerundet") steht im Handbuch,
+ * in eine Tabellenspalte passt sie nicht.
+ */
 const achsenBedeutung = (code: string) =>
-  achsenKatalog.find((a) => a.code === code)?.bedeutung ?? code
+  (achsenKatalog.find((a) => a.code === code)?.bedeutung ?? code).split('—')[0].trim()
 
 // ---------------------------------------------------------------------------
 // Spaltendefinitionen

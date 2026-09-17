@@ -35,16 +35,14 @@ import {
   ausstattungLookups,
   ausstattungOhnePreis,
   containerLookups,
-  CONTAINER_RAUCHGLAS_ARTIKEL,
+  CONTAINER_AUSFUEHRUNG,
   containerRaster,
-  rauchglasAufpreisIndex,
   rasterAusVariante,
   frontLookups,
   getSerienRegel,
   griffImFrontpreisEnthalten,
   liniePgAchsenwert,
-  prozentZuschlaege,
-  schubRasterFuerHoehe,
+  schubHoeheCm,
   verblendungLookups,
   type BauteilLookup,
   type SerienRegel,
@@ -54,11 +52,13 @@ import { resolveDepthCm, resolveHeightCm, resolveKorpusBreiteCm } from './korpus
 import {
   findePreis,
   getArtikelNr,
+  hoeheFuerRasterEtikett,
   verfuegbareRaster,
   verfuegbareTiefen,
   type AufgelloesteAchse,
+  type MassRichtung,
 } from './preisLookup.ts'
-import { getPreisListe } from './stammdatenStore.ts'
+import { PREISARTEN, cmText, preisartEinheit, type Preisart } from './preisAchsen.ts'
 import { NENNMASS_TOLERANZ_MM, hoeheFuerRaster, korpusOffsetMm, loeseRasterAuf } from './raster.ts'
 import type {
   Draft,
@@ -108,6 +108,23 @@ export interface KalkPosition {
   status: PositionsStatus
   /** Begründung: warum abgeleitet, was aufgerundet, warum ohne Preis. */
   hinweis?: string
+  /**
+   * Teilpositionen, wenn der Betrag aus mehreren Bezugsgrößen entsteht (Grundpreis +
+   * Preis je m² o. Ä.). Bei einer gewöhnlichen Stückposition enthält die Liste genau
+   * einen Eintrag — die Anzeige blendet sie dann aus.
+   */
+  teile: KalkTeil[]
+}
+
+/** Eine Teilposition: Menge × Betrag einer Bezugsgröße. */
+export interface KalkTeil {
+  menge: number
+  /** Die Menge lesbar, mit Einheit („123 cm", „1,48 m²", „2"). */
+  mengeText: string
+  preis: number
+  /** Einheit des Betrags („€", „€/m²", „€/m", „€/cm"). */
+  preisEinheit: string
+  gesamt: number
 }
 
 export type Schwere = 'fehler' | 'warnung' | 'info'
@@ -135,14 +152,6 @@ export interface KalkErgebnis {
 // ---------------------------------------------------------------------------
 // Hilfen
 // ---------------------------------------------------------------------------
-
-/** Preiszeilen eines Artikels aus dem Arbeitsstand — in der Reihenfolge der Mappe. */
-function preiseFuerArtikel(artikelnummer: string) {
-  return getPreisListe().filter((z) => z.artikel === artikelnummer)
-}
-
-/** Erwartete Zeilenzahl des Rauchglas-Aufpreises (50er · 60er · 100er). */
-const RAUCHGLAS_ZEILEN = 3
 
 function runde2(n: number): number {
   return Math.round(n * 100) / 100
@@ -192,6 +201,7 @@ function naechsteId(): string {
 
 interface PositionsEingabe {
   lookup: BauteilLookup
+  /** Stückzahl der Position — bei Mengenachsen der Faktor ÜBER die Mengenachse hinaus. */
   menge: number
   bucket: PriceBucket
   herkunft: PositionsHerkunft
@@ -201,12 +211,58 @@ interface PositionsEingabe {
   zusatz?: string
   segment?: number
   breiteCm?: number
+  /** Höhe des Bauteils in cm; bei `hoeheAusKorpus` die Korpushöhe. */
+  hoeheCm?: number
   tiefeCm?: number
-  raster?: number
+  /** Laufende Länge in cm (Verblendung, Aufkantung, LED-Band). */
+  laengeCm?: number
   liniePg?: string
   pg?: PriceGroup
-  variante?: string
+  /** Ausführungsvariante („Deckplatte Rauchglas grau"). */
+  ausfuehrung?: string
   hinweis?: string
+}
+
+/**
+ * MENGE EINER TEILPOSITION.
+ *
+ * Bis zur Achsen-Reform war die Menge immer eine Stückzahl, und ob ein Betrag „je
+ * laufendem Meter" oder „je Quadratmeter" galt, stand nur im Einheitentext — gerechnet
+ * wurde es nie. Jetzt sagt die Achse PREISART, worauf sich der Betrag bezieht, und die
+ * Maßachsen des Artikels sagen, welche Maße die Menge liefern.
+ *
+ * Fehlt das nötige Maß, kommt `null` zurück: Die Position bleibt dann offen, statt
+ * stillschweigend mit Menge 1 gerechnet zu werden.
+ */
+function mengeFuerPreisart(
+  preisart: Preisart,
+  eingabe: PositionsEingabe,
+  mengenachsen: readonly MassRichtung[],
+): { menge: number; text: string } | null {
+  if (preisart === PREISARTEN.FIX) {
+    return { menge: eingabe.menge, text: String(eingabe.menge) }
+  }
+
+  if (preisart === PREISARTEN.QM) {
+    // Welche zwei Maße die Fläche bilden, steht in den Maßachsen des Artikels.
+    const werte: Record<MassRichtung, number | undefined> = {
+      breite: eingabe.breiteCm,
+      hoehe: eingabe.hoeheCm,
+      tiefe: eingabe.tiefeCm,
+      laenge: eingabe.laengeCm,
+    }
+    const seiten = mengenachsen.map((r) => werte[r]).filter((n): n is number => n != null)
+    if (seiten.length < 2) return null
+    const qm = (seiten[0] * seiten[1]) / 10000
+    return { menge: runde2(qm * eingabe.menge), text: `${cmText(runde2(qm))} m²` }
+  }
+
+  const laenge = eingabe.laengeCm
+  if (laenge == null) return null
+  if (preisart === PREISARTEN.CM) {
+    return { menge: runde2(laenge * eingabe.menge), text: `${cmText(laenge)} cm` }
+  }
+  return { menge: runde2((laenge / 100) * eingabe.menge), text: `${cmText(laenge / 100)} m` }
 }
 
 function bauePosition(eingabe: PositionsEingabe): KalkPosition {
@@ -215,13 +271,13 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
 
   const ergebnis = findePreis({
     artikelnummer: lookup.artikel,
-    // Bei Mittelseite/Außenset steht die Rasterstufe in der Breitenspalte.
-    breiteCm: lookup.rasterInBreite ? eingabe.raster : eingabe.breiteCm,
-    raster: lookup.nutztRaster ? eingabe.raster : undefined,
+    breiteCm: eingabe.breiteCm,
+    hoeheCm: lookup.nutztHoehe ? eingabe.hoeheCm : undefined,
+    tiefeCm: lookup.nutztTiefe ? eingabe.tiefeCm : undefined,
+    laengeCm: eingabe.laengeCm,
     liniePg: lookup.nutztLiniePg ? eingabe.liniePg : undefined,
     pg: lookup.nutztPg ? eingabe.pg : undefined,
-    tiefeCm: lookup.nutztTiefe ? eingabe.tiefeCm : undefined,
-    variante: eingabe.variante,
+    ausfuehrung: lookup.nutztAusfuehrung ? eingabe.ausfuehrung : undefined,
   })
 
   const basisLabel = eingabe.label ?? lookup.label ?? stamm?.bezeichnung ?? lookup.artikel
@@ -241,30 +297,53 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     menge: eingabe.menge,
   }
 
-  if (ergebnis.status === 'auf-anfrage') {
-    return {
-      ...gemeinsam,
-      achsen: [],
-      einzelpreis: null,
-      gesamt: null,
-      status: 'auf-anfrage',
-      hinweis: [eingabe.hinweis, ergebnis.grund].filter(Boolean).join(' — ') || undefined,
-    }
-  }
+  const offen = (grund: string): KalkPosition => ({
+    ...gemeinsam,
+    achsen: ergebnis.status === 'gefunden' ? ergebnis.achsen : [],
+    teile: [],
+    einzelpreis: null,
+    gesamt: null,
+    status: 'auf-anfrage',
+    hinweis: [eingabe.hinweis, grund].filter(Boolean).join(' — ') || undefined,
+  })
+
+  if (ergebnis.status === 'auf-anfrage') return offen(ergebnis.grund)
 
   const hinweise = [eingabe.hinweis]
-  if (ergebnis.aufgerundet && ergebnis.gewaehlteBreite) {
-    hinweise.push(`Sondermaß: bepreist mit dem nächstgrößeren Maß ${ergebnis.gewaehlteBreite}.`)
+  if (ergebnis.aufgerundet && ergebnis.gewaehlteStufen.length > 0) {
+    hinweise.push(`Sondermaß: bepreist mit der nächstgrößeren Stufe ${ergebnis.gewaehlteStufen.join(' · ')}.`)
   }
+
+  const teile: KalkTeil[] = []
+  for (const teil of ergebnis.teile) {
+    const menge = mengeFuerPreisart(teil.preisart, eingabe, ergebnis.mengenachsen)
+    if (!menge) {
+      return offen(
+        `Für die Bezugsgröße ${teil.preisart} fehlt das zugehörige Maß — bitte im Entwurf erfassen.`,
+      )
+    }
+    teile.push({
+      menge: menge.menge,
+      mengeText: menge.text,
+      preis: teil.preis,
+      preisEinheit: preisartEinheit(teil.preisart),
+      gesamt: runde2(teil.preis * menge.menge),
+    })
+  }
+
+  const gesamt = runde2(teile.reduce((summe, t) => summe + t.gesamt, 0))
 
   return {
     ...gemeinsam,
     achsen: ergebnis.achsen,
-    seite: ergebnis.zeile.seite,
-    einzelpreis: ergebnis.preis,
-    gesamt: runde2(ergebnis.preis * eingabe.menge),
+    seite: ergebnis.teile[0].seite,
+    // Einzelpreis bleibt der Betrag der ERSTEN Teilposition; bei mehreren Bezugsgrößen
+    // trägt die Anzeige die Aufschlüsselung, nicht diese eine Zahl.
+    einzelpreis: ergebnis.teile[0].preis,
+    gesamt,
     status: 'berechnet',
     hinweis: hinweise.filter(Boolean).join(' ') || undefined,
+    teile,
   }
 }
 
@@ -277,7 +356,14 @@ interface KorpusKontext {
   tiefeCm?: number
   /** Breiten der Segmente von links nach rechts. */
   breiten: number[]
+  /** Die bepreiste Rasterstufe — nur noch für die Klartext-Begründung. */
   bepreistesRaster?: number
+  /**
+   * Die KORPUSHÖHE der bepreisten Stufe in Zentimetern. Das ist seit der Achsen-Reform
+   * der Preisschlüssel: Korpus, Mittelseite, Außenset und LED-Band führen eine Höhenachse
+   * in cm, nicht mehr eine Rasterzahl, die je Artikel etwas anderes bedeutet.
+   */
+  korpusHoeheCm?: number
   rasterHinweis?: string
 }
 
@@ -321,6 +407,15 @@ function leseKorpusKontext(draft: Draft, regel: SerienRegel, meldungen: KalkMeld
       // Toleranz — dort gibt es keine gerundeten Nennmasse.
       const aufloesung = loeseRasterAuf(hoeheCm, offset, verfuegbar, NENNMASS_TOLERANZ_MM)
       kontext.bepreistesRaster = aufloesung.bepreistesRaster ?? undefined
+      // Der Lookup fragt in Zentimetern. Maßgeblich ist die Höhe der BEPREISTEN Stufe,
+      // wie sie in der Preiszeile steht — nicht die eingegebene: Sonst würde ein
+      // Zwischenmaß eine Stufe zu hoch greifen, obwohl es bereits angehoben wurde.
+      kontext.korpusHoeheCm =
+        aufloesung.bepreistesRaster != null
+          ? hoeheFuerRasterEtikett(regel.korpus.artikel, aufloesung.bepreistesRaster) ??
+            aufloesung.bepreisteHoeheCm ??
+            undefined
+          : undefined
       if (aufloesung.bepreistesRaster == null) {
         meldungen.push({
           schwere: 'fehler',
@@ -409,6 +504,7 @@ function baueKorpusPositionen(
         dropdown: stamm?.dropdown,
         einheit: stamm?.einheit,
         achsen: [],
+        teile: [],
         menge: 1,
         einzelpreis: null,
         gesamt: null,
@@ -443,7 +539,7 @@ function baueKorpusPositionen(
         label: `Korpus ${i + 1}`,
         segment: i + 1,
         breiteCm: breite,
-        raster: kontext.bepreistesRaster,
+        hoeheCm: kontext.korpusHoeheCm,
         tiefeCm: bepreisteTiefe,
         pg: innenPg,
         hinweis: hinweise.length ? hinweise.join(' ') : undefined,
@@ -472,17 +568,23 @@ function baueKorpusPositionen(
   if (verblendung && verblendung.art !== 'keine') {
     const lookup = verblendungLookups[verblendung.art]
     if (lookup) {
-      const lfm = verblendung.lfm?.trim()
-      const teile = [
+      /*
+       * LAUFENDE METER WERDEN JETZT GERECHNET.
+       *
+       * Bis zur Achsen-Reform stand hier die Menge fest auf 1 und der erfasste Laufmeter-
+       * Wert wurde nur als Hinweis ausgewiesen — es gab keine Stelle in den Stammdaten,
+       * an der „je laufendem Meter" etwas anderes gewesen wäre als ein Wort im
+       * Einheitenfeld. Seit die Achse PREISART am Betrag hängt, ist die Bezugsgröße eine
+       * gepflegte Eigenschaft der Preiszeile, und die Multiplikation ist nachvollziehbar:
+       * Die Position zeigt sie als Teilposition „x m × y €/m".
+       */
+      const lfm = zahl(verblendung.lfm)
+      const hinweise = [
         `Verblendung ${verblendung.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig'} — einmal je Möbel.`,
         verblendung.positionNote?.trim() ? `Position: ${verblendung.positionNote.trim()}.` : null,
-        // Der Artikel ist nach laufendem Meter bepreist, die Menge steht aber weiterhin
-        // auf 1: Ob die Laufmeter den Preis vervielfachen, ist mit Cramer noch nicht
-        // geklärt. Solange das offen ist, wird der erfasste Wert AUSGEWIESEN statt still
-        // eingerechnet — ein stillschweigend multiplizierter Preis wäre nicht prüfbar.
-        lfm
-          ? `Erfasst: ${lfm} lfm. Der Betrag ist der Preis je laufendem Meter und wird derzeit NICHT mit den Laufmetern multipliziert – bitte in der AV prüfen.`
-          : 'Ohne Laufmeter-Angabe – der Betrag ist der Preis je laufendem Meter.',
+        lfm == null
+          ? 'Ohne Laufmeter-Angabe – der Betrag ist der Preis je laufendem Meter und kann nicht mit der Länge multipliziert werden.'
+          : null,
       ].filter(Boolean)
       positionen.push(
         bauePosition({
@@ -490,7 +592,8 @@ function baueKorpusPositionen(
           menge: 1,
           bucket: 'korpus',
           herkunft: 'gewaehlt',
-          hinweis: teile.join(' '),
+          laengeCm: lfm != null ? runde2(lfm * 100) : undefined,
+          hinweis: hinweise.join(' '),
         }),
       )
     }
@@ -549,7 +652,7 @@ function baueKorpusPositionen(
         menge: mittelseiten,
         bucket: 'korpus',
         herkunft: 'abgeleitet',
-        raster: kontext.bepreistesRaster,
+        hoeheCm: kontext.korpusHoeheCm,
         hinweis:
           regel.mittelseitenRegel === 'abschluss'
             ? `Automatisch ergänzt: Jeder der ${segmente} Korpi bringt seine linke Seite mit — nötig ist nur die Wand, die den Block rechts abschließt.`
@@ -594,7 +697,7 @@ function baueKorpusPositionen(
           menge: 1,
           bucket: 'aussenset',
           herkunft: 'abgeleitet',
-          raster: kontext.bepreistesRaster,
+          hoeheCm: kontext.korpusHoeheCm,
           pg: aussenPg,
           hinweis:
             'Automatisch ergänzt: schließt den Möbelblock seitlich ab. Trägt die Oberfläche des Möbels nach außen — der Korpus selbst ist nur in Decoboard lieferbar.',
@@ -651,32 +754,34 @@ function baueFrontPositionen(
         return
       }
 
-      // Rasterstufe nur dort ermitteln, wo die Preistabelle eine Rasterachse führt.
-      let raster: number | undefined
+      /*
+       * HÖHE DER FRONT.
+       *
+       * Vor der Achsen-Reform musste hier aus der Zentimeterhöhe eine Rasterstufe
+       * gerechnet werden, weil die Preiszeilen nach Rastern geschlüsselt waren. Heute
+       * trägt die Höhenachse ihre Zentimeter selbst und rundet auf — die erfasste Höhe
+       * geht unverändert in den Lookup.
+       *
+       * Die Rasterrechnung bleibt trotzdem stehen, aber nur noch für den HINWEIS: Der
+       * Berater soll sehen, dass seine 173 cm mit der Stufe 15 R bepreist wurden.
+       */
+      let hoeheFuerLookup: number | undefined
       let rasterHinweis: string | undefined
-      if (lookup.nutztRaster) {
+      if (lookup.nutztHoehe) {
         if (el.typeId === 'schuebe') {
-          // Schübe sind nach Schubhöhe geschlüsselt, nicht nach Fronthöhen-Raster.
-          raster = schubRasterFuerHoehe(hoeheCm)
+          // Schübe sind nach Schubhöhe geschlüsselt, nicht nach Fronthöhe.
+          hoeheFuerLookup = schubHoeheCm(hoeheCm)
         } else if (hoeheCm == null) {
           meldungen.push({
             schwere: 'fehler',
-            text: `Segment ${segment}, „${el.label || bezeichnung}": keine Höhe erfasst – Rasterstufe nicht bestimmbar.`,
+            text: `Segment ${segment}, „${el.label || bezeichnung}": keine Höhe erfasst – nicht kalkulierbar.`,
           })
           return
         } else {
-          const verfuegbar = verfuegbareRaster(lookup.artikel)
-          const aufloesung = loeseRasterAuf(hoeheCm, meta.frontOffsetMm, verfuegbar)
-          if (aufloesung.bepreistesRaster == null) {
-            meldungen.push({
-              schwere: 'warnung',
-              text: `Segment ${segment}, „${el.label || bezeichnung}": Höhe ${hoeheCm} cm liegt über der größten bepreisten Stufe – AV-Prüfung.`,
-            })
-          } else {
-            raster = aufloesung.bepreistesRaster
-            if (aufloesung.angehoben || aufloesung.istSondermass) {
-              rasterHinweis = `Höhe ${hoeheCm} cm (rechnerisch ${aufloesung.raster} R) → bepreist mit ${aufloesung.bepreistesRaster} R.`
-            }
+          hoeheFuerLookup = hoeheCm
+          const aufloesung = loeseRasterAuf(hoeheCm, meta.frontOffsetMm, verfuegbareRaster(lookup.artikel))
+          if (aufloesung.bepreistesRaster != null && (aufloesung.angehoben || aufloesung.istSondermass)) {
+            rasterHinweis = `Höhe ${hoeheCm} cm (rechnerisch ${aufloesung.raster} R) → bepreist mit ${aufloesung.bepreistesRaster} R.`
           }
         }
       }
@@ -690,8 +795,8 @@ function baueFrontPositionen(
           zusatz: el.label || undefined,
           segment,
           breiteCm,
+          hoeheCm: hoeheFuerLookup,
           tiefeCm: kontext.tiefeCm,
-          raster,
           liniePg,
           pg,
           hinweis: rasterHinweis,
@@ -839,6 +944,7 @@ function baueAusstattungsPositionen(
           segment,
           label,
           achsen: [],
+          teile: [],
           menge,
           einzelpreis: null,
           gesamt: null,
@@ -864,6 +970,7 @@ function baueAusstattungsPositionen(
           segment,
           label,
           achsen: [],
+          teile: [],
           menge,
           einzelpreis: null,
           gesamt: null,
@@ -875,15 +982,29 @@ function baueAusstattungsPositionen(
         return
       }
 
-      const breiteCm = lookup.breiteAusKorpushoehe ? kontext.hoeheCm : segmentBreite
-      // Die Rasterstufe ist die BAUHÖHE des Teils (Container-/Schubladenhöhe), nicht seine
-      // Einbauhöhe im Schrank — sie steht deshalb in der Variante. Nur wo keine Variante
-      // gewählt ist, bleibt der Rückfall auf die alte Freitext-Höhe (Altbestand).
-      const raster = lookup.nutztRaster
-        ? (containerRaster[item.variant ?? ''] ??
-            rasterAusVariante(item.variant) ??
-            schubRasterFuerHoehe(zahl(item.heightNote)))
-        : undefined
+      /*
+       * HÖHE DES AUSSTATTUNGSTEILS.
+       *
+       * Zwei verschiedene Höhen kommen hier zusammen, und sie zu verwechseln kostet Geld:
+       *
+       *   • Teile, die nach KORPUSHÖHENKLASSE bepreist sind (LED-Band je Schrankseite) —
+       *     ihre Höhe ist die des Korpus, nicht ihre eigene.
+       *   • Teile mit eigener BAUHÖHE (Container, Innenschublade) — sie steht in der
+       *     gewählten Variante („4,5R", „1,5R"), NICHT in der Einbauhöhe im Schrank.
+       *     Vor Überarbeitung 2_2 wurde sie aus dem Freitext der Einbauhöhe geraten;
+       *     „auf 120 cm" ergab damit die teuerste Stufe.
+       *
+       * Die Zentimeter zu einem Raster-Etikett stehen in den Preiszeilen des Artikels —
+       * genau deshalb, weil 4,5 Raster beim Container und beim Korpus verschiedene Maße
+       * sind (`hoeheFuerRasterEtikett`).
+       */
+      const rasterDesTeils =
+        containerRaster[item.variant ?? ''] ?? rasterAusVariante(item.variant) ?? undefined
+      const hoeheCmFuerTeil = lookup.hoeheAusKorpus
+        ? kontext.korpusHoeheCm ?? kontext.hoeheCm
+        : rasterDesTeils != null
+          ? hoeheFuerRasterEtikett(lookup.artikel, rasterDesTeils)
+          : schubHoeheCm(zahl(item.heightNote))
 
       // Die Preisgruppe kommt aus der Innenausführung — der Berater wählt sie nie.
       // Fehlt sie (z. B. Innenmaterial „anders" ohne erkennbare Preisgruppe), wird das
@@ -892,7 +1013,7 @@ function baueAusstattungsPositionen(
       if (lookup.nutztPg && innenPg == null) ohnePg.add(label)
 
       const hinweise = [
-        lookup.breiteAusKorpushoehe ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.' : null,
+        lookup.hoeheAusKorpus ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.' : null,
         lookup.nutztPg && innenPg
           ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
           : null,
@@ -906,43 +1027,16 @@ function baueAusstattungsPositionen(
           herkunft: 'gewaehlt',
           label,
           segment,
-          breiteCm,
-          raster,
+          breiteCm: segmentBreite,
+          hoeheCm: hoeheCmFuerTeil,
           pg: innenPg,
-          variante: varianten && !lookup.nutztRaster ? undefined : undefined,
+          // Die Deckplatte des Containers ist seit der Reform eine Ausführung mit
+          // vollständigem Preis — kein Aufpreis-Artikel mehr.
+          ausfuehrung: item.rauchglas ? CONTAINER_AUSFUEHRUNG.rauchglas : CONTAINER_AUSFUEHRUNG.decoboard,
           hinweis: hinweise.length ? hinweise.join(' ') : undefined,
         }),
       )
 
-      // Aufpreis Deckplatte in Rauchglas — eigene Position, sobald das Häkchen sitzt.
-      if (item.rauchglas) {
-        const index = rauchglasAufpreisIndex(breiteCm)
-        const zeilen = preiseFuerArtikel(CONTAINER_RAUCHGLAS_ARTIKEL)
-        const zeile = index != null && zeilen.length === RAUCHGLAS_ZEILEN ? zeilen[index] : undefined
-        const stamm = getArtikelNr(CONTAINER_RAUCHGLAS_ARTIKEL)
-        positionen.push({
-          id: naechsteId(),
-          herkunft: 'gewaehlt',
-          bucket: 'innen',
-          segment,
-          label: `Aufpreis Deckplatte Rauchglas (${label})`,
-          artikelnummer: CONTAINER_RAUCHGLAS_ARTIKEL,
-          kurzzeichen: stamm?.kurzzeichen,
-          teileart: stamm?.teileart,
-          dropdown: stamm?.dropdown,
-          einheit: stamm?.einheit,
-          seite: zeile?.seite,
-          achsen: [],
-          menge,
-          einzelpreis: zeile?.preis ?? null,
-          gesamt: zeile?.preis == null ? null : runde2(zeile.preis * menge),
-          status: zeile?.preis == null ? 'auf-anfrage' : 'berechnet',
-          hinweis:
-            zeile?.preis == null
-              ? `Der Artikel ${CONTAINER_RAUCHGLAS_ARTIKEL} führt ${zeilen.length} Preiszeile(n) ohne Breiten-Achse — für ${breiteCm ?? '?'} cm ist keine eindeutige Stufe bestimmbar. AV-Prüfung.`
-              : `Übergangslösung: Der Betrag folgt der Reihenfolge der Preiszeilen (50er · 60er · 100er), weil ${CONTAINER_RAUCHGLAS_ARTIKEL} in den Stammdaten noch keine BREITE-Achse trägt.`,
-        })
-      }
     })
   })
 
@@ -997,55 +1091,52 @@ function baueAusstattungsPositionen(
 // Stufe 6: Zuschläge
 // ---------------------------------------------------------------------------
 
-/** Prozentsatz eines Zuschlag-Artikels aus dem Preisblatt (z. B. 10 ⇒ 10 %). */
-function zuschlagsProzent(artikelnummer: string): number | null {
-  const ergebnis = findePreis({ artikelnummer })
-  return ergebnis.status === 'gefunden' ? ergebnis.preis : null
-}
-
+/**
+ * ZUSCHLÄGE — nur noch Service-Aufschläge.
+ *
+ * Die prozentualen Aufschläge aus dem Preisblatt (Sichtrückwand, Raumteiler, wandhängende
+ * Kastenmöbel) sind mit der Stammdaten-Reform gestrichen:
+ *
+ *   „Prozent Artikel, Prozent Möbel, Prozent Auftragssumme … bitte ganz streichen. Das
+ *    kann am Ende, wenn der Endpreis vom Konfigurator steht, vom Verkäufer entschieden
+ *    werden. … Für die Flexibilität des Verkäufers haben wir ja im Abschluss die
+ *    Unterteilung von kalkuliertem Preis und der Eingabe des Angebotspreises."
+ *
+ * Der Konfigurator weist damit den LISTENPREIS aus. Die betroffenen Artikel stehen
+ * weiterhin im Stamm — mit Preislogik AUF_ANFRAGE und dem Prozentsatz in der Bemerkung.
+ *
+ * Montage und regionale Lieferung bleiben: Das sind ausdrücklich Service-Aufschläge,
+ * ihre Sätze stehen in „50 Meta" und gehören nicht in die Verhandlung des Verkäufers.
+ */
 function baueZuschlaege(draft: Draft, moebelpreis: number, meldungen: KalkMeldung[]): KalkPosition[] {
   const zuschlaege: KalkPosition[] = []
+  const opts = draft.pricingOptions
 
-  // --- Stufe B: Prozent auf den Möbelpreis (Sätze stehen im Preisblatt) -------------
-  let nachStufeB = moebelpreis
   if (draft.sichtRueckwandAussen) {
-    const regel = prozentZuschlaege.sichtrueckwand
-    const prozent = zuschlagsProzent(regel.artikel)
-    const stamm = getArtikelNr(regel.artikel)
-    if (prozent == null) {
-      meldungen.push({ schwere: 'warnung', text: `Zuschlagssatz für ${stamm?.bezeichnung ?? regel.artikel} nicht gefunden.` })
-    } else {
-      const betrag = runde2(moebelpreis * (prozent / 100))
-      nachStufeB += betrag
-      zuschlaege.push({
-        id: naechsteId(),
-        herkunft: 'zuschlag',
-        bucket: 'upgrade',
-        label: `${stamm?.bezeichnung ?? 'Sichtrückwand'} (+${prozent} %)`,
-        artikelnummer: regel.artikel,
-        kurzzeichen: stamm?.kurzzeichen,
-        teileart: stamm?.teileart,
-        dropdown: stamm?.dropdown,
-        einheit: stamm?.einheit,
-        achsen: [],
-        menge: 1,
-        einzelpreis: betrag,
-        gesamt: betrag,
-        status: 'berechnet',
-        hinweis: 'Basis: Möbelpreis',
-      })
-    }
+    meldungen.push({
+      schwere: 'info',
+      text:
+        'Sichtrückwand außen ist gewählt. Der frühere prozentuale Aufschlag wird nicht mehr ' +
+        'automatisch gerechnet — der Konfigurator weist den Listenpreis aus, der Aufschlag ' +
+        'gehört in den Angebotspreis im Abschluss.',
+    })
   }
 
-  // --- Stufe C: Prozent auf die Auftragssumme --------------------------------------
-  const opts = draft.pricingOptions
   if (opts?.montage) {
-    const betrag = runde2(nachStufeB * meta.montageZuschlagPct)
-    zuschlaege.push(pauschalZuschlag(`Montage (+${Math.round(meta.montageZuschlagPct * 100)} %)`, betrag))
+    zuschlaege.push(
+      pauschalZuschlag(
+        `Montage (+${Math.round(meta.montageZuschlagPct * 100)} %)`,
+        runde2(moebelpreis * meta.montageZuschlagPct),
+      ),
+    )
   }
   if (opts?.lieferungRegional) {
-    const betrag = runde2(nachStufeB * meta.lieferungRegionalPct)
-    zuschlaege.push(pauschalZuschlag(`Lieferung regional (+${Math.round(meta.lieferungRegionalPct * 100)} %)`, betrag))
+    zuschlaege.push(
+      pauschalZuschlag(
+        `Lieferung regional (+${Math.round(meta.lieferungRegionalPct * 100)} %)`,
+        runde2(moebelpreis * meta.lieferungRegionalPct),
+      ),
+    )
   }
 
   return zuschlaege
@@ -1058,6 +1149,7 @@ function pauschalZuschlag(label: string, betrag: number): KalkPosition {
     bucket: 'upgrade',
     label,
     achsen: [],
+    teile: [{ menge: 1, mengeText: '1', preis: betrag, preisEinheit: '€', gesamt: betrag }],
     menge: 1,
     einzelpreis: betrag,
     gesamt: betrag,

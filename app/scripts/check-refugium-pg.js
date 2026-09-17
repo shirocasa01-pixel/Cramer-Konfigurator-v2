@@ -16,6 +16,7 @@
  */
 
 import { berechneEntwurf } from '../src/lib/kalkulation.ts'
+import { parseStufe } from '../src/lib/preisAchsen.ts'
 import { demoEntwurf } from '../src/data/demoEntwurf.ts'
 import { artikel, preise } from '../src/data/stammdaten.generated.ts'
 import { getVisibleKorpusAreas } from '../src/config/korpus.ts'
@@ -200,25 +201,37 @@ pruefe(
 )
 
 // ---------------------------------------------------------------------------
-console.log(c.bold('\nF — Korpus: BREITE × RASTER × TIEFE × PG'))
+console.log(c.bold('\nF — Korpus: BREITE × HÖHE × TIEFE × PG'))
 // ---------------------------------------------------------------------------
 const korpus = artikelVon(REFUGIUM_KORPUS_ARTIKEL)
 const kZeilen = zeilenVon(REFUGIUM_KORPUS_ARTIKEL)
 const iB = korpus?.achsen.indexOf('BREITE') ?? -1
-const iR = korpus?.achsen.indexOf('RASTER') ?? -1
+const iR = korpus?.achsen.indexOf('HOEHE') ?? -1
 const iT = korpus?.achsen.indexOf('TIEFE') ?? -1
 const iP = korpus?.achsen.indexOf('PG') ?? -1
 
 pruefe(
-  korpus?.achsen.join(' × ') === 'BREITE × RASTER × TIEFE × PG',
+  korpus?.achsen.join(' × ') === 'BREITE × HOEHE × TIEFE × PG',
   `Achsen: ${korpus?.achsen.join(' × ') ?? '—'}`,
 )
 // 4 Breitenwerte (3 Korpi + Seite) × 2 Raster × 3 Tiefen × 4 Preisgruppen
 pruefe(kZeilen.length === 96, `${kZeilen.length} Preiszeilen (erwartet 96 = 4 × 2 × 3 × 4)`)
 
+/*
+ * Seit der Achsen-Reform tragen die Maßachsen ihren Zentimeter-Schwellenwert („60 cm |
+ * 60er"). Die Prüfung vergleicht deshalb ETIKETT und ZENTIMETER statt der Zeichenkette:
+ * Sie soll die Preislogik prüfen, nicht die Schreibweise.
+ */
+const etikett = (wert) => parseStufe(wert).etikett
+const cmVon = (wert) => parseStufe(wert).cm
+
 const korpusPreis = (breite, raster, tiefe, pg) =>
   kZeilen.find(
-    (z) => z.a[iB] === breite && z.a[iR] === String(raster) && z.a[iT] === tiefe && z.a[iP] === pg,
+    (z) =>
+      etikett(z.a[iB]) === breite &&
+      etikett(z.a[iR]) === `${raster}R` &&
+      cmVon(z.a[iT]) === Number(tiefe) &&
+      z.a[iP] === pg,
   )?.preis
 
 // Lückenlosigkeit
@@ -318,19 +331,20 @@ pruefe(
 )
 const achsenLack = korpusPos(eLack)?.achsen ?? []
 pruefe(
-  achsenLack.find((a) => a.code === 'TIEFE')?.wert === '60' && achsenLack.find((a) => a.code === 'PG')?.wert === 'PG2',
+  cmVon(achsenLack.find((a) => a.code === 'TIEFE')?.wert) === 60 &&
+    achsenLack.find((a) => a.code === 'PG')?.wert === 'PG2',
   `  … und weist die Achsen aus: ${achsenLack.map((a) => `${a.code}=${a.wert}`).join(' · ')}`,
 )
 
 // Nächstgrößeres Maß: 45 cm gibt es nicht, 60 cm schon.
 const e45 = berechneEntwurf(mitTiefe(45, 'PG1'))
 pruefe(
-  korpusPos(e45)?.achsen.find((a) => a.code === 'TIEFE')?.wert === '60',
+  cmVon(korpusPos(e45)?.achsen.find((a) => a.code === 'TIEFE')?.wert) === 60,
   `Tiefe 45 cm wird auf die Stufe 60 cm gehoben (${korpusPos(e45)?.einzelpreis} €)`,
 )
 const e31 = berechneEntwurf(mitTiefe(31, 'PG1'))
 pruefe(
-  korpusPos(e31)?.achsen.find((a) => a.code === 'TIEFE')?.wert === '31',
+  cmVon(korpusPos(e31)?.achsen.find((a) => a.code === 'TIEFE')?.wert) === 31,
   `Tiefe 31 cm trifft die Stufe 31 cm genau (${korpusPos(e31)?.einzelpreis} €)`,
 )
 const e31Lack = berechneEntwurf((() => { const d = mitTiefe(31, 'PG2'); d.korpus.innen.materialGroupId = 'mattlack'; return d })())

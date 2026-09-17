@@ -1,19 +1,28 @@
 /**
- * PREIS-LOOKUP — Artikelnummer + Achsenwerte → Preiszelle.
+ * PREIS-LOOKUP — Artikelnummer + Achsenwerte → Preiszeile(n).
  *
- * Ersetzt die frühere Suche über Kategorie-Klartext (`category: 'Refugium Ausstattung'`,
- * `subcategory: 'Korpus 18 Raster (235cm hoch)'`) durch den Zugriff über die
- * Artikelnummern-Hierarchie. Statt Zeichenketten zu treffen, wird der Artikel adressiert
- * und über seine Achsen eingegrenzt:
+ * Der Zugriff läuft über die Artikelnummern-Hierarchie und grenzt über die Achsen ein:
  *
- *     10-10-05-0003  Korpus (Refugium)   BREITE × RASTER      60er · 18   →  258 EUR
- *     20-20-05-0001  Drehtür             BREITE × RASTER × LINIE_PG       →  348 EUR
+ *     10-001-0003  Korpus (Refugium)   BREITE × HÖHE × TIEFE × PG   →  258 EUR
+ *     20-006-0001  Drehtür             BREITE × HÖHE × LINIE+PG     →  348 EUR
  *
- * Zwei Regeln aus der gedruckten Preisliste sind hier abgebildet:
+ * ─────────────────────────────────────────────────────────────────────────────
+ * WAS DIE ACHSEN-REFORM HIER GEÄNDERT HAT
  *
- *   • BREITE  „Preis des nächstgrößeren Maßes" — ein Individualmaß wird auf das nächste
- *              bepreiste Bracket gehoben. Über dem größten Bracket ⇒ Sondermaß.
- *   • TIEFE / PG  Das Komma ist eine AUFZÄHLUNG („25,30" = zwei Tiefen), keine Dezimalstelle.
+ * 1. Eine Achse sagt selbst, wie ihr Wert zu lesen ist (`Achse.art` aus Blatt
+ *    „35 Achsen"). Der Lookup kennt keine Sonderliste mehr, welche Achse numerisch ist
+ *    und welche Listen führt — das steht in den Stammdaten und ist dort pflegbar.
+ *
+ * 2. Alle Maßachsen runden auf. Was früher die Preislogik MATRIX_AUF war, ist jetzt
+ *    Eigenschaft der Achse: BREITE, HÖHE, TIEFE und LÄNGE suchen die kleinste Stufe, die
+ *    das verlangte Maß noch abdeckt. Über der größten Stufe ⇒ Sondermaß, nie ein
+ *    geschätzter Preis.
+ *
+ * 3. Ein Treffer kann aus MEHREREN Zeilen bestehen. Führt ein Artikel die Achse PREISART,
+ *    liefert er je Bezugsgröße eine Zeile — etwa einen Grundpreis und einen Preis je
+ *    Quadratmeter. Beide zusammen ergeben die Position; in der Kalkulation erscheinen sie
+ *    als Teilpositionen. Das ersetzt die frühere Preislogik GRUND_PLUS_QM.
+ * ─────────────────────────────────────────────────────────────────────────────
  *
  * Findet sich keine Zelle, kommt `auf-anfrage` zurück — nie ein geschätzter Preis.
  * Das Ergebnis trägt die aufgelösten Achsen im Klartext mit, damit Positionsliste und
@@ -23,10 +32,19 @@
 import {
   achsen as achsenKatalog,
   type AchseCode,
+  type AchsenArt,
   type Artikel,
   type Preiszeile,
 } from '../data/stammdaten.generated.ts'
-import { achsenwertPasst, parseBreite, parseZahl, waehleBreite, type BreitenWert } from './preisAchsen.ts'
+import {
+  achsenwertPasst,
+  parsePreisart,
+  parseStufe,
+  parseZahl,
+  waehleStufe,
+  type Preisart,
+  type StufenWert,
+} from './preisAchsen.ts'
 import { getStammdatenStand } from './stammdatenStore.ts'
 
 // ---------------------------------------------------------------------------
@@ -62,11 +80,57 @@ function aktuelleIndizes(): Indizes {
   return indizes
 }
 
-/** Achsen, deren Komma eine Aufzählung ist. */
-const LISTEN_ACHSEN: ReadonlySet<AchseCode> = new Set<AchseCode>(['PG', 'TIEFE'])
+// ---------------------------------------------------------------------------
+// Achsen-Metadaten
+// ---------------------------------------------------------------------------
 
-/** Achsen, die als Zahl verglichen werden („1.5" ≡ „1,5"). */
-const ZAHL_ACHSEN: ReadonlySet<AchseCode> = new Set<AchseCode>(['RASTER', 'TIEFE'])
+const KATALOG = new Map(achsenKatalog.map((a) => [a.code, a]))
+
+/** Wie der Wert dieser Achse gelesen wird. Unbekannte Achse ⇒ exakter Textvergleich. */
+export function achsenArt(code: AchseCode): AchsenArt {
+  return KATALOG.get(code)?.art ?? 'text'
+}
+
+/** Klartext-Bedeutung einer Achse aus Blatt „35 Achsen". */
+export function achsenBedeutung(code: AchseCode): string {
+  return KATALOG.get(code)?.bedeutung ?? code
+}
+
+/** Alle Achsen des Katalogs — Grundlage der Auswahlfelder in der Verwaltung. */
+export { achsenKatalog }
+
+/** true, wenn die Achse ein Zentimetermaß führt (und damit aufrundet). */
+export function istMassAchse(code: AchseCode): boolean {
+  const art = achsenArt(code)
+  return art === 'stufe' || art === 'mass'
+}
+
+/**
+ * Welche Anfragegröße eine Maßachse bedient.
+ *
+ * BREITE und BREITE_CM fragen dieselbe Zahl ab — der Unterschied liegt darin, dass die
+ * Stufenachse immer einen gedruckten Wert trägt, die Maßachse auch leer bleiben darf und
+ * dann nur benennt, welches Maß die MENGE liefert.
+ */
+export type MassRichtung = 'breite' | 'hoehe' | 'tiefe' | 'laenge'
+
+export function massRichtung(code: AchseCode): MassRichtung | undefined {
+  switch (code) {
+    case 'BREITE':
+    case 'BREITE_CM':
+      return 'breite'
+    case 'HOEHE':
+    case 'HOEHE_CM':
+      return 'hoehe'
+    case 'TIEFE':
+    case 'TIEFE_CM':
+      return 'tiefe'
+    case 'LAENGE':
+      return 'laenge'
+    default:
+      return undefined
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Anfrage & Ergebnis
@@ -78,18 +142,19 @@ const ZAHL_ACHSEN: ReadonlySet<AchseCode> = new Set<AchseCode>(['RASTER', 'TIEFE
  */
 export interface PreisAnfrage {
   artikelnummer: string
-  /** Verlangte Breite in cm; wird auf das nächstgrößere Bracket gehoben. */
+  /** Verlangte Breite in cm; wird auf die nächstgrößere Stufe gehoben. */
   breiteCm?: number
-  /** Rasterstufe — vorher über `verfuegbareRaster()` auf eine bepreiste Stufe heben. */
-  raster?: number
+  /** Verlangte Höhe in cm (früher: Rasterstufe). */
+  hoeheCm?: number
+  tiefeCm?: number
+  /** Laufende Länge in cm (Verblendung, LED-Band, Aufkantung). */
+  laengeCm?: number
   /** Stil-Linie + Preisgruppe als kombinierter Achsenwert, z. B. „Glatt2". */
   liniePg?: string
   /** Material-Preisgruppe, wenn PG eine eigene Achse ist. */
   pg?: string
-  tiefeCm?: number
-  variante?: string
-  /** Wert der Achse BEDINGUNG (Staffel aus der Preisliste). */
-  bedingung?: string
+  /** Ausführungsvariante des Artikels („Deckplatte Rauchglas grau"). */
+  ausfuehrung?: string
 }
 
 /** Eine aufgelöste Achse — Grundlage für die Klartext-Anzeige. */
@@ -102,114 +167,117 @@ export interface AufgelloesteAchse {
   wert: string
 }
 
+/** Eine gefundene Preiszeile mit ihrer Bezugsgröße. */
+export interface PreisTeil {
+  zeile: Preiszeile
+  preis: number
+  preisart: Preisart
+  seite: string
+}
+
 export type PreisErgebnis =
   | {
       status: 'gefunden'
       artikel: Artikel
-      zeile: Preiszeile
-      preis: number
+      /** Ein Eintrag je Bezugsgröße; bei Stückartikeln genau einer. */
+      teile: PreisTeil[]
       achsen: AufgelloesteAchse[]
-      /** true, wenn die Breite auf ein größeres Bracket gehoben wurde. */
+      /** true, wenn ein Maß auf eine größere Stufe gehoben wurde. */
       aufgerundet: boolean
-      /** Der gewählte Breitenwert im Original („100er"), falls die Breite eine Achse ist. */
-      gewaehlteBreite?: string
+      /** Die gewählten Stufen im Klartext („60 cm | 60er"), für den Positionshinweis. */
+      gewaehlteStufen: string[]
+      /** Welche Maße die Menge liefern sollen — aus den Maßachsen des Artikels. */
+      mengenachsen: MassRichtung[]
     }
   | { status: 'auf-anfrage'; artikel?: Artikel; grund: string }
 
 // ---------------------------------------------------------------------------
-// Achsen-Metadaten
+// Verfügbare Stufen (für Auswahlfelder und Plausibilitätsmeldungen)
 // ---------------------------------------------------------------------------
 
-/** Klartext-Bedeutung einer Achse aus Blatt „35 Achsen" (z. B. BREITE → „Breite in cm"). */
-function bedeutungVon(code: AchseCode): string {
-  return achsenKatalog.find((a) => a.code === code)?.bedeutung ?? code
-}
-
-/** Die tatsächlich bepreisten Rasterstufen eines Artikels — aus den Daten, nicht hinterlegt. */
-export function verfuegbareRaster(artikelnummer: string): number[] {
+/** Die tatsächlich bepreisten Stufen einer Maßachse (cm), aufsteigend. */
+export function verfuegbareStufen(artikelnummer: string, code: AchseCode): StufenWert[] {
   const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()
   const art = artikelNachNummer.get(artikelnummer)
   if (!art) return []
-  const index = art.achsen.indexOf('RASTER')
+  const index = art.achsen.indexOf(code)
   if (index < 0) return []
-  const werte = new Set<number>()
-  for (const zeile of zeilenNachArtikel.get(artikelnummer) ?? []) {
-    const zahl = parseZahl(zeile.a[index])
-    if (zahl != null) werte.add(zahl)
-  }
-  return [...werte].sort((a, b) => a - b)
-}
-
-/**
- * Die tatsächlich bepreisten Tiefenstufen eines Artikels (cm), aufsteigend.
- *
- * Gegenstück zu `verfuegbareRaster()`: Die Preisliste führt die Tiefe in Stufen
- * (31 · 41 · 60 cm), der Berater gibt aber ein Zentimetermaß ein. Damit die
- * Preislisten-Regel „Preis des nächstgrößeren Maßes" auch hier greift, muss die
- * Kalkulation die Stufen kennen — genau wie bei den Rastern. Die Liste kommt aus
- * den Daten, nicht aus einer Konstante: eine neue Tiefe in der Mappe wirkt sofort.
- */
-export function verfuegbareTiefen(artikelnummer: string): number[] {
-  const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()
-  const art = artikelNachNummer.get(artikelnummer)
-  if (!art) return []
-  const index = art.achsen.indexOf('TIEFE')
-  if (index < 0) return []
-  const werte = new Set<number>()
-  for (const zeile of zeilenNachArtikel.get(artikelnummer) ?? []) {
-    // Das Komma ist in dieser Achse eine Aufzählung („25,30" = zwei Tiefen).
-    for (const teil of zeile.a[index].split(',')) {
-      const zahl = parseZahl(teil)
-      if (zahl != null) werte.add(zahl)
-    }
-  }
-  return [...werte].sort((a, b) => a - b)
-}
-
-/** Die bepreisten Breitenwerte eines Artikels, bereits eingeordnet. */
-export function verfuegbareBreiten(artikelnummer: string): BreitenWert[] {
-  const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()
-  const art = artikelNachNummer.get(artikelnummer)
-  if (!art) return []
-  const index = art.achsen.indexOf('BREITE')
-  if (index < 0) return []
-  const gesehen = new Map<string, BreitenWert>()
+  const gesehen = new Map<string, StufenWert>()
   for (const zeile of zeilenNachArtikel.get(artikelnummer) ?? []) {
     const roh = zeile.a[index]
-    if (roh && !gesehen.has(roh)) gesehen.set(roh, parseBreite(roh))
+    if (roh && !gesehen.has(roh)) gesehen.set(roh, parseStufe(roh))
   }
-  return [...gesehen.values()]
+  return [...gesehen.values()].sort((a, b) => (a.cm ?? 0) - (b.cm ?? 0))
+}
+
+/** Die bepreisten Höhenstufen eines Artikels in cm — für Meldungen über Sondermaße. */
+export function verfuegbareHoehenCm(artikelnummer: string): number[] {
+  return verfuegbareStufen(artikelnummer, 'HOEHE')
+    .map((s) => s.cm)
+    .filter((n): n is number => n != null)
+}
+
+/** Die bepreisten Tiefenstufen eines Artikels in cm. */
+export function verfuegbareTiefen(artikelnummer: string): number[] {
+  return verfuegbareStufen(artikelnummer, 'TIEFE')
+    .map((s) => s.cm)
+    .filter((n): n is number => n != null)
+}
+
+/** Alle in den Preiszeilen eines Artikels vorkommenden Werte einer Achse. */
+export function belegteAchsenwerte(artikelnummer: string, code: AchseCode): string[] {
+  const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()
+  const art = artikelNachNummer.get(artikelnummer)
+  if (!art) return []
+  const index = art.achsen.indexOf(code)
+  if (index < 0) return []
+  const werte = new Set<string>()
+  for (const zeile of zeilenNachArtikel.get(artikelnummer) ?? []) {
+    const roh = (zeile.a[index] ?? '').trim()
+    if (roh) werte.add(roh)
+  }
+  return [...werte].sort((a, b) => a.localeCompare(b, 'de'))
 }
 
 // ---------------------------------------------------------------------------
 // Lookup
 // ---------------------------------------------------------------------------
 
-/** Wert der Anfrage für eine bestimmte Achse (ohne BREITE — die läuft über Brackets). */
-function anfragewert(achse: AchseCode, anfrage: PreisAnfrage): string | undefined {
-  switch (achse) {
-    case 'RASTER':
-      return anfrage.raster != null ? String(anfrage.raster) : undefined
+/** Das verlangte Maß für eine Maßachse. */
+function massAnfrage(code: AchseCode, anfrage: PreisAnfrage): number | undefined {
+  switch (massRichtung(code)) {
+    case 'breite':
+      return anfrage.breiteCm
+    case 'hoehe':
+      return anfrage.hoeheCm
+    case 'tiefe':
+      return anfrage.tiefeCm
+    case 'laenge':
+      return anfrage.laengeCm
+    default:
+      return undefined
+  }
+}
+
+/** Der verlangte Wert für eine Merkmalsachse. */
+function merkmalAnfrage(code: AchseCode, anfrage: PreisAnfrage): string | undefined {
+  switch (code) {
     case 'LINIE_PG':
       return anfrage.liniePg
     case 'PG':
       return anfrage.pg
-    case 'TIEFE':
-      return anfrage.tiefeCm != null ? String(anfrage.tiefeCm) : undefined
-    case 'VARIANTE':
-      return anfrage.variante
-    case 'BEDINGUNG':
-      return anfrage.bedingung
+    case 'AUSFUEHRUNG':
+      return anfrage.ausfuehrung
     default:
       return undefined
   }
 }
 
 /**
- * Sucht die Preiszelle zu einer Anfrage.
+ * Sucht die Preiszelle(n) zu einer Anfrage.
  *
- * Ablauf: erst alle Achsen außer BREITE als harte Filter anwenden, dann unter den
- * verbliebenen Zeilen das passende Breiten-Bracket wählen.
+ * Ablauf: erst die Merkmalsachsen als harte Filter, dann je Maßachse die passende Stufe
+ * wählen, zuletzt nach Bezugsgröße (PREISART) gruppieren.
  */
 export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
   const { artikelNachNummer, zeilenNachArtikel } = aktuelleIndizes()
@@ -229,54 +297,51 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
       grund:
         art.preislogik === 'AUF_ANFRAGE'
           ? 'Für diesen Artikel ist bewusst kein Preis hinterlegt (Preislogik AUF_ANFRAGE).'
-          : 'Für diesen Artikel ist keine Preiszelle hinterlegt.',
+          : 'Für diesen Artikel ist keine Preiszeile hinterlegt.',
     }
   }
 
-  // --- 1) Alle Achsen außer BREITE als harte Filter -------------------------------
-  const breitenIndex = art.achsen.indexOf('BREITE')
+  // --- 1) Merkmalsachsen als harte Filter ------------------------------------------
   art.achsen.forEach((achse, index) => {
-    if (index === breitenIndex) return
-    const soll = anfragewert(achse, anfrage)
+    const kind = achsenArt(achse)
+    if (kind !== 'text' && kind !== 'liste') return
+    const soll = merkmalAnfrage(achse, anfrage)
     if (soll == null || soll === '') return
-    const gefiltert = kandidaten.filter((zeile) =>
-      achsenwertPasst(zeile.a[index], soll, {
-        listenAchse: LISTEN_ACHSEN.has(achse),
-        numerisch: ZAHL_ACHSEN.has(achse),
-      }),
+    kandidaten = kandidaten.filter((zeile) =>
+      achsenwertPasst(zeile.a[index], soll, { listenAchse: kind === 'liste' }),
     )
-    // Führt ein Filter ins Leere, bleibt das Feld leer – der Grund wird unten gemeldet.
-    kandidaten = gefiltert
   })
 
   if (kandidaten.length === 0) {
-    const gefragt = art.achsen
-      .map((a) => ({ a, v: anfragewert(a, anfrage) }))
-      .filter((x) => x.v)
-      .map((x) => `${x.a}=${x.v}`)
-      .join(', ')
-    return {
-      status: 'auf-anfrage',
-      artikel: art,
-      grund: `Keine Preiszeile für ${art.bezeichnung} mit ${gefragt || 'diesen Angaben'}.`,
-    }
+    return { status: 'auf-anfrage', artikel: art, grund: gefragtText(art, anfrage) }
   }
 
-  // --- 2) Breiten-Bracket ----------------------------------------------------------
-  let gewaehlt = kandidaten[0]
+  // --- 2) Maßachsen: je Achse die nächstgrößere Stufe wählen -----------------------
   let aufgerundet = false
-  let gewaehlteBreite: string | undefined
+  const gewaehlteStufen: string[] = []
+  const mengenachsen: MassRichtung[] = []
 
-  if (breitenIndex >= 0 && anfrage.breiteCm != null) {
-    const werte = new Map<string, BreitenWert>()
+  for (let index = 0; index < art.achsen.length; index++) {
+    const achse = art.achsen[index]
+    if (!istMassAchse(achse)) continue
+    const richtung = massRichtung(achse)
+    if (richtung) mengenachsen.push(richtung)
+
+    const gesucht = massAnfrage(achse, anfrage)
+    if (gesucht == null) continue
+
+    const werte = new Map<string, StufenWert>()
     for (const zeile of kandidaten) {
-      const roh = zeile.a[breitenIndex]
-      if (roh && !werte.has(roh)) werte.set(roh, parseBreite(roh))
+      const roh = zeile.a[index]
+      if (roh && !werte.has(roh)) werte.set(roh, parseStufe(roh))
     }
-    const { treffer, aufgerundet: hochgesetzt } = waehleBreite([...werte.values()], anfrage.breiteCm)
+    // Leere Spalte ⇒ die Achse benennt nur das Maß für die Menge und filtert nicht.
+    if (werte.size === 0) continue
+
+    const { treffer, aufgerundet: hoch } = waehleStufe([...werte.values()], gesucht)
     if (!treffer) {
       const groesste = [...werte.values()]
-        .map((w) => w.sortCm)
+        .map((w) => w.cm)
         .filter((n): n is number => n != null)
         .sort((a, b) => b - a)[0]
       return {
@@ -284,47 +349,112 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
         artikel: art,
         grund:
           groesste != null
-            ? `Breite ${anfrage.breiteCm} cm liegt über dem größten Standardmaß (${groesste} cm) – Sondermaß, AV-Prüfung.`
-            : `Breite ${anfrage.breiteCm} cm ist keinem Bracket zuzuordnen.`,
+            ? `${achsenBedeutung(achse)}: ${gesucht} cm liegt über dem größten Standardmaß (${groesste} cm) – Sondermaß, AV-Prüfung.`
+            : `${achsenBedeutung(achse)}: ${gesucht} cm ist keiner Stufe zuzuordnen.`,
       }
     }
-    const passend = kandidaten.find((z) => z.a[breitenIndex] === treffer.raw)
-    if (!passend) {
-      return { status: 'auf-anfrage', artikel: art, grund: `Breiten-Bracket „${treffer.raw}" nicht auflösbar.` }
-    }
-    gewaehlt = passend
-    aufgerundet = hochgesetzt
-    gewaehlteBreite = treffer.raw
+    kandidaten = kandidaten.filter((z) => z.a[index] === treffer.raw)
+    aufgerundet = aufgerundet || hoch
+    gewaehlteStufen.push(treffer.raw)
   }
 
-  if (gewaehlt.preis == null) {
+  if (kandidaten.length === 0) {
+    return { status: 'auf-anfrage', artikel: art, grund: gefragtText(art, anfrage) }
+  }
+
+  // --- 3) Nach Bezugsgröße gruppieren ----------------------------------------------
+  const preisartIndex = art.achsen.findIndex((a) => achsenArt(a) === 'preisart')
+  const teile: PreisTeil[] = []
+  const gesehen = new Set<Preisart>()
+
+  for (const zeile of kandidaten) {
+    const preisart = preisartIndex >= 0 ? parsePreisart(zeile.a[preisartIndex]) : parsePreisart(undefined)
+    // Je Bezugsgröße zählt die erste Zeile. Mehrere Zeilen mit derselben Bezugsgröße
+    // sind ein Pflegefehler; still zu addieren wäre die teuerste Art, ihn zu verstecken.
+    if (gesehen.has(preisart)) continue
+    if (zeile.preis == null) continue
+    gesehen.add(preisart)
+    teile.push({ zeile, preis: zeile.preis, preisart, seite: zeile.seite })
+    if (preisartIndex < 0) break
+  }
+
+  if (teile.length === 0) {
+    const erste = kandidaten[0]
     return {
       status: 'auf-anfrage',
       artikel: art,
       grund:
-        gewaehlt.status === 'on-request'
+        erste.status === 'on-request'
           ? 'Die Preiszeile ist als „auf Anfrage" hinterlegt.'
-          : 'Die Preiszeile trägt keinen Betrag.',
+          : erste.status === 'note'
+            ? 'Die Preiszeile trägt einen Hinweis statt eines Betrags.'
+            : 'Die Preiszeile trägt keinen Betrag.',
     }
   }
 
+  const leit = teile[0].zeile
   return {
     status: 'gefunden',
     artikel: art,
-    zeile: gewaehlt,
-    preis: gewaehlt.preis,
+    teile,
     aufgerundet,
-    gewaehlteBreite,
+    gewaehlteStufen,
+    mengenachsen,
     achsen: art.achsen.map((code, index) => ({
       code,
-      bedeutung: bedeutungVon(code),
+      bedeutung: achsenBedeutung(code),
       spalte: `A${index + 1}`,
-      wert: gewaehlt.a[index] ?? '',
+      wert: leit.a[index] ?? '',
     })),
   }
+}
+
+function gefragtText(art: Artikel, anfrage: PreisAnfrage): string {
+  const gefragt = art.achsen
+    .map((a) => {
+      const mass = massAnfrage(a, anfrage)
+      if (mass != null) return `${a}=${mass} cm`
+      const merkmal = merkmalAnfrage(a, anfrage)
+      return merkmal ? `${a}=${merkmal}` : null
+    })
+    .filter(Boolean)
+    .join(', ')
+  return `Keine Preiszeile für ${art.bezeichnung} mit ${gefragt || 'diesen Angaben'}.`
 }
 
 /** Artikel per Nummer — für Positionslisten, die den vollen Klartext zeigen. */
 export function getArtikelNr(artikelnummer: string): Artikel | undefined {
   return aktuelleIndizes().artikelNachNummer.get(artikelnummer)
+}
+
+/**
+ * Die bepreisten Rasterstufen eines Artikels.
+ *
+ * Nach der Reform steht das Raster nur noch als ETIKETT an der Höhenachse („235 cm | 18R");
+ * maßgeblich ist der Zentimeterwert. Diese Funktion liest die Etiketten zurück, damit
+ * Auswahlfelder weiterhin „18 Raster" anbieten können.
+ */
+export function verfuegbareRaster(artikelnummer: string): number[] {
+  const werte = new Set<number>()
+  for (const stufe of verfuegbareStufen(artikelnummer, 'HOEHE')) {
+    const zahl = parseZahl(/^([\d.,]+)\s*R$/i.exec(stufe.etikett)?.[1])
+    if (zahl != null) werte.add(zahl)
+  }
+  return [...werte].sort((a, b) => a - b)
+}
+
+/**
+ * Zentimeterhöhe zu einem Raster-Etikett eines Artikels („4,5R" ⇒ 57,3 cm).
+ *
+ * Genau das war der Anlass der Reform: „Raster bei Korpus und Drehtüren zum Beispiel
+ * unterschiedlich (keine universelle Maßeinheit)." Die Umrechnung steht deshalb nicht
+ * mehr im Code, sondern in der Preiszeile des jeweiligen Artikels — hier wird sie nur
+ * nachgeschlagen.
+ */
+export function hoeheFuerRasterEtikett(artikelnummer: string, raster: number): number | undefined {
+  for (const stufe of verfuegbareStufen(artikelnummer, 'HOEHE')) {
+    const zahl = parseZahl(/^([\d.,]+)\s*R$/i.exec(stufe.etikett)?.[1])
+    if (zahl != null && Math.abs(zahl - raster) < 0.001) return stufe.cm ?? undefined
+  }
+  return undefined
 }

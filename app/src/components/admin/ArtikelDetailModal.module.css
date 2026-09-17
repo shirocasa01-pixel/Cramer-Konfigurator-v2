@@ -336,9 +336,15 @@
   color: var(--color-ink-muted);
 }
 
+/*
+ * Fünf Achsen nebeneinander — solange sie lesbar bleiben. Seit die Auswahlfelder den
+ * Achsennamen statt des Kürzels zeigen („BREITE (cm + ___er)" statt „BREITE"), passen
+ * bei schmalem Fenster keine fünf Spalten mehr: Ein abgeschnittener Name ist schlimmer
+ * als eine zweite Zeile, denn „BREITE (cm + __" und „Breite (cm)" sehen dann gleich aus.
+ */
 .achsenReihe {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 10px;
 }
 
@@ -568,4 +574,59 @@
 
 .preisScroll .preisTabelle {
   min-width: 640px;
+}
+
+/* ---------------------------------------------------------------------------
+   GETEILTE ZELLE — Zentimeter links, gedruckte Bezeichnung rechts.
+
+   Stammdatenverwaltung Reform: „Wenn BREITE (cm+__er) oder HÖHE (cm+Raster) gewählt
+   sind, dann muss die Zelle geteilt sein, links gibt man den Zentimeter-Schwellenwert
+   an und rechts Dropdown, wo man dann die Raster / __er wählen kann. Links vorformatiert
+   mit cm im Feld und rechts Raster / er, dass man klar erkennt, wo was rein soll."
+
+   Die Einheit steht als eigenes, nicht anklickbares Element IM Feld statt als
+   Platzhaltertext: Ein Platzhalter verschwindet beim Tippen — genau dann, wenn man
+   wissen will, ob hier Zentimeter oder Raster hingehören.
+   --------------------------------------------------------------------------- */
+
+.geteilteZelle {
+  display: grid;
+  grid-template-columns: minmax(54px, 1fr) minmax(62px, 0.8fr);
+  gap: 4px;
+  align-items: center;
+}
+
+.masseingabe {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.masseingabe .zellInput {
+  padding-right: 26px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.masseinheit {
+  position: absolute;
+  right: 7px;
+  font-size: 0.6875rem;
+  color: var(--color-ink-muted);
+  pointer-events: none;
+}
+
+.etikettFeld {
+  min-width: 0;
+}
+
+.etikettFeld option[value=''] {
+  color: var(--color-ink-muted);
+}
+
+.zellHinweis {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.6875rem;
+  color: var(--color-ink-muted);
 }

@@ -600,6 +600,36 @@ export interface PricingSnapshotPosition {
   gesamt: number | null
   status: PositionsStatus
   hinweis?: string
+  /**
+   * Teilpositionen, wenn sich der Betrag aus mehreren Bezugsgrößen zusammensetzt —
+   * etwa einem Grundpreis und einem Preis je Quadratmeter. Fehlt das Feld oder enthält
+   * es genau einen Eintrag, ist die Position eine gewöhnliche Menge × Einzelpreis.
+   */
+  teile?: PricingSnapshotTeil[]
+}
+
+/**
+ * EINE TEILPOSITION.
+ *
+ * Aus der Stammdaten-Reform: „Grund_Plus_qm zu Matrix … Matrix kann dann eingegebene
+ * Länge × Preis pro cm oder cm² berechnen. Bei Achse Fixpreis kommt dann noch der
+ * Fixpreis darauf zu. Im Abschluss kann dann auch bei der Position
+ *
+ *     Teilpos1  123 cm  ×  123 €/m²
+ *     Teilpos2  1       ×  123 €       123 €
+ *
+ * … die Summe in der Zeile des unteren Preises, der in die Summe fließt."
+ */
+export interface PricingSnapshotTeil {
+  /** Die Menge als Zahl — Stückzahl, Zentimeter, Meter oder Quadratmeter. */
+  menge: number
+  /** Dieselbe Menge lesbar, mit Einheit („123 cm", „1,48 m²", „2"). */
+  mengeText: string
+  /** Betrag je Einheit. */
+  preis: number
+  /** Einheit des Betrags („€", „€/m²", „€/m", „€/cm"). */
+  preisEinheit: string
+  gesamt: number
 }
 
 /**

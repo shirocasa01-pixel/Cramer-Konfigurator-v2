@@ -59,7 +59,14 @@ function ArtikelKontext({ position }: { position: PricingSnapshotPosition }) {
   )
 }
 
-/** Die Achsen A1–A5, über die der Preis gefunden wurde — mit ihrer Bedeutung. */
+/**
+ * Die Achsen A1–A5, über die der Preis gefunden wurde.
+ *
+ * Angezeigt wird der Name der Achse, nicht ihre ganze Erläuterung: „HÖHE (cm + Raster)"
+ * statt „HÖHE (cm + Raster) — Höhenstufe, wird aufgerundet". In einer Positionsliste mit
+ * zwanzig Zeilen ist der Satz dahinter Rauschen; er steht weiterhin im Tooltip und
+ * ausführlich im Handbuch.
+ */
 function Achsen({ position }: { position: PricingSnapshotPosition }) {
   const belegt = position.achsen.filter((a) => a.wert !== '')
   if (belegt.length === 0) return null
@@ -68,11 +75,82 @@ function Achsen({ position }: { position: PricingSnapshotPosition }) {
       {belegt.map((achse) => (
         <span key={achse.spalte} className={styles.achse} title={achse.bedeutung}>
           <span className={styles.achseSpalte}>{achse.spalte}</span>
-          <span className={styles.achseName}>{achse.bedeutung}</span>
+          <span className={styles.achseName}>{achse.bedeutung.split('—')[0].trim()}</span>
           <span className={styles.achseWert}>{achse.wert}</span>
         </span>
       ))}
     </div>
+  )
+}
+
+/**
+ * MENGE · EINZELPREIS · BETRAG — bei mehreren Bezugsgrößen als Teilpositionen.
+ *
+ * Aus der Stammdaten-Reform: Ein Artikel kann seinen Preis aus mehreren Bezugsgrößen
+ * zusammensetzen — einem Grundpreis und einem Preis je Quadratmeter etwa. Die Position
+ * zeigt dann beide Zeilen und darunter die Summe:
+ *
+ *     Teilpos1   123 cm   ×   123 €/m²
+ *     Teilpos2   1        ×   123 €        123 €
+ *
+ * Die Summe steht in der Zeile des UNTEREN Betrags, der in sie einfließt, und ist nur
+ * dann fett, wenn sie aus zwei oder mehr Zeilen entsteht. Bei einer einzigen Bezugsgröße
+ * — dem Normalfall — sieht die Zeile aus wie eh und je.
+ */
+function Betragsspalten({ position }: { position: PricingSnapshotPosition }) {
+  const teile = position.teile ?? []
+
+  if (teile.length < 2) {
+    return (
+      <>
+        <td className={styles.tdNum}>{position.menge}×</td>
+        <td className={styles.tdNum}>
+          {position.einzelpreis == null ? '—' : formatEuro(position.einzelpreis)}
+        </td>
+        <td className={styles.tdNum}>
+          {position.gesamt == null ? (
+            <span className={styles.onRequest}>auf Anfrage</span>
+          ) : (
+            formatEuro(position.gesamt)
+          )}
+        </td>
+      </>
+    )
+  }
+
+  return (
+    <>
+      <td className={styles.tdNum}>
+        <span className={styles.teilStapel}>
+          {teile.map((t, i) => (
+            <span key={i}>{t.mengeText}</span>
+          ))}
+        </span>
+      </td>
+      <td className={styles.tdNum}>
+        <span className={styles.teilStapel}>
+          {teile.map((t, i) => (
+            <span key={i}>
+              × {formatEuro(t.preis)}
+              {t.preisEinheit === '€' ? '' : `/${t.preisEinheit.replace('€/', '')}`}
+            </span>
+          ))}
+        </span>
+      </td>
+      <td className={styles.tdNum}>
+        <span className={styles.teilStapel}>
+          {teile.map((_, i) =>
+            i === teile.length - 1 ? (
+              <strong key={i}>{position.gesamt == null ? '—' : formatEuro(position.gesamt)}</strong>
+            ) : (
+              <span key={i} aria-hidden="true">
+                &nbsp;
+              </span>
+            ),
+          )}
+        </span>
+      </td>
+    </>
   )
 }
 
@@ -159,17 +237,7 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPan
                       <Achsen position={p} />
                       {p.hinweis ? <div className={styles.posNote}>{p.hinweis}</div> : null}
                     </td>
-                    <td className={styles.tdNum}>{p.menge}×</td>
-                    <td className={styles.tdNum}>
-                      {p.einzelpreis == null ? '—' : formatEuro(p.einzelpreis)}
-                    </td>
-                    <td className={styles.tdNum}>
-                      {p.gesamt == null ? (
-                        <span className={styles.onRequest}>auf Anfrage</span>
-                      ) : (
-                        formatEuro(p.gesamt)
-                      )}
-                    </td>
+                    <Betragsspalten position={p} />
                   </tr>
                 ))}
               </tbody>
