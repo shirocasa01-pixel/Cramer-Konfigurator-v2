@@ -406,7 +406,15 @@ select.input:-moz-focusring {
 }
 
 .preisTabelle {
-  width: 100%;
+  /*
+   * `fixed` statt `auto`: Die Spaltenbreiten stehen im `<colgroup>` und hängen nicht
+   * mehr vom Inhalt sämtlicher Zeilen ab. Ohne das vermisst der Browser bei jedem
+   * getippten Zeichen die ganze Tabelle neu — bei 311 Preiszeilen die Hauptursache der
+   * spürbaren Verzögerung beim Schreiben und Löschen.
+   */
+  table-layout: fixed;
+  width: max-content;
+  min-width: 100%;
   border-collapse: separate;
   border-spacing: 0;
   border: 1px solid var(--color-line);

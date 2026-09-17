@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   achsen as achsenKatalog,
   dropdowns,
@@ -21,6 +21,7 @@ import {
   preisSchluessel,
   type Achsenwerte,
 } from '../../lib/stammdatenStore.ts'
+import { OHNE_AUTOFILL, ZellenFeld } from './ZellenFeld.tsx'
 import styles from './ArtikelDetailModal.module.css'
 
 /**
@@ -134,8 +135,6 @@ export function ArtikelDetailModal({
   /** Zähler für neu angelegte Zeilen — fortlaufend, damit `_localId` nie kollidiert. */
   const neueZeilenId = useRef(0)
   const [entfernt, setEntfernt] = useState<string[]>([])
-  /** Rohe Tastatureingabe je Preiszeile, solange das Feld den Fokus hat. */
-  const [preisEingaben, setPreisEingaben] = useState<Record<number, string>>({})
   const [fehler, setFehler] = useState<string | null>(null)
 
   useEffect(() => {
@@ -201,24 +200,72 @@ export function ArtikelDetailModal({
   const achsenAnzahl = Math.max(form.achsen.length, 1)
 
   /**
-   * Etiketten, die dieser Artikel in der Spalte schon führt — sie stehen im Dropdown
-   * ganz oben. So schreibt niemand versehentlich „60ER" neben „60er" und erzeugt damit
-   * eine zweite, nie getroffene Preisstufe.
+   * VORSCHLÄGE JE ACHSENSPALTE — einmal für die ganze Tabelle, nicht je Zelle.
+   *
+   * Die Liste zeigt, was dieser Artikel in der Spalte schon führt. So schreibt niemand
+   * versehentlich „60ER" neben „60er" und erzeugt damit eine zweite, nie getroffene
+   * Preisstufe; bei den Maßstufen stehen zusätzlich die üblichen Bezeichnungen bereit.
+   *
+   * Warum `useMemo`: Vorher rechnete jede Zelle ihre Liste beim Rendern selbst — bei
+   * 311 Zeilen × 5 Spalten sind das über eine halbe Million Durchläufe pro Tastendruck.
+   * Das war der zweite Grund für die Verzögerung beim Tippen.
    */
-  const etikettVorschlaege = (spalte: number): string[] => {
-    const code = form.achsen[spalte]
-    const ausDaten = zeilen
-      .map((z) => parseStufe(z.a[spalte]).etikett)
-      .filter(Boolean)
-    const standard = code === 'HOEHE' ? RASTER_ETIKETTEN : code === 'BREITE' ? BREITEN_ETIKETTEN : []
-    return [...new Set([...ausDaten, ...standard])]
-  }
+  const vorschlaegeJeSpalte = useMemo(
+    () =>
+      [0, 1, 2, 3, 4].map((spalte) => {
+        const code = form.achsen[spalte]
+        if (!code) return []
+        const art = achsenKatalog.find((a) => a.code === code)?.art
+        if (art === 'stufe') {
+          const ausDaten = zeilen.map((z) => parseStufe(z.a[spalte]).etikett).filter(Boolean)
+          const standard =
+            code === 'HOEHE' ? RASTER_ETIKETTEN : code === 'BREITE' ? BREITEN_ETIKETTEN : []
+          return [...new Set([...ausDaten, ...standard])]
+        }
+        if (art === 'mass' || art === 'preisart') return []
+        return [...new Set(zeilen.map((z) => (z.a[spalte] ?? '').trim()).filter(Boolean))].sort(
+          (a, b) => a.localeCompare(b, 'de'),
+        )
+      }),
+    [form.achsen, zeilen],
+  )
 
-  /** Freie Textwerte, die dieser Artikel in der Spalte schon führt (PG, LINIE+PG, AUSFÜHRUNG). */
-  const textVorschlaege = (spalte: number): string[] =>
-    [...new Set(zeilen.map((z) => (z.a[spalte] ?? '').trim()).filter(Boolean))].sort((a, b) =>
-      a.localeCompare(b, 'de'),
+  /*
+   * STABILE RÜCKRUFE.
+   *
+   * Sie hängen an der `_localId` der Zeile, nicht an ihrem Index: Ein Index verschiebt
+   * sich beim Löschen einer Zeile, die Rückrufe bekämen neue Identitäten und
+   * `React.memo` unten wäre wirkungslos. So bleibt beim Bearbeiten einer Zeile jede
+   * andere Zeile unberührt.
+   */
+  const aendereZelle = useCallback((localId: string, spalte: number, wert: string) => {
+    setZeilen((zs) =>
+      zs.map((z) => {
+        if (z._localId !== localId) return z
+        const neuA = [...z.a] as Achsenwerte
+        neuA[spalte] = wert
+        return { ...z, a: neuA }
+      }),
     )
+  }, [])
+
+  const aendereZeile = useCallback((localId: string, patch: Partial<Preiszeile>) => {
+    setZeilen((zs) => zs.map((z) => (z._localId === localId ? { ...z, ...patch } : z)))
+  }, [])
+
+  const entferneZeile = useCallback(
+    (localId: string) => {
+      setZeilen((zs) => {
+        const zeile = zs.find((z) => z._localId === localId)
+        if (zeile) {
+          const original = preiszeilen.find((z) => preisSchluessel(z) === preisSchluessel(zeile))
+          if (original) setEntfernt((e) => [...e, preisSchluessel(original)])
+        }
+        return zs.filter((z) => z._localId !== localId)
+      })
+    },
+    [preiszeilen],
+  )
 
   return (
     <div className={styles.backdrop} role="dialog" aria-modal="true" aria-label="Artikel bearbeiten">
@@ -265,6 +312,7 @@ export function ArtikelDetailModal({
             <div className={styles.felder}>
               <Feld label="Artikelnummer" hinweis={anlegen ? 'Muster TT-DDD-NNNN' : 'Identität — nicht änderbar'}>
                 <input
+                  {...OHNE_AUTOFILL}
                   className={[styles.input, styles.mono].join(' ')}
                   value={form.artikelnummer}
                   readOnly={!anlegen}
@@ -274,6 +322,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Kurzzeichen" hinweis="Lesehilfe, kein Schlüssel">
                 <input
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.kurzzeichen}
                   onChange={(e) => setFeld('kurzzeichen', e.target.value)}
@@ -281,6 +330,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Bezeichnung 1" breit>
                 <input
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.bezeichnung}
                   onChange={(e) => setFeld('bezeichnung', e.target.value)}
@@ -288,6 +338,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Bezeichnung 2" breit>
                 <input
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.bezeichnung2}
                   onChange={(e) => setFeld('bezeichnung2', e.target.value)}
@@ -295,6 +346,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Einheit">
                 <input
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.einheit}
                   onChange={(e) => setFeld('einheit', e.target.value)}
@@ -312,6 +364,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Quelle" hinweis="Herkunft in der gedruckten Preisliste">
                 <input
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.quelle}
                   onChange={(e) => setFeld('quelle', e.target.value)}
@@ -319,6 +372,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Preiszellen" hinweis="Anzahl laut Stamm">
                 <input
+                  {...OHNE_AUTOFILL}
                   className={[styles.input, styles.num].join(' ')}
                   value={form.preiszellen ?? ''}
                   onChange={(e) =>
@@ -328,6 +382,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Bemerkung" breit voll>
                 <textarea
+                  {...OHNE_AUTOFILL}
                   className={styles.textarea}
                   rows={3}
                   value={form.bemerkung}
@@ -341,6 +396,7 @@ export function ArtikelDetailModal({
             <div className={styles.felder}>
               <Feld label="Teileart" hinweis="Block 1 · Hauptschritt im Konfigurator">
                 <select
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.teileart}
                   onChange={(e) => setFeld('teileart', e.target.value as Artikel['teileart'])}
@@ -354,6 +410,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Dropdown" hinweis="Block 2 · Auswahlfeld, in dem der Artikel erscheint">
                 <select
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.dropdown}
                   onChange={(e) => setFeld('dropdown', e.target.value as Artikel['dropdown'])}
@@ -367,6 +424,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Preislogik">
                 <select
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.preislogik}
                   onChange={(e) => setFeld('preislogik', e.target.value as Artikel['preislogik'])}
@@ -380,6 +438,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Status">
                 <select
+                  {...OHNE_AUTOFILL}
                   className={styles.input}
                   value={form.status}
                   onChange={(e) => setFeld('status', e.target.value as Artikel['status'])}
@@ -393,6 +452,7 @@ export function ArtikelDetailModal({
               </Feld>
               <Feld label="Sortierung" hinweis="Reihenfolge im Dropdown">
                 <input
+                  {...OHNE_AUTOFILL}
                   className={[styles.input, styles.num].join(' ')}
                   value={form.sortierung ?? ''}
                   onChange={(e) =>
@@ -408,6 +468,7 @@ export function ArtikelDetailModal({
                 voll
               >
                 <input
+                  {...OHNE_AUTOFILL}
                   className={[styles.input, styles.mono].join(' ')}
                   value={form.modus}
                   placeholder="z. B. AVPR"
@@ -455,6 +516,7 @@ export function ArtikelDetailModal({
                     <label key={i} className={styles.achsenFeld}>
                       <span className={styles.achsenLabel}>A{i + 1}</span>
                       <select
+                        {...OHNE_AUTOFILL}
                         className={styles.input}
                         value={form.achsen[i] ?? ''}
                         onChange={(e) => {
@@ -483,6 +545,28 @@ export function ArtikelDetailModal({
 
               <div className={styles.preisScroll}>
               <table className={styles.preisTabelle}>
+                {/*
+                 * FESTE SPALTENBREITEN — der dritte Teil der Lag-Korrektur.
+                 *
+                 * Mit der voreingestellten `table-layout: auto` hängt die Breite jeder
+                 * Spalte vom Inhalt ALLER Zeilen ab. Ein einziges zusätzliches Zeichen in
+                 * einer Zelle zwingt den Browser deshalb, die Tabelle mit ihren bis zu 311
+                 * Zeilen komplett neu zu vermessen — gemessen rund 25 ms pro Tastendruck,
+                 * und zwar unabhängig davon, wie sparsam React rendert.
+                 *
+                 * Feste Breiten nehmen diese Abhängigkeit heraus: Die Spalten stehen, und
+                 * eine Eingabe berührt nur noch ihre eigene Zelle. Nebenbei hören die
+                 * Spalten auf, beim Tippen zu springen.
+                 */}
+                <colgroup>
+                  {Array.from({ length: achsenAnzahl }, (_, i) => (
+                    <col key={i} style={{ width: 190 }} />
+                  ))}
+                  <col style={{ width: 112 }} />
+                  <col style={{ width: 104 }} />
+                  <col style={{ width: 68 }} />
+                  <col style={{ width: 38 }} />
+                </colgroup>
                 <thead>
                   <tr>
                     {Array.from({ length: achsenAnzahl }, (_, i) => (
@@ -510,94 +594,17 @@ export function ArtikelDetailModal({
                     </tr>
                   ) : null}
 
-                  {zeilen.map((zeile, index) => (
-                    <tr key={zeile._localId}>
-                      {Array.from({ length: achsenAnzahl }, (_, i) => (
-                        <td key={i}>
-                          <Achsenzelle
-                            code={form.achsen[i]}
-                            wert={zeile.a[i] ?? ''}
-                            etikettVorschlaege={etikettVorschlaege(i)}
-                            textVorschlaege={textVorschlaege(i)}
-                            onChange={(neu) => {
-                              const neuA = [...zeile.a] as Achsenwerte
-                              neuA[i] = neu
-                              setZeilen((zs) => zs.map((z, j) => (j === index ? { ...z, a: neuA } : z)))
-                            }}
-                          />
-                        </td>
-                      ))}
-                      <td>
-                        {/* Deutsche Eingabe: „1.250,00" sind eintausendzweihundertfünfzig.
-                            Der Punkt tausendert, das Komma dezimiert. Gespeichert wird immer
-                            die Zahl, angezeigt beim Verlassen des Feldes die formatierte
-                            Fassung. */}
-                        <input
-                          className={[styles.zellInput, styles.num, styles.mono].join(' ')}
-                          inputMode="decimal"
-                          value={preisEingaben[index] ?? (zeile.preis == null ? '' : formatDezimal(zeile.preis))}
-                          onChange={(e) => {
-                            const roh = e.target.value
-                            setPreisEingaben((p) => ({ ...p, [index]: roh }))
-                            const wert = parseEingabeDe(roh)
-                            setZeilen((zs) =>
-                              zs.map((z, j) => (j === index ? { ...z, preis: roh.trim() === '' ? null : wert ?? z.preis } : z)),
-                            )
-                          }}
-                          onBlur={() =>
-                            setPreisEingaben((p) => {
-                              const kopie = { ...p }
-                              delete kopie[index]
-                              return kopie
-                            })
-                          }
-                        />
-                      </td>
-                      <td>
-                        <select
-                          className={styles.zellInput}
-                          value={zeile.status}
-                          onChange={(e) =>
-                            setZeilen((zs) =>
-                              zs.map((z, j) =>
-                                j === index ? { ...z, status: e.target.value as Preiszeile['status'] } : z,
-                              ),
-                            )
-                          }
-                        >
-                          {PREIS_STATUS_WERTE.map((s) => (
-                            <option key={s} value={s}>
-                              {s}
-                            </option>
-                          ))}
-                        </select>
-                      </td>
-                      <td>
-                        <input
-                          className={[styles.zellInput, styles.num].join(' ')}
-                          value={zeile.seite}
-                          onChange={(e) =>
-                            setZeilen((zs) => zs.map((z, j) => (j === index ? { ...z, seite: e.target.value } : z)))
-                          }
-                        />
-                      </td>
-                      <td className={styles.preisAktion}>
-                        <button
-                          type="button"
-                          className={styles.entfernen}
-                          title="Preiszeile entfernen"
-                          onClick={() => {
-                            const original = preiszeilen.find(
-                              (z) => preisSchluessel(z) === preisSchluessel(zeile),
-                            )
-                            if (original) setEntfernt((e) => [...e, preisSchluessel(original)])
-                            setZeilen((zs) => zs.filter((_, j) => j !== index))
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </td>
-                    </tr>
+                  {zeilen.map((zeile) => (
+                    <PreisZeile
+                      key={zeile._localId}
+                      zeile={zeile}
+                      achsen={form.achsen}
+                      achsenAnzahl={achsenAnzahl}
+                      vorschlaegeJeSpalte={vorschlaegeJeSpalte}
+                      onZelle={aendereZelle}
+                      onZeile={aendereZeile}
+                      onEntfernen={entferneZeile}
+                    />
                   ))}
                 </tbody>
               </table>
@@ -648,6 +655,99 @@ export function ArtikelDetailModal({
 }
 
 /**
+ * EINE PREISZEILE — bewusst als eigene, gemerkte Komponente.
+ *
+ * `React.memo` ist hier kein vorsorglicher Feinschliff, sondern die zweite Hälfte der
+ * Lag-Korrektur: Meldet eine Zelle ihren fertigen Wert nach oben, rendert der
+ * Formular-State die Tabelle neu. Ohne diese Schranke liefen dabei alle 311 Zeilen
+ * mit — obwohl sich genau eine geändert hat. Die Rückrufe von oben sind stabil
+ * (`useCallback`), sodass der Vergleich tatsächlich greift.
+ */
+const PreisZeile = memo(function PreisZeile({
+  zeile,
+  achsen,
+  achsenAnzahl,
+  vorschlaegeJeSpalte,
+  onZelle,
+  onZeile,
+  onEntfernen,
+}: {
+  zeile: ZeilenEintrag
+  achsen: AchseCode[]
+  achsenAnzahl: number
+  vorschlaegeJeSpalte: string[][]
+  onZelle: (localId: string, spalte: number, wert: string) => void
+  onZeile: (localId: string, patch: Partial<Preiszeile>) => void
+  onEntfernen: (localId: string) => void
+}) {
+  return (
+    <tr>
+      {Array.from({ length: achsenAnzahl }, (_, i) => (
+        <td key={i}>
+          <Achsenzelle
+            code={achsen[i]}
+            wert={zeile.a[i] ?? ''}
+            vorschlaege={vorschlaegeJeSpalte[i] ?? []}
+            onChange={(neu) => onZelle(zeile._localId, i, neu)}
+          />
+        </td>
+      ))}
+      <td>
+        {/* Deutsche Eingabe: „1.250,00" sind eintausendzweihundertfünfzig. Der Punkt
+            tausendert, das Komma dezimiert. Gespeichert wird immer die Zahl, angezeigt
+            beim Verlassen des Feldes die formatierte Fassung — das Feld selbst hält
+            die Roheingabe, solange getippt wird. */}
+        <ZellenFeld
+          className={[styles.zellInput, styles.num, styles.mono].join(' ')}
+          inputMode="decimal"
+          ariaLabel="Preis in EUR"
+          wert={zeile.preis == null ? '' : formatDezimal(zeile.preis)}
+          onCommit={(roh) => {
+            const wert = parseEingabeDe(roh)
+            onZeile(zeile._localId, {
+              preis: roh.trim() === '' ? null : wert ?? zeile.preis,
+            })
+          }}
+        />
+      </td>
+      <td>
+        <select
+          className={styles.zellInput}
+          value={zeile.status}
+          aria-label="Status der Preiszeile"
+          {...OHNE_AUTOFILL}
+          onChange={(e) => onZeile(zeile._localId, { status: e.target.value as Preiszeile['status'] })}
+        >
+          {PREIS_STATUS_WERTE.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
+        </select>
+      </td>
+      <td>
+        <ZellenFeld
+          className={[styles.zellInput, styles.num].join(' ')}
+          ariaLabel="Seite der Preisliste"
+          wert={zeile.seite}
+          onCommit={(neu) => onZeile(zeile._localId, { seite: neu })}
+        />
+      </td>
+      <td className={styles.preisAktion}>
+        <button
+          type="button"
+          className={styles.entfernen}
+          title="Preiszeile entfernen"
+          onClick={() => onEntfernen(zeile._localId)}
+        >
+          ✕
+        </button>
+      </td>
+    </tr>
+  )
+})
+
+/**
  * EINE ACHSENZELLE — die Eingabe richtet sich nach der Art der Achse.
  *
  * Stammdatenverwaltung Reform, 17.09.2026:
@@ -659,37 +759,43 @@ export function ArtikelDetailModal({
  *
  * Vier Fälle:
  *
- *   stufe     geteilt: Zentimeter | gedruckte Bezeichnung (Dropdown mit Freitext)
+ *   stufe     geteilt: Zentimeter | gedruckte Bezeichnung (mit Vorschlagsliste)
  *   mass      nur Zentimeter; leer = die Achse benennt bloß das Maß für die Menge
  *   preisart  geschlossene Auswahl: Fixpreis · €/cm · €/m · €/m²
  *   text/liste  Freitext mit Vorschlägen aus den übrigen Zeilen desselben Artikels
  *
  * Gespeichert wird immer EIN String in der Zelle („60 cm | 60er"). Die Teilung ist eine
  * Eingabehilfe, kein zweites Datenfeld — die Mappe behält ihre fünf Achsenspalten.
+ *
+ * Alle Felder übernehmen erst beim Verlassen oder mit Enter (siehe `ZellenFeld`): Ein
+ * halb getippter Wert soll weder den Formular-State anfassen noch in einer Liste landen.
  */
 function Achsenzelle({
   code,
   wert,
-  etikettVorschlaege,
-  textVorschlaege,
+  vorschlaege,
   onChange,
 }: {
   code: AchseCode | undefined
   wert: string
-  etikettVorschlaege: string[]
-  textVorschlaege: string[]
+  vorschlaege: string[]
   onChange: (wert: string) => void
 }) {
   const art = code ? achsenKatalog.find((a) => a.code === code)?.art : undefined
-  const listenId = `achsenwerte-${code ?? 'leer'}`
 
   if (!code) {
-    return <input className={styles.zellInput} value={wert} disabled readOnly />
+    return <input className={styles.zellInput} value={wert} disabled readOnly {...OHNE_AUTOFILL} />
   }
 
   if (art === 'preisart') {
     return (
-      <select className={styles.zellInput} value={wert} onChange={(e) => onChange(e.target.value)}>
+      <select
+        className={styles.zellInput}
+        value={wert}
+        aria-label="Bezugsgröße des Betrags"
+        {...OHNE_AUTOFILL}
+        onChange={(e) => onChange(e.target.value)}
+      >
         <option value="">{PREISARTEN.FIX} (Vorgabe)</option>
         {PREISART_WERTE.map((p) => (
           <option key={p} value={p}>
@@ -707,14 +813,16 @@ function Achsenzelle({
 
     const cmFeld = (
       <span className={styles.masseingabe}>
-        <input
+        <ZellenFeld
           className={styles.zellInput}
           inputMode="decimal"
-          value={cm == null ? '' : cmText(cm)}
-          aria-label="Zentimeter-Schwellenwert"
-          onChange={(e) => {
-            const roh = e.target.value.trim().replace(',', '.')
-            const zahl = roh === '' ? null : Number(roh)
+          ariaLabel="Zentimeter-Schwellenwert"
+          wert={cm == null ? '' : cmText(cm)}
+          onCommit={(roh) => {
+            // Erst beim Übernehmen in eine Zahl umgewandelt: Wer „1,5" tippt, soll das
+            // Komma stehen sehen und nicht nach dem ersten Zeichen wieder verlieren.
+            const text = roh.trim().replace(',', '.')
+            const zahl = text === '' ? null : Number(text)
             setze(zahl != null && Number.isFinite(zahl) ? zahl : null, etikett)
           }}
         />
@@ -728,37 +836,26 @@ function Achsenzelle({
     return (
       <span className={styles.geteilteZelle}>
         {cmFeld}
-        <input
+        <ZellenFeld
           className={[styles.zellInput, styles.etikettFeld].join(' ')}
-          list={listenId}
-          value={etikett}
-          placeholder={code === 'HOEHE' ? 'Raster' : 'er'}
-          aria-label={code === 'HOEHE' ? 'Rasterbezeichnung' : 'Breitenbezeichnung'}
-          onChange={(e) => setze(cm, e.target.value)}
+          wert={etikett}
+          vorschlaege={vorschlaege}
+          platzhalter={code === 'HOEHE' ? 'Raster' : 'er'}
+          ariaLabel={code === 'HOEHE' ? 'Rasterbezeichnung' : 'Breitenbezeichnung'}
+          onCommit={(neu) => setze(cm, neu)}
         />
-        <datalist id={listenId}>
-          {etikettVorschlaege.map((v) => (
-            <option key={v} value={v} />
-          ))}
-        </datalist>
       </span>
     )
   }
 
   return (
-    <>
-      <input
-        className={styles.zellInput}
-        list={listenId}
-        value={wert}
-        onChange={(e) => onChange(e.target.value)}
-      />
-      <datalist id={listenId}>
-        {textVorschlaege.map((v) => (
-          <option key={v} value={v} />
-        ))}
-      </datalist>
-    </>
+    <ZellenFeld
+      className={styles.zellInput}
+      wert={wert}
+      vorschlaege={vorschlaege}
+      ariaLabel={code}
+      onCommit={onChange}
+    />
   )
 }
 

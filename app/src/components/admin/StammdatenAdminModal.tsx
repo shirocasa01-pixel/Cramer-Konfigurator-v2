@@ -52,6 +52,7 @@ import { DatensatzModal, type FeldDef } from './DatensatzModal'
 import { Handbuch } from './Handbuch'
 import { MehrfachFilter } from './MehrfachFilter'
 import styles from './StammdatenAdminModal.module.css'
+import { OHNE_AUTOFILL } from './ZellenFeld.tsx'
 
 /**
  * STAMMDATEN & ARTIKELVERWALTUNG.
@@ -857,6 +858,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
                 ⌕
               </span>
               <input
+                {...OHNE_AUTOFILL}
                 type="search"
                 className={styles.suche}
                 placeholder="Suchen …"

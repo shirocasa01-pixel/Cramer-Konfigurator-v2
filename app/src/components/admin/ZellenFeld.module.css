@@ -1,0 +1,66 @@
+/* =====================================================================
+   ZELLENFELD · Eingabefeld mit eigener Vorschlagsliste
+   ---------------------------------------------------------------------
+   Ersetzt das native `<datalist>`-Menü des Browsers, das in seinem eigenen
+   (dunklen) Systemdesign erschien, neben dem Feld statt darunter saß und die
+   Formular-Historie des Browsers mit hineinmischte.
+
+   Alle Werte kommen aus `styles/tokens.css` — dieselbe Sprache wie der
+   Konfigurator: weiße Fläche, Haarlinie, weicher Schatten, 8er-Radius.
+   ===================================================================== */
+
+.huelle {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+
+.liste {
+  /*
+   * `fixed` + Portal: Die Preistabelle scrollt waagerecht; ein Kind im Scroll-
+   * container wäre an dessen Rand abgeschnitten. Die Koordinaten setzt die
+   * Komponente aus der Bildschirmposition des Feldes.
+   */
+  position: fixed;
+  z-index: 1200;
+  max-height: 232px;
+  margin: 0;
+  padding: 4px;
+  overflow-y: auto;
+  list-style: none;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+.eintrag {
+  display: block;
+  width: 100%;
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font: inherit;
+  font-size: 0.8125rem;
+  line-height: 1.35;
+  text-align: left;
+  color: var(--color-ink);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.eintrag:hover {
+  background: var(--color-surface-soft);
+}
+
+/* Tastatur-Markierung (Pfeiltasten) — deutlicher als der Mauszeiger-Hover. */
+.eintragMarkiert,
+.eintragMarkiert:hover {
+  background: var(--color-surface-sunken);
+}
+
+/* Der bereits gespeicherte Wert bleibt erkennbar, ohne die Liste zu überladen. */
+.eintrag[aria-selected='true'] {
+  font-weight: 600;
+}

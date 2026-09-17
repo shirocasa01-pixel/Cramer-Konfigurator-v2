@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import styles from './ArtikelDetailModal.module.css'
+import { OHNE_AUTOFILL } from './ZellenFeld.tsx'
 
 /**
  * DATENSATZ-EDITOR — feldgesteuertes Fenster für Berater und Filialen.
@@ -114,6 +115,7 @@ export function DatensatzModal<T extends object>({
                   <span className={styles.feldLabel}>{f.label}</span>
                   {f.optionen ? (
                     <select
+                      {...OHNE_AUTOFILL}
                       className={styles.input}
                       value={String((entwurf as Record<string, unknown>)[f.feld] ?? '')}
                       // Schlüsselfelder sind auch als Auswahlliste nur beim Anlegen
@@ -130,6 +132,7 @@ export function DatensatzModal<T extends object>({
                     </select>
                   ) : (
                     <input
+                      {...OHNE_AUTOFILL}
                       className={[styles.input, f.mono ? styles.mono : ''].filter(Boolean).join(' ')}
                       value={String((entwurf as Record<string, unknown>)[f.feld] ?? '')}
                       readOnly={f.schluessel && !anlegen}
