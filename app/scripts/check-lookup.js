@@ -9,7 +9,7 @@
  */
 
 import { modusErlaubt, parseModus, normalizeModus, istSonderanfertigung } from '../src/lib/modus.ts'
-import { SERIEN_CODES } from '../src/data/stammdaten.generated.ts'
+import { SERIEN_CODES, mitarbeiter } from '../src/data/stammdaten.generated.ts'
 import {
   artikelFuerSerie, getBerater, dropdownsFuerSchritt, findePreis,
   parseArtikelnummer, schritte, serienVon,
@@ -75,7 +75,14 @@ ok('Artikelnummer 30-012-0011 zerlegt sich in 3 Blöcke', (() => {
 // unbemerkt weiter durchs System.
 ok('altes Vier-Block-Format → null', parseArtikelnummer('30-30-05-0011') === null)
 ok('unvollständige Artikelnummer → null', parseArtikelnummer('30-012') === null)
-ok('3 aktive Berater aus „40 Mitarbeiter"', (() => { const b = getBerater(); return b.length === 3 && b[0].name === 'Anna Berger' })())
+// Keine feste Zahl: Ein neuer Berater ist eine Zeile in der Mappe und darf diese Prüfung
+// nicht umwerfen. Geprüft wird, dass die Liste deckungsgleich mit den aktiven
+// Berater-Zeilen aus „40 Mitarbeiter" ist — und dass der Systemadministrator fehlt.
+ok('aktive Berater aus „40 Mitarbeiter"', (() => {
+  const erwartet = mitarbeiter.filter((m) => m.rolle === 'berater' && m.status === 'aktiv')
+  const b = getBerater()
+  return b.length === erwartet.length && b.every((x, i) => x.personalnr === erwartet[i].personalnr)
+})())
 
 gruppe('F) Schritte und Dropdowns je Serie (aus Modus + Artikelgruppe)')
 for (const serieId of ['refugium', 'tavolo', 'cavum', 'atrium']) {

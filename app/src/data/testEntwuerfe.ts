@@ -1,4 +1,5 @@
 import type { Draft } from '../types'
+import { praxistestEntwuerfe } from './praxistestEntwuerfe.ts'
 
 /**
  * TEST- UND BEISPIEL-ENTWÜRFE.
@@ -409,4 +410,5 @@ export const testEntwuerfe: Draft[] = [
   preisprobeEntwurf,
   beispielDrehtuerEntwurf,
   beispielSchiebetuerEntwurf,
+  ...praxistestEntwuerfe,
 ]

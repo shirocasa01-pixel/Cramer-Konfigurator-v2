@@ -2399,6 +2399,7 @@ export const mitarbeiter: readonly Mitarbeiter[] = [
   { personalnr: "M-002", name: "Thomas Krüger", email: "thomas.krueger@cramer.de", rolle: "berater", filiale: "F-001", status: "aktiv", bemerkung: "" },
   { personalnr: "M-003", name: "Maria Schmidt", email: "maria.schmidt@cramer.de", rolle: "berater", filiale: "F-002", status: "aktiv", bemerkung: "" },
   { personalnr: "M-900", name: "Systemadministration", email: "admin@cramer.de", rolle: "admin", filiale: "", status: "aktiv", bemerkung: "Rollen: berater | admin" },
+  { personalnr: "M-004", name: "Sarib Test-Berater", email: "sarib.test@cramer.de", rolle: "berater", filiale: "F-001", status: "aktiv", bemerkung: "Praxistest-Konto — 20 Testentwürfe (npm run praxis:test)" },
 ]
 
 export const filialen: readonly Filiale[] = [

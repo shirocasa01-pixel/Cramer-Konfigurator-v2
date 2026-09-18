@@ -88,6 +88,22 @@ function defaultStore(): UserStore {
   }
 }
 
+/**
+ * Berater aus den Stammdaten UND die von Hand angelegten zusammenführen.
+ *
+ * Der gespeicherte Bestand darf die Mappe nicht überstimmen: Ein neuer Berater ist laut
+ * `data/consultants.ts` eine Zeile in „40 Mitarbeiter" und keine Code-Änderung — ohne
+ * diese Zusammenführung erschiene er aber nur in Browsern, die den Bestand noch nie
+ * gespeichert haben. Umgekehrt bleiben im Dashboard angelegte Berater (eigene ID, nicht
+ * in der Mappe) erhalten.
+ */
+function mergeConsultants(gespeichert: Consultant[] | undefined): Consultant[] {
+  const ausStammdaten = getConsultants()
+  if (!gespeichert?.length) return ausStammdaten
+  const bekannt = new Set(ausStammdaten.map((c) => c.id))
+  return [...ausStammdaten, ...gespeichert.filter((c) => !bekannt.has(c.id))]
+}
+
 function loadStore(): UserStore {
   try {
     const raw = localStorage.getItem(USERS_KEY)
@@ -95,7 +111,7 @@ function loadStore(): UserStore {
       const parsed = JSON.parse(raw) as Partial<UserStore>
       return {
         admins: parsed.admins ?? [],
-        consultants: parsed.consultants ?? getConsultants(),
+        consultants: mergeConsultants(parsed.consultants),
         settings: {
           enforceCramerEmail: Boolean(parsed.settings?.enforceCramerEmail),
           maintenanceMode: Boolean(parsed.settings?.maintenanceMode),

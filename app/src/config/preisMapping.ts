@@ -332,6 +332,8 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
   'hemdeinsatz-craft': { artikel: '40-023-0008', nutztPg: true },
   'rollboden-schuhablage-craft': { artikel: '40-023-0010', nutztPg: true },
   kleiderbuegelhalter: { artikel: '40-023-0009' },
+  revisionsklappe: { artikel: '50-027-0003' },
+  rueckwandausschnitt: { artikel: '50-027-0004' },
 }
 
 /**
@@ -360,6 +362,13 @@ export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
     D: { artikel: '40-017-0004', artikelBeiAuswahl: '40-017-0023', nutztPg: true },
     E: { artikel: '40-017-0005', artikelBeiAuswahl: '40-017-0024', nutztPg: true },
     F: { artikel: '40-017-0006', artikelBeiAuswahl: '40-017-0025', nutztPg: true },
+    // G und H sind Festpreis-Container und nur im 100er Korpus lieferbar (S. 30); sie
+    // führen deshalb keine Preisgruppen-Achse. Das Preisblatt kennt DREI G-Ausführungen
+    // — 12 Hosenhalter (-0007), 2 Wäschesäcke (-0009), 6 Hosenhalter + 1 Wäschesack
+    // (-0011) — zum identischen Preis. Der Katalog bietet bisher nur ein „G" an; bis er
+    // die drei unterscheidet, steht hier die erste Ausführung, der Betrag stimmt für alle.
+    G: { artikel: '40-017-0007', artikelBeiAuswahl: '40-017-0008' },
+    H: { artikel: '40-017-0013', artikelBeiAuswahl: '40-017-0014' },
   },
   'container-craft': {
     A: { artikel: '40-017-0015', artikelBeiAuswahl: '40-017-0026', nutztPg: true },
@@ -399,12 +408,6 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
   const treffer = /^(\d+(?:[.,]\d+)?)\s*R$/i.exec(variante.trim())
   return treffer ? Number(treffer[1].replace(',', '.')) : undefined
 }
-
-/**
- * Ausstattungs-Optionen ohne Preiszeile. Sie erzeugen bewusst eine Position mit Status
- * „auf Anfrage" statt stillschweigend zu fehlen — die Arbeitsvorbereitung sieht sie trotzdem.
- */
-export const ausstattungOhnePreis = new Set<string>(['revisionsklappe', 'rueckwandausschnitt'])
 
 // ---------------------------------------------------------------------------
 // Prozentuale Zuschläge — ersatzlos entfallen

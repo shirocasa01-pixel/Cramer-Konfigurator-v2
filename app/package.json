@@ -25,7 +25,9 @@
     "data:migrate-pg": "node scripts/migrate-refugium-pg.js",
     "pg:test": "node scripts/check-refugium-pg.js",
     "data:migrate-achsen": "node scripts/migrate-achsen-reform.js",
-    "achsen:test": "node scripts/check-achsen-reform.js"
+    "achsen:test": "node scripts/check-achsen-reform.js",
+    "data:migrate-testberater": "node scripts/migrate-testberater.js",
+    "praxis:test": "node scripts/check-praxistest.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

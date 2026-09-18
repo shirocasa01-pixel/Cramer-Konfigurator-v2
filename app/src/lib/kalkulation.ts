@@ -33,7 +33,6 @@ import { equipmentAnzeigename, getEquipmentOption, type EquipmentOption } from '
 import {
   anzahlMittelseiten,
   ausstattungLookups,
-  ausstattungOhnePreis,
   containerLookups,
   containerRaster,
   rasterAusVariante,
@@ -931,24 +930,6 @@ function baueAusstattungsPositionen(
       }
 
       const menge = mengeFuerAusstattung(item, option)
-
-      if (ausstattungOhnePreis.has(item.optionId)) {
-        positionen.push({
-          id: naechsteId(),
-          herkunft: 'gewaehlt',
-          bucket: 'innen',
-          segment,
-          label,
-          achsen: [],
-          teile: [],
-          menge,
-          einzelpreis: null,
-          gesamt: null,
-          status: 'auf-anfrage',
-          hinweis: 'Für diese Position ist im Preisblatt keine Zeile hinterlegt – AV-Prüfung.',
-        })
-        return
-      }
 
       // Container: die Variante bestimmt Artikel bzw. Rasterstufe.
       const varianten = containerLookups[item.optionId]
