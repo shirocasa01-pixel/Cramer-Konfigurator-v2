@@ -309,7 +309,17 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
     const kind = achsenArt(achse)
     if (kind !== 'text' && kind !== 'liste') return
     const soll = merkmalAnfrage(achse, anfrage)
-    if (soll == null || soll === '') return
+    if (soll == null || soll === '') {
+      // Nur überspringen, wenn die Achse für diesen Artikel ohnehin nur einen Wert führt
+      // (Artikel mit einer einzigen Preiszelle). Führt sie mehrere Werte — z. B. die
+      // Drehtür mit Glatt1..4/CurvePG1/CurvePG2-4/Line/… —, darf NICHT stillschweigend
+      // die erste Zeile gewinnen: Vor der Farb-/Stil-Linien-Wahl (liniePg/pg noch
+      // undefined) lieferte das sonst immer Glatt1/PG1, unabhängig von der später
+      // gewählten Linie.
+      const vorhandeneWerte = new Set(kandidaten.map((zeile) => zeile.a[index]).filter(Boolean))
+      if (vorhandeneWerte.size > 1) kandidaten = []
+      return
+    }
     kandidaten = kandidaten.filter((zeile) =>
       achsenwertPasst(zeile.a[index], soll, { listenAchse: kind === 'liste' }),
     )

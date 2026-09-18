@@ -412,7 +412,11 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
   const stand = useStammdaten()
   const [bereich, setBereich] = useState<Bereich>('artikel')
   const [suche, setSuche] = useState('')
-  const [serienFilter, setSerienFilter] = useState<string[]>([])
+  // Default: nur Refugium — das aktuell relevante Kleiderschrank-Sortiment. Die anderen
+  // Serien bleiben einen Klick entfernt (Filter zurücksetzen); ihr Artikel-Status wird davon
+  // nicht berührt, sie sind nur nicht die Vorauswahl beim Öffnen.
+  const refugiumCode = serien.find((s) => s.id === 'refugium')?.code
+  const [serienFilter, setSerienFilter] = useState<string[]>(refugiumCode ? [refugiumCode] : [])
   const [teileartFilter, setTeileartFilter] = useState<string[]>([])
   const [statusFilter, setStatusFilter] = useState<string[]>([])
   const [dropdownFilter, setDropdownFilter] = useState<string[]>([])
