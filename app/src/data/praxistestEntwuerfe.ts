@@ -723,33 +723,36 @@ const p17 = baueEntwurf({
 const p18 = baueEntwurf({
   nr: 18,
   titel: 'Beidseitige LED-Bänder, LED-Syncro & Verblendung korpusbündig',
-  raster: '21R',
+  // Bewusst 18 Raster: Das LED-Band führt seine Höhenachse nur bis 235 cm. In 21 Rastern
+  // wäre die Position „auf Anfrage" — und genau der beidseitige LED-Preis soll hier
+  // belegt werden. Die 21-Raster-Lücke zeigen die Entwürfe 02, 06, 09, 11, 13 und 20.
+  raster: '18R',
   breiten: ['100', '100', '60'],
   innen: FURNIER_NUSSBAUM,
   aussen: FURNIER_NUSSBAUM,
   verblendung: { art: 'korpusbuendig', lfm: '2,4', positionNote: 'links und oben, Anschluss an die Wand' },
   segmente: [
     {
-      elements: tuerPaar('p18t1', '49', 'glatt', FURNIER_NUSSBAUM, '21R'),
+      elements: tuerPaar('p18t1', '49', 'glatt', FURNIER_NUSSBAUM, '18R'),
       equipment: [
         { id: 'p18q1a', optionId: 'led-band-aluprofil', seiten: { links: true, rechts: true } },
         boeden('p18q1b', [8, 14]),
-        stange('p18q1c', 19),
+        stange('p18q1c', 16),
       ],
     },
     {
-      elements: tuerPaar('p18t2', '49', 'glatt', FURNIER_NUSSBAUM, '21R'),
+      elements: tuerPaar('p18t2', '49', 'glatt', FURNIER_NUSSBAUM, '18R'),
       equipment: [
         { id: 'p18q2a', optionId: 'led-band-aluprofil', seiten: { links: true } },
         { id: 'p18q2b', optionId: 'led-syncro' },
-        stange('p18q2c', 19),
+        stange('p18q2c', 16),
       ],
     },
     {
-      elements: [drehtuer('p18t3a', 'D3', '59', 'glatt', FURNIER_NUSSBAUM, '21R', 'rechts')],
+      elements: [drehtuer('p18t3a', 'D3', '59', 'glatt', FURNIER_NUSSBAUM, '18R', 'rechts')],
       equipment: [
         { id: 'p18q3a', optionId: 'glasboden', qty: 2, hoehen: [{ modus: 'raster', raster: 10 }, { modus: 'raster', raster: 15 }], choices: { glasart: 'rauchglas-grau' } },
-        stange('p18q3b', 19),
+        stange('p18q3b', 16),
       ],
     },
   ],
