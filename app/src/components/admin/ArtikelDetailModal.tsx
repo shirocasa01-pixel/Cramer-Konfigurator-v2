@@ -12,6 +12,7 @@ import {
 import { formatDezimal, parseEingabeDe } from '../../lib/format.ts'
 import { PREISARTEN, baueStufenwert, cmText, parseStufe } from '../../lib/preisAchsen.ts'
 import { parseModus } from '../../lib/modus.ts'
+import { useScrollSperre } from '../../lib/scrollSperre.ts'
 import {
   aendereArtikel,
   aenderePreiszeile,
@@ -126,6 +127,8 @@ export function ArtikelDetailModal({
   startBereich = 'allgemein',
   onClose,
 }: ArtikelDetailModalProps) {
+  // Dieser Dialog wird nur gerendert, wenn er offen ist — die Sperre gilt also immer.
+  useScrollSperre(true)
   const anlegen = artikel === null
   const [bereich, setBereich] = useState<Bereich>(startBereich)
   const [form, setForm] = useState<Artikel>(() => ({ ...(artikel ?? leererArtikel()) }))

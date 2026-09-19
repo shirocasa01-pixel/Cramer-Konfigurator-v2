@@ -31,6 +31,7 @@ import { formatDezimal } from '../../lib/format'
 import { caPrefix, formatDimensions } from '../../lib/massFormat'
 import { describeKorpusGrunddatenZeilen } from '../../lib/korpusMass'
 import type { FrontElement, KorpusGrunddaten, KorpusInnen, PriceGroup } from '../../types'
+import { abschnittTexte } from '../../lib/schemaStore'
 import styles from './Summary.module.css'
 
 /**
@@ -60,6 +61,7 @@ export default function SummaryPage() {
   const fronts = draft.fronts ?? { columns: [] }
 
   const dim = draft.dimensions
+  const abschlussTexte = abschnittTexte('abschluss', { titel: 'Zusammenfassung & Abschluss' })
 
   /**
    * Auftrags- und Artikelnummer sind bei der Anlage bewusst optional — der Auftrag
@@ -93,11 +95,8 @@ export default function SummaryPage() {
     <AppShell>
       <div className={styles.page}>
         <StepIndicator activeKey="summary" />
-        <h1 className={styles.title}>Zusammenfassung &amp; Abschluss</h1>
-        <p className={styles.lead}>
-          Alle Angaben im Überblick. Handzeichnung per Smartphone scannen, das kompakte
-          AV-PDF erzeugen und den Entwurf abschließen.
-        </p>
+        <h1 className={styles.title}>{abschlussTexte.titel}</h1>
+        {abschlussTexte.beschreibung ? <p className={styles.lead}>{abschlussTexte.beschreibung}</p> : null}
 
         {/* Scan-Bereich */}
         <section className={styles.scan} aria-label="Handzeichnung scannen">

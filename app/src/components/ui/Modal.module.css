@@ -13,6 +13,11 @@
 .dialog {
   width: 100%;
   max-width: 440px;
+  /* Nie hoeher als das Fenster: sonst laeuft der Inhalt unten heraus und ist
+     nicht erreichbar, weil nur die Seite dahinter scrollt. */
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface);
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
@@ -20,6 +25,7 @@
 }
 
 .header {
+  flex: none;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -50,5 +56,19 @@
 }
 
 .body {
+  /* Der einzige scrollende Bereich — Kopf und Fuss bleiben stehen. */
+  flex: 1 1 auto;
+  overflow-y: auto;
   padding: var(--space-5);
+}
+
+.footer {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-5);
+  border-top: 1px solid var(--color-line);
+  background: var(--color-surface-soft);
 }

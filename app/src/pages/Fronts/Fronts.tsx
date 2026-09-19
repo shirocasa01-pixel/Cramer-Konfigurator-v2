@@ -39,6 +39,8 @@ import {
   ZWEILAEUFIG_TYPE_ID,
 } from '../../lib/frontsHelpers'
 import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../../types'
+import { abschnittTexte } from '../../lib/schemaStore'
+import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Fronts.module.css'
 
 /**
@@ -52,6 +54,8 @@ import styles from './Fronts.module.css'
 export default function FrontsPage() {
   const { draft, updateDraft, updateDraftFrom } = useDraft()
   const navigate = useNavigate()
+
+  const texte = abschnittTexte('fronten', { titel: 'Fronten & Abschlüsse' })
 
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
@@ -178,12 +182,9 @@ export default function FrontsPage() {
         <StepIndicator activeKey="fronten" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>Fronten &amp; Abschlüsse</h1>
+          <h1 className={styles.title}>{texte.titel}</h1>
           <p className={styles.subtitle}>
-            Pro Korpus-Segment (Front-Typ, von links nach rechts) die Front-Bauteile hinzufügen –
-            immer von unten nach oben. Die oberste Front schließt bis oben ab. Jedes Bauteil erhält
-            eine Kennzeichnung und – je Stil-Linie – die passenden Material-Auswahlen aus der
-            zentralen Farbmatrix.
+            {texte.beschreibung}
           </p>
           <p className={styles.context}>
             {group.name} · Serie {series.name} · {formatDimensions(dim)} ·{' '}
@@ -341,6 +342,8 @@ export default function FrontsPage() {
             onChange={(event) => updateFronts({ sonderausstattung: event.target.value })}
           />
         </section>
+
+        <SchemaAbschnittFelder abschnittId="fronten" />
 
         <div className={styles.actions}>
           <Button variant="ghost" onClick={() => navigate(isRefugium ? '/ausstattung' : '/korpus')}>

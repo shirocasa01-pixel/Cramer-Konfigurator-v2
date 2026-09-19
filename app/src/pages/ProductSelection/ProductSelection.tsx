@@ -11,6 +11,8 @@ import {
 } from '../../config/productCatalog'
 import { artikelFuerSerie, dropdownsFuerSchritt, getSerie, schritte } from '../../lib/stammdaten'
 import { useStammdaten } from '../../lib/useStammdaten'
+import { abschnittTexte } from '../../lib/schemaStore'
+import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './ProductSelection.module.css'
 
 /**
@@ -53,6 +55,7 @@ export default function ProductSelectionPage() {
   // Die Artikelzahlen je Serie kommen aus dem Stammdaten-Stand — mitzeichnen, damit eine
   // Änderung in der Verwaltung (neuer Artikel, geänderter Modus) sofort sichtbar wird.
   useStammdaten()
+  const texte = abschnittTexte('produkt', { titel: 'Produktgruppe & Serie' })
 
   if (!draft) return <Navigate to="/" replace />
 
@@ -81,11 +84,8 @@ export default function ProductSelectionPage() {
         <StepIndicator activeKey="product" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>Produktgruppe &amp; Serie</h1>
-          <p className={styles.subtitle}>
-            Produktgruppe wählen – die passenden Serien werden automatisch freigeschaltet.
-            Anschließend die Serie festlegen, um mit der Konfiguration fortzufahren.
-          </p>
+          <h1 className={styles.title}>{texte.titel}</h1>
+          {texte.beschreibung ? <p className={styles.subtitle}>{texte.beschreibung}</p> : null}
         </header>
 
         <section aria-label="Produktgruppe">
@@ -154,6 +154,8 @@ export default function ProductSelectionPage() {
             {draft.seriesId ? <StammdatenHinweis seriesId={draft.seriesId} /> : null}
           </section>
         ) : null}
+
+        <SchemaAbschnittFelder abschnittId="produkt" />
 
         <div className={styles.actions}>
           <Button variant="ghost" onClick={() => navigate('/new')}>

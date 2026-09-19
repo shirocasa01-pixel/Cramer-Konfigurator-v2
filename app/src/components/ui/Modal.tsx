@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { useScrollSperre } from '../../lib/scrollSperre'
 import styles from './Modal.module.css'
 
 interface ModalProps {
@@ -6,10 +7,17 @@ interface ModalProps {
   title: string
   onClose: () => void
   children: ReactNode
+  /**
+   * Aktionsleiste am unteren Rand. Sie steht AUSSERHALB des scrollenden Bereichs und
+   * bleibt damit sichtbar, auch wenn der Inhalt länger ist als das Fenster.
+   */
+  footer?: ReactNode
 }
 
 /** Schlichter, barrierearmer Dialog (Escape schließt, Klick auf Overlay schließt). */
-export function Modal({ open, title, onClose, children }: ModalProps) {
+export function Modal({ open, title, onClose, children, footer }: ModalProps) {
+  useScrollSperre(open)
+
   useEffect(() => {
     if (!open) return
     function onKey(event: KeyboardEvent) {
@@ -37,6 +45,7 @@ export function Modal({ open, title, onClose, children }: ModalProps) {
           </button>
         </header>
         <div className={styles.body}>{children}</div>
+        {footer ? <footer className={styles.footer}>{footer}</footer> : null}
       </div>
     </div>
   )

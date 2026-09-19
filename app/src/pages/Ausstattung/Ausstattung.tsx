@@ -18,6 +18,8 @@ import {
 } from '../../config/equipment'
 import { entferneAbgewaehlteAusstattung } from '../../lib/frontsHelpers'
 import type { Draft } from '../../types'
+import { abschnittTexte } from '../../lib/schemaStore'
+import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Ausstattung.module.css'
 
 /**
@@ -69,6 +71,8 @@ export default function AusstattungPage() {
 
   const selected = useMemo(() => new Set(draft?.ausstattung?.selected ?? []), [draft?.ausstattung?.selected])
 
+  const texte = abschnittTexte('ausstattung', { titel: 'Ausstattung-Vorauswahl' })
+
   if (!draft) return <Navigate to="/" replace />
   if (!group || !series) return <Navigate to="/products" replace />
   // Schritt 6 ist Refugium-spezifisch – andere Serien überspringen ihn.
@@ -98,11 +102,8 @@ export default function AusstattungPage() {
         <StepIndicator activeKey="ausstattung" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>Ausstattung-Vorauswahl</h1>
-          <p className={styles.subtitle}>
-            Allgemein festlegen, welche Ausstattung der Schrank benötigt. Nur die hier vorausgewählten
-            Optionen werden anschließend bei den Fronten („Ausstattung hinter Fronten") je Segment abgefragt.
-          </p>
+          <h1 className={styles.title}>{texte.titel}</h1>
+          {texte.beschreibung ? <p className={styles.subtitle}>{texte.beschreibung}</p> : null}
           <p className={styles.context}>
             {group.name} · Serie {series.name} · {selectedCount} ausgewählt
           </p>
@@ -148,6 +149,8 @@ export default function AusstattungPage() {
             </div>
           </section>
         ))}
+
+        <SchemaAbschnittFelder abschnittId="ausstattung" />
 
         <div className={styles.actions}>
           <Button variant="ghost" onClick={() => navigate('/korpus')}>

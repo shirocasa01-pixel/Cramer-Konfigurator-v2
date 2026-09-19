@@ -1,8 +1,12 @@
-import { useState, useSyncExternalStore } from 'react'
+import { useEffect, useState, useSyncExternalStore } from 'react'
+import { dropdowns } from '../../data/stammdaten.generated'
 import { Button } from '../ui/Button'
 import { Modal } from '../ui/Modal'
+import { Textarea } from '../ui/Textarea'
+import { TextField } from '../ui/TextField'
 import { FeldEinstellungen, TYP_LABEL } from './FeldEinstellungen'
 import {
+  aktualisiereAbschnitt,
   aktualisiereFeld,
   ergaenzeFeld,
   entferneFeld,
@@ -14,7 +18,7 @@ import {
   verschiebeFeld,
   verwerfeEntwurf,
 } from '../../lib/schemaStore'
-import type { FeldTyp, SchemaFeld } from '../../types/schema'
+import type { FeldTyp, KonfiguratorSchema, SchemaFeld } from '../../types/schema'
 import styles from './SkelettEditor.module.css'
 
 /** Der Bausteinkatalog hinter dem Plus. */
@@ -28,6 +32,84 @@ const BAUSTEINE: Array<{ typ: FeldTyp; titel: string; zweck: string }> = [
   { typ: 'ueberschrift', titel: 'Überschrift', zweck: 'Abschnitt benennen' },
   { typ: 'hinweis', titel: 'Hinweis', zweck: 'Erklärung anzeigen' },
 ]
+
+/**
+ * Überschrift und Einleitung eines Schritts ändern — der Text-Teil des Layout-Editors.
+ *
+ * Diese beiden Angaben stehen auf jeder Konfigurator-Seite ganz oben; sie zu ändern ist
+ * der häufigste Wunsch und braucht deshalb den kürzesten Weg.
+ */
+function AbschnittTexte({
+  abschnittId,
+  schema,
+  onSchliessen,
+}: {
+  abschnittId: string | null
+  schema: KonfiguratorSchema
+  onSchliessen: () => void
+}) {
+  const abschnitt = schema.abschnitte.find((a) => a.id === abschnittId)
+  const [titel, setTitel] = useState('')
+  const [beschreibung, setBeschreibung] = useState('')
+
+  useEffect(() => {
+    setTitel(abschnitt?.titel ?? '')
+    setBeschreibung(abschnitt?.beschreibung ?? '')
+  }, [abschnitt?.id, abschnitt?.titel, abschnitt?.beschreibung])
+
+  if (!abschnittId || !abschnitt) return null
+
+  return (
+    <Modal
+      open
+      title="Überschrift und Einleitung"
+      onClose={onSchliessen}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onSchliessen}>
+            Abbrechen
+          </Button>
+          <Button
+            onClick={() => {
+              aktualisiereAbschnitt(abschnittId, { titel, beschreibung })
+              onSchliessen()
+            }}
+          >
+            Übernehmen
+          </Button>
+        </>
+      }
+    >
+      <div className={styles.maske}>
+        <TextField label="Überschrift" value={titel} onChange={(e) => setTitel(e.target.value)} />
+        <Textarea
+          label="Einleitung"
+          hint="Der erklärende Absatz unter der Überschrift. Leer lassen, wenn keiner erscheinen soll."
+          value={beschreibung}
+          onChange={(e) => setBeschreibung(e.target.value)}
+        />
+      </div>
+    </Modal>
+  )
+}
+
+/**
+ * Woher ein Auswahlfeld seine Einträge bezieht — im Klartext.
+ *
+ * Der Administrator soll an jedem Dropdown sehen, welche Artikelgruppe dahintersteht,
+ * ohne in die Stammdaten wechseln zu müssen. Nummernkreis und Artikelzahl kommen live
+ * aus der Artikelverwaltung.
+ */
+function datenquelle(feld: SchemaFeld): string | null {
+  if (feld.dropdownCode) {
+    const dd = dropdowns.find((d) => d.nr === feld.dropdownCode)
+    if (!dd) return `Dropdown ${feld.dropdownCode} — in den Stammdaten nicht gefunden`
+    return `${dd.nummernkreis} ${dd.bezeichnung} · ${dd.anzahlArtikel ?? 0} Artikel · Teileart ${dd.teileart}`
+  }
+  if (feld.optionen === 'filialen') return 'Filialen aus den Stammdaten (Blatt „41 Filialen")'
+  if (feld.bindung) return `Entwurfsfeld „${feld.bindung}"`
+  return null
+}
 
 /** Aus einer Beschriftung eine stabile, eindeutige Feld-ID machen. */
 function baueId(label: string, vergeben: Set<string>): string {
@@ -58,6 +140,7 @@ export function SkelettEditor() {
   const offenerEntwurf = useSyncExternalStore(subscribeSchema, hatOffenenEntwurf, hatOffenenEntwurf)
 
   const [katalogFuer, setKatalogFuer] = useState<string | null>(null)
+  const [texteFuer, setTexteFuer] = useState<string | null>(null)
   /** `frisch` ⇒ gerade erst angelegt; dann darf die Kennung noch der Beschriftung folgen. */
   const [bearbeitet, setBearbeitet] = useState<{ abschnitt: string; feld: SchemaFeld; frisch?: boolean } | null>(
     null,
@@ -116,6 +199,14 @@ export function SkelettEditor() {
           <section key={abschnitt.id} className={styles.abschnitt}>
             <header className={styles.abschnittKopf}>
               <h3 className={styles.abschnittTitel}>{abschnitt.titel}</h3>
+              <button
+                type="button"
+                className={styles.knopf}
+                title="Überschrift und Einleitung bearbeiten"
+                onClick={() => setTexteFuer(abschnitt.id)}
+              >
+                ✎
+              </button>
               <span className={styles.abschnittMeta}>
                 {sortiert.length} Bausteine · Abschnitt <code>{abschnitt.id}</code>
               </span>
@@ -133,9 +224,13 @@ export function SkelettEditor() {
                     <span className={styles.feldMeta}>
                       {TYP_LABEL[feld.typ]}
                       {feld.quelle ? ' · automatisch' : ''}
-                      {feld.dropdownCode ? ` · Dropdown ${feld.dropdownCode}` : ''}
                       {!feld.aktiv ? ' · abgeschaltet' : ''}
                     </span>
+                    {/* Wie im Layout-Editor: An jedem Auswahlfeld steht, woher es seine
+                        Einträge nimmt — Nummernkreis, Artikelgruppe und Artikelzahl. */}
+                    {datenquelle(feld) ? (
+                      <span className={styles.quelle}>◆ {datenquelle(feld)}</span>
+                    ) : null}
                   </div>
 
                   <div className={styles.marken}>
@@ -220,6 +315,12 @@ export function SkelettEditor() {
           ))}
         </div>
       </Modal>
+
+      <AbschnittTexte
+        abschnittId={texteFuer}
+        schema={schema}
+        onSchliessen={() => setTexteFuer(null)}
+      />
 
       <FeldEinstellungen
         offen={bearbeitet != null}

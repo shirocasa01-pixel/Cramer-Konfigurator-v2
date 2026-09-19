@@ -21,6 +21,8 @@ import {
   isKorpusGrunddatenComplete,
 } from '../../lib/korpusMass'
 import type { Draft, KorpusGrunddaten } from '../../types'
+import { abschnittTexte } from '../../lib/schemaStore'
+import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Dimensions.module.css'
 
 type DimensionsPatch = Partial<NonNullable<Draft['dimensions']>>
@@ -54,6 +56,10 @@ export default function DimensionsPage() {
       updateDraft({ korpusGrunddaten: g, dimensions: deriveDimensions(g) })
     }
   }, [useRaster, draft, updateDraft])
+
+  // Nur die Raster-Maske (Refugium) wird zentral getextet; die Freimaß-Variante behaelt
+  // ihren eigenen Text, weil sie eine andere Eingabelogik beschreibt.
+  const texte = abschnittTexte('masse', { titel: 'Korpus – Maße & Grunddaten' })
 
   if (!draft) return <Navigate to="/" replace />
   if (!group || !series) return <Navigate to="/products" replace />
@@ -94,10 +100,10 @@ export default function DimensionsPage() {
         <StepIndicator activeKey="masse" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{useRaster ? 'Korpus – Maße & Grunddaten' : 'Maße & Segmente'}</h1>
+          <h1 className={styles.title}>{useRaster ? texte.titel : 'Maße & Segmente'}</h1>
           <p className={styles.subtitle}>
             {useRaster
-              ? 'Höhe, Tiefe und die Breite je Korpus festlegen. Die Segmente für die Fronten-Konfiguration ergeben sich aus der Anzahl der Korpusse.'
+              ? texte.beschreibung
               : 'Gesamtmaße der Möbelhülle erfassen und die Anzahl der Korpus-Segmente (Spalten) festlegen. Daraus werden die Front-Typ-Spalten initialisiert – von links nach rechts.'}
           </p>
           <p className={styles.context}>
@@ -197,6 +203,8 @@ export default function DimensionsPage() {
             </p>
           </section>
         )}
+
+        <SchemaAbschnittFelder abschnittId="masse" />
 
         <div className={styles.actions}>
           <Button variant="ghost" onClick={() => navigate('/products')}>

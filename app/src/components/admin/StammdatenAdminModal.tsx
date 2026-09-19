@@ -42,6 +42,7 @@ import {
   setzeAllesZurueck,
   uebernehmeImport,
 } from '../../lib/stammdatenStore.ts'
+import { useScrollSperre } from '../../lib/scrollSperre.ts'
 import { useStammdaten } from '../../lib/useStammdaten.ts'
 import { entferneZugang, getZugang, hatZugang, setzeZugang } from '../../lib/zugangStore.ts'
 import { ArtikelDetailModal } from './ArtikelDetailModal'
@@ -409,6 +410,7 @@ const FILIAL_SPALTEN: SpaltenDef<Filiale>[] = [
 // ---------------------------------------------------------------------------
 
 export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProps) {
+  useScrollSperre(open)
   const stand = useStammdaten()
   const [bereich, setBereich] = useState<Bereich>('artikel')
   const [suche, setSuche] = useState('')

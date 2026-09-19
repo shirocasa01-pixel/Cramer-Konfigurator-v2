@@ -136,6 +136,24 @@ export function felderFuer(
     .sort((a, b) => a.sortierung - b.sortierung)
 }
 
+/**
+ * Überschrift und Einleitung eines Schritts — mit Rückfallebene.
+ *
+ * Fehlt der Abschnitt im gespeicherten Stand (älteres Overlay, neuer Schritt im Code),
+ * gilt der übergebene Standard. Eine Seite verliert dadurch nie ihre Überschrift.
+ */
+export function abschnittTexte(
+  id: string,
+  standard: { titel: string; beschreibung?: string },
+): { titel: string; beschreibung?: string } {
+  const abschnitt = getAbschnitt(id)
+  if (!abschnitt || !abschnitt.aktiv) return standard
+  return {
+    titel: abschnitt.titel.trim() || standard.titel,
+    beschreibung: abschnitt.beschreibung?.trim() ? abschnitt.beschreibung : standard.beschreibung,
+  }
+}
+
 /** Prüft die Sichtbarkeitsregeln eines Feldes gegen die laufende Serie. */
 export function serieErlaubt(feld: SchemaFeld, serieId: string | undefined): boolean {
   const regel = feld.regeln?.find((r) => r.art === 'nurSerien')
@@ -146,6 +164,18 @@ export function serieErlaubt(feld: SchemaFeld, serieId: string | undefined): boo
 // ---------------------------------------------------------------------------
 // Schreiben (Editor)
 // ---------------------------------------------------------------------------
+
+/** Ändert Überschrift und Einleitung eines Abschnitts im Entwurf. */
+export function aktualisiereAbschnitt(
+  abschnittId: string,
+  patch: { titel?: string; beschreibung?: string; aktiv?: boolean },
+): void {
+  const naechster = klone(getEntwurfSchema())
+  const abschnitt = naechster.abschnitte.find((a) => a.id === abschnittId)
+  if (!abschnitt) return
+  Object.assign(abschnitt, patch)
+  setzeEntwurf(naechster)
+}
 
 /**
  * Ersetzt ein Feld im Entwurf, an seiner bisherigen Stelle.

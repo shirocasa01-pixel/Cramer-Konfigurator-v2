@@ -48,7 +48,19 @@ export function FeldEinstellungen({
   const serienRegel = entwurf.regeln?.find((r) => r.art === 'nurSerien')
 
   return (
-    <Modal open={offen} title={`Baustein bearbeiten · ${TYP_LABEL[entwurf.typ]}`} onClose={onAbbrechen}>
+    <Modal
+      open={offen}
+      title={`Baustein bearbeiten · ${TYP_LABEL[entwurf.typ]}`}
+      onClose={onAbbrechen}
+      footer={
+        <>
+          <Button variant="ghost" onClick={onAbbrechen}>
+            Abbrechen
+          </Button>
+          <Button onClick={() => onSpeichern(entwurf)}>Übernehmen</Button>
+        </>
+      }
+    >
       <div className={styles.maske}>
         <TextField
           label="Überschrift / Beschriftung"
@@ -170,12 +182,6 @@ export function FeldEinstellungen({
           </p>
         )}
 
-        <div className={styles.maskeAktionen}>
-          <Button variant="ghost" onClick={onAbbrechen}>
-            Abbrechen
-          </Button>
-          <Button onClick={() => onSpeichern(entwurf)}>Übernehmen</Button>
-        </div>
       </div>
     </Modal>
   )

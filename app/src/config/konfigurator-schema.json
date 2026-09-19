@@ -10,46 +10,20 @@
       "sortierung": 10,
       "felder": [
         {
-          "id": "berater",
-          "typ": "text",
-          "label": "Berater",
-          "aktiv": true,
-          "sortierung": 10,
-          "quelle": "berater",
-          "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": true, "pdf": true }
-        },
-        {
-          "id": "datum",
-          "typ": "datum",
-          "label": "Datum",
-          "aktiv": true,
-          "sortierung": 20,
-          "quelle": "datum",
-          "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": false, "pdf": true }
-        },
-        {
-          "id": "entwurfsnummer",
-          "typ": "text",
-          "label": "Entwurfsnummer",
-          "aktiv": true,
-          "sortierung": 30,
-          "quelle": "entwurfsnummer",
-          "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": true, "pdf": false }
-        },
-        {
           "id": "orderNumber",
           "typ": "text",
           "label": "Auftragsnummer",
           "platzhalter": "z. B. 2026-04711",
           "hinweis": "Optional – kann später ergänzt werden (spätestens vor der AV-Übergabe).",
           "aktiv": true,
-          "sortierung": 40,
+          "sortierung": 10,
           "bindung": "orderNumber",
           "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": true, "pdf": true }
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": true,
+            "pdf": true
+          }
         },
         {
           "id": "artikelnummer",
@@ -58,10 +32,14 @@
           "platzhalter": "z. B. AR-10245",
           "hinweis": "Optional – kann später ergänzt werden.",
           "aktiv": true,
-          "sortierung": 50,
+          "sortierung": 20,
           "bindung": "artikelnummer",
           "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": false, "pdf": false }
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": false,
+            "pdf": false
+          }
         },
         {
           "id": "variantLabel",
@@ -70,10 +48,14 @@
           "platzhalter": "z. B. Variante A — Eiche geölt",
           "hinweis": "Optional – bei mehreren Angebotsvarianten für denselben Kunden.",
           "aktiv": true,
-          "sortierung": 60,
+          "sortierung": 30,
           "bindung": "variantLabel",
           "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": false, "pdf": false }
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": false,
+            "pdf": false
+          }
         },
         {
           "id": "customerName",
@@ -82,10 +64,14 @@
           "platzhalter": "Name des Kunden",
           "pflicht": true,
           "aktiv": true,
-          "sortierung": 70,
+          "sortierung": 40,
           "bindung": "customerName",
           "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": true, "pdf": true }
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": true,
+            "pdf": true
+          }
         },
         {
           "id": "branchId",
@@ -94,11 +80,57 @@
           "platzhalter": "Bitte wählen",
           "pflicht": true,
           "aktiv": true,
-          "sortierung": 80,
+          "sortierung": 50,
           "bindung": "branchId",
           "optionen": "filialen",
           "systemfeld": true,
-          "zeigeIn": { "maske": true, "zusammenfassung": true, "pdf": true }
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": true,
+            "pdf": true
+          }
+        },
+        {
+          "id": "berater",
+          "typ": "text",
+          "label": "Berater",
+          "aktiv": true,
+          "sortierung": 60,
+          "quelle": "berater",
+          "systemfeld": true,
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": true,
+            "pdf": true
+          }
+        },
+        {
+          "id": "datum",
+          "typ": "datum",
+          "label": "Datum",
+          "aktiv": true,
+          "sortierung": 70,
+          "quelle": "datum",
+          "systemfeld": true,
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": false,
+            "pdf": true
+          }
+        },
+        {
+          "id": "entwurfsnummer",
+          "typ": "text",
+          "label": "Entwurfsnummer",
+          "aktiv": true,
+          "sortierung": 80,
+          "quelle": "entwurfsnummer",
+          "systemfeld": true,
+          "zeigeIn": {
+            "maske": true,
+            "zusammenfassung": true,
+            "pdf": false
+          }
         },
         {
           "id": "variante",
@@ -109,9 +141,61 @@
           "quelle": "variante",
           "nurWennGefuellt": true,
           "systemfeld": true,
-          "zeigeIn": { "maske": false, "zusammenfassung": true, "pdf": true }
+          "zeigeIn": {
+            "maske": false,
+            "zusammenfassung": true,
+            "pdf": true
+          }
         }
       ]
+    },
+    {
+      "id": "produkt",
+      "titel": "Produktgruppe & Serie",
+      "beschreibung": "Produktgruppe wählen – die passenden Serien werden automatisch freigeschaltet. Anschließend die Serie festlegen, um mit der Konfiguration fortzufahren.",
+      "aktiv": true,
+      "sortierung": 20,
+      "felder": []
+    },
+    {
+      "id": "masse",
+      "titel": "Korpus – Maße & Grunddaten",
+      "beschreibung": "Höhe, Tiefe und die Breite je Korpus festlegen. Die Segmente für die Fronten-Konfiguration ergeben sich aus der Anzahl der Korpusse.",
+      "aktiv": true,
+      "sortierung": 30,
+      "felder": []
+    },
+    {
+      "id": "material",
+      "titel": "Material",
+      "beschreibung": "Material und Ausführung des Korpus festlegen. Alle Auswahllisten stammen aus der zentralen Farbmatrix; die Preisgruppe wird automatisch im Hintergrund zugeordnet.",
+      "aktiv": true,
+      "sortierung": 40,
+      "felder": []
+    },
+    {
+      "id": "ausstattung",
+      "titel": "Ausstattung-Vorauswahl",
+      "beschreibung": "Allgemein festlegen, welche Ausstattung der Schrank benötigt. Nur die hier vorausgewählten Optionen werden anschließend bei den Fronten („Ausstattung hinter Fronten\") je Segment abgefragt.",
+      "aktiv": true,
+      "sortierung": 50,
+      "felder": []
+    },
+    {
+      "id": "fronten",
+      "titel": "Fronten & Abschlüsse",
+      "beschreibung": "Pro Korpus-Segment (Front-Typ, von links nach rechts) die Front-Bauteile hinzufügen – immer von unten nach oben. Die oberste Front schließt bis oben ab. Jedes Bauteil erhält eine Kennzeichnung und – je Stil-Linie – die passenden Material-Auswahlen aus der zentralen Farbmatrix.",
+      "aktiv": true,
+      "sortierung": 60,
+      "felder": []
+    },
+    {
+      "id": "abschluss",
+      "titel": "Zusammenfassung & Abschluss",
+      "beschreibung": "Alle Angaben im Überblick. Handzeichnung per Smartphone scannen, das kompakte AV-PDF erzeugen und den Entwurf abschließen.",
+      "aktiv": true,
+      "sortierung": 70,
+      "felder": []
     }
   ]
 }
