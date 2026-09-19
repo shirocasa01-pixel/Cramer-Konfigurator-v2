@@ -145,8 +145,9 @@ export function felderFuer(
 export function abschnittTexte(
   id: string,
   standard: { titel: string; beschreibung?: string },
+  schema: KonfiguratorSchema = veroeffentlicht,
 ): { titel: string; beschreibung?: string } {
-  const abschnitt = getAbschnitt(id)
+  const abschnitt = getAbschnitt(id, schema)
   if (!abschnitt || !abschnitt.aktiv) return standard
   return {
     titel: abschnitt.titel.trim() || standard.titel,

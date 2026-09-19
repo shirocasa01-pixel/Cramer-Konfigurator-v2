@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { BrandMark } from '../ui/BrandMark'
 import { Button } from '../ui/Button'
 import { ActionMenu } from './ActionMenu'
+import { EditorLeiste } from './EditorLeiste'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
 import { getBranch } from '../../config/branches'
@@ -111,6 +112,8 @@ export function AppShell({ children, footer }: AppShellProps) {
           </Button>
         </div>
       </header>
+
+      <EditorLeiste />
 
       <main className={styles.main}>{children}</main>
 

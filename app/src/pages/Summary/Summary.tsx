@@ -31,7 +31,7 @@ import { formatDezimal } from '../../lib/format'
 import { caPrefix, formatDimensions } from '../../lib/massFormat'
 import { describeKorpusGrunddatenZeilen } from '../../lib/korpusMass'
 import type { FrontElement, KorpusGrunddaten, KorpusInnen, PriceGroup } from '../../types'
-import { abschnittTexte } from '../../lib/schemaStore'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
 import styles from './Summary.module.css'
 
 /**
@@ -61,7 +61,6 @@ export default function SummaryPage() {
   const fronts = draft.fronts ?? { columns: [] }
 
   const dim = draft.dimensions
-  const abschlussTexte = abschnittTexte('abschluss', { titel: 'Zusammenfassung & Abschluss' })
 
   /**
    * Auftrags- und Artikelnummer sind bei der Anlage bewusst optional — der Auftrag
@@ -95,8 +94,7 @@ export default function SummaryPage() {
     <AppShell>
       <div className={styles.page}>
         <StepIndicator activeKey="summary" />
-        <h1 className={styles.title}>{abschlussTexte.titel}</h1>
-        {abschlussTexte.beschreibung ? <p className={styles.lead}>{abschlussTexte.beschreibung}</p> : null}
+        <AbschnittKopf abschnittId="abschluss" standardTitel="Zusammenfassung & Abschluss" titelKlasse={styles.title} textKlasse={styles.lead} />
 
         {/* Scan-Bereich */}
         <section className={styles.scan} aria-label="Handzeichnung scannen">

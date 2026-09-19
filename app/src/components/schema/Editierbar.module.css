@@ -1,0 +1,206 @@
+/* --- Bearbeitungsschicht über der echten Oberfläche ----------------------- */
+
+.huelle,
+.huelleAus {
+  position: relative;
+  padding: var(--space-2);
+  margin: calc(var(--space-2) * -1);
+  border: 1px dashed transparent;
+  border-radius: var(--radius-md);
+  transition: border-color 120ms ease, background-color 120ms ease;
+}
+
+.huelle:hover,
+.huelleAus:hover {
+  border-color: color-mix(in srgb, var(--color-focus) 65%, var(--color-line));
+  background: color-mix(in srgb, var(--color-focus) 6%, transparent);
+}
+
+.huelleAus {
+  border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-line));
+  opacity: 0.55;
+}
+
+.werkzeuge {
+  position: absolute;
+  top: calc(var(--space-2) * -1);
+  right: var(--space-2);
+  z-index: 2;
+  display: flex;
+  gap: 0.2rem;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.huelle:hover .werkzeuge,
+.huelleAus:hover .werkzeuge,
+.werkzeuge:focus-within {
+  opacity: 1;
+}
+
+.stift,
+.weg {
+  width: 1.7rem;
+  height: 1.7rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.12));
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+}
+
+.stift:hover {
+  border-color: var(--color-ink);
+}
+
+.weg:hover {
+  border-color: var(--color-danger);
+}
+
+.quelle {
+  display: block;
+  margin-top: 0.2rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.68rem;
+  color: var(--color-ink-muted);
+}
+
+/* --- Überschrift eines Schritts ------------------------------------------- */
+
+.kopf {
+  position: relative;
+}
+
+.kopfWerkzeug {
+  margin-left: var(--space-2);
+  padding: 0.1rem 0.45rem;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  cursor: pointer;
+  font-size: 0.75rem;
+  vertical-align: middle;
+}
+
+.kopfWerkzeug:hover {
+  border-color: var(--color-ink);
+}
+
+/* --- Plus am Ende eines Abschnitts ---------------------------------------- */
+
+.plus {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed color-mix(in srgb, var(--color-focus) 55%, var(--color-line));
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-focus) 5%, transparent);
+  color: var(--color-ink-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.plus:hover {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+/* --- Bausteinkatalog & Masken --------------------------------------------- */
+
+.katalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr));
+  gap: var(--space-3);
+}
+
+.katalogKachel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.katalogKachel:hover {
+  border-color: var(--color-ink);
+}
+
+.katalogTitel {
+  font-weight: 700;
+}
+
+.katalogZweck {
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+}
+
+.maske {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* --- Einstellungsmaske eines Bausteins ------------------------------------ */
+
+.gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.gruppeTitel {
+  padding: 0 var(--space-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.gruppeHinweis {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-ink-secondary);
+}
+
+.serienGitter {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.25rem var(--space-3);
+}
+
+.schalter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.schalter input {
+  accent-color: var(--color-ink);
+}
+
+.systemhinweis {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-ink-muted);
+}
+
+.systemhinweis code {
+  padding: 0.05em 0.35em;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+}

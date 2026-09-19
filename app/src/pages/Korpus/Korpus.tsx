@@ -19,7 +19,7 @@ import { isKorpusComplete } from '../../lib/korpusValidation'
 import { isDimensionsValid } from '../../lib/dimensionsValidation'
 import { isKorpusGrunddatenComplete, resolveKorpusBreiteCm } from '../../lib/korpusMass'
 import type { KorpusInnen, MaterialSelection } from '../../types'
-import { abschnittTexte } from '../../lib/schemaStore'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Korpus.module.css'
 
@@ -39,7 +39,6 @@ export default function KorpusPage() {
   const { draft, updateDraft } = useDraft()
   const navigate = useNavigate()
 
-  const texte = abschnittTexte('material', { titel: 'Material' })
 
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
@@ -106,8 +105,12 @@ export default function KorpusPage() {
         <StepIndicator activeKey="korpus" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{texte.titel}</h1>
-          {texte.beschreibung ? <p className={styles.subtitle}>{texte.beschreibung}</p> : null}
+          <AbschnittKopf
+            abschnittId="material"
+            standardTitel="Material"
+            titelKlasse={styles.title}
+            textKlasse={styles.subtitle}
+          />
           <p className={styles.context}>
             {group.name} · Serie {series.name}
           </p>

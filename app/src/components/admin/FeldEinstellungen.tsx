@@ -6,7 +6,7 @@ import { Modal } from '../ui/Modal'
 import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
 import type { FeldTyp, SchemaFeld } from '../../types/schema'
-import styles from './SkelettEditor.module.css'
+import styles from '../schema/Editierbar.module.css'
 
 const TYP_LABEL: Record<FeldTyp, string> = {
   text: 'Textfeld',

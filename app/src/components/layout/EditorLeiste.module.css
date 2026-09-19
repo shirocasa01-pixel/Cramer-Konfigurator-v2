@@ -1,0 +1,56 @@
+.leiste {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  border-bottom: 1px solid color-mix(in srgb, var(--color-focus) 45%, var(--color-line));
+  background: color-mix(in srgb, var(--color-focus) 10%, var(--color-surface));
+}
+
+.marke {
+  padding: 0.1rem 0.6rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-ink);
+  color: var(--color-surface);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.statusLive,
+.statusEntwurf {
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.statusEntwurf {
+  color: color-mix(in srgb, var(--color-danger) 75%, var(--color-ink));
+}
+
+.hinweis {
+  font-size: 0.78rem;
+  color: var(--color-ink-secondary);
+}
+
+.aktionen {
+  margin-left: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+@media (max-width: 720px) {
+  .hinweis {
+    display: none;
+  }
+
+  .aktionen {
+    margin-left: 0;
+    width: 100%;
+  }
+}

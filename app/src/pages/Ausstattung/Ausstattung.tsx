@@ -18,7 +18,7 @@ import {
 } from '../../config/equipment'
 import { entferneAbgewaehlteAusstattung } from '../../lib/frontsHelpers'
 import type { Draft } from '../../types'
-import { abschnittTexte } from '../../lib/schemaStore'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Ausstattung.module.css'
 
@@ -71,7 +71,6 @@ export default function AusstattungPage() {
 
   const selected = useMemo(() => new Set(draft?.ausstattung?.selected ?? []), [draft?.ausstattung?.selected])
 
-  const texte = abschnittTexte('ausstattung', { titel: 'Ausstattung-Vorauswahl' })
 
   if (!draft) return <Navigate to="/" replace />
   if (!group || !series) return <Navigate to="/products" replace />
@@ -102,8 +101,12 @@ export default function AusstattungPage() {
         <StepIndicator activeKey="ausstattung" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{texte.titel}</h1>
-          {texte.beschreibung ? <p className={styles.subtitle}>{texte.beschreibung}</p> : null}
+          <AbschnittKopf
+            abschnittId="ausstattung"
+            standardTitel="Ausstattung-Vorauswahl"
+            titelKlasse={styles.title}
+            textKlasse={styles.subtitle}
+          />
           <p className={styles.context}>
             {group.name} · Serie {series.name} · {selectedCount} ausgewählt
           </p>

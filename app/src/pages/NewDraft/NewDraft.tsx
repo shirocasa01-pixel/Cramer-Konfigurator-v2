@@ -2,11 +2,15 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'reac
 import { useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { StepIndicator } from '../../components/layout/StepIndicator'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { BausteinPlus } from '../../components/schema/BausteinPlus'
+import { EditierHuelle } from '../../components/schema/EditierHuelle'
 import { SchemaFeldEingabe } from '../../components/schema/SchemaFeldEingabe'
 import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
-import { felderFuer, getAbschnitt, getSchema, subscribeSchema } from '../../lib/schemaStore'
+import { felderFuer, getEntwurfSchema, getSchema, subscribeSchema } from '../../lib/schemaStore'
+import { useEditorModus } from '../../lib/editorModus'
 import { pruefeSchemaFelder } from '../../lib/draftValidation'
 import { schreibeWert } from '../../lib/schemaWerte'
 import styles from './NewDraft.module.css'
@@ -25,7 +29,9 @@ export default function NewDraftPage() {
   const { draft, startNewDraft, updateDraft } = useDraft()
   const navigate = useNavigate()
   const started = useRef(false)
-  const schema = useSyncExternalStore(subscribeSchema, getSchema, getSchema)
+  const roh = useSyncExternalStore(subscribeSchema, getEntwurfSchema, getEntwurfSchema)
+  const bearbeitung = useEditorModus()
+  const schema = bearbeitung ? roh : getSchema()
 
   // Genau einen frischen Entwurf anlegen, falls keiner existiert (StrictMode-sicher).
   useEffect(() => {
@@ -37,7 +43,6 @@ export default function NewDraftPage() {
 
   const [touched, setTouched] = useState<Record<string, boolean>>({})
 
-  const abschnitt = getAbschnitt('auftragskopf', schema)
   const felder = useMemo(
     () => felderFuer('auftragskopf', 'maske', { schema, serieId: draft?.seriesId }),
     [schema, draft?.seriesId],
@@ -70,33 +75,42 @@ export default function NewDraftPage() {
         <StepIndicator activeKey="draft" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{abschnitt?.titel ?? 'Neuen Entwurf anlegen'}</h1>
-          {abschnitt?.beschreibung ? <p className={styles.subtitle}>{abschnitt.beschreibung}</p> : null}
+          <AbschnittKopf
+            abschnittId="auftragskopf"
+            standardTitel="Neuen Entwurf anlegen"
+            titelKlasse={styles.title}
+            textKlasse={styles.subtitle}
+          />
         </header>
 
         {angezeigte.length > 0 ? (
           <section className={styles.autoGrid} aria-label="Automatisch erfasste Daten">
             {angezeigte.map((feld) => (
-              <SchemaFeldEingabe key={feld.id} feld={feld} draft={draft} onChange={() => {}} />
+              <EditierHuelle key={feld.id} feld={feld} abschnittId="auftragskopf">
+                <SchemaFeldEingabe feld={feld} draft={draft} onChange={() => {}} />
+              </EditierHuelle>
             ))}
           </section>
         ) : null}
 
         <section className={styles.formGrid} aria-label="Eingaben">
           {eingaben.map((feld) => (
-            <SchemaFeldEingabe
-              key={feld.id}
-              feld={feld}
-              draft={draft}
-              onChange={(wert) => {
-                updateDraft(schreibeWert(draft, feld, wert))
-                if (feld.typ === 'auswahl') setTouched((prev) => ({ ...prev, [feld.id]: true }))
-              }}
-              onBlur={() => setTouched((prev) => ({ ...prev, [feld.id]: true }))}
-              fehler={touched[feld.id] ? errors[feld.id] : undefined}
-            />
+            <EditierHuelle key={feld.id} feld={feld} abschnittId="auftragskopf">
+              <SchemaFeldEingabe
+                feld={feld}
+                draft={draft}
+                onChange={(wert) => {
+                  updateDraft(schreibeWert(draft, feld, wert))
+                  if (feld.typ === 'auswahl') setTouched((prev) => ({ ...prev, [feld.id]: true }))
+                }}
+                onBlur={() => setTouched((prev) => ({ ...prev, [feld.id]: true }))}
+                fehler={touched[feld.id] ? errors[feld.id] : undefined}
+              />
+            </EditierHuelle>
           ))}
         </section>
+
+        <BausteinPlus abschnittId="auftragskopf" vorhandeneIds={felder.map((f) => f.id)} />
         {pflichtVorhanden ? <p className={styles.legend}>* Pflichtfeld</p> : null}
 
         <div className={styles.actions}>

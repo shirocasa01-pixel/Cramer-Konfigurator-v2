@@ -11,7 +11,7 @@ import {
 } from '../../config/productCatalog'
 import { artikelFuerSerie, dropdownsFuerSchritt, getSerie, schritte } from '../../lib/stammdaten'
 import { useStammdaten } from '../../lib/useStammdaten'
-import { abschnittTexte } from '../../lib/schemaStore'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './ProductSelection.module.css'
 
@@ -55,7 +55,6 @@ export default function ProductSelectionPage() {
   // Die Artikelzahlen je Serie kommen aus dem Stammdaten-Stand — mitzeichnen, damit eine
   // Änderung in der Verwaltung (neuer Artikel, geänderter Modus) sofort sichtbar wird.
   useStammdaten()
-  const texte = abschnittTexte('produkt', { titel: 'Produktgruppe & Serie' })
 
   if (!draft) return <Navigate to="/" replace />
 
@@ -84,8 +83,12 @@ export default function ProductSelectionPage() {
         <StepIndicator activeKey="product" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{texte.titel}</h1>
-          {texte.beschreibung ? <p className={styles.subtitle}>{texte.beschreibung}</p> : null}
+          <AbschnittKopf
+            abschnittId="produkt"
+            standardTitel="Produktgruppe & Serie"
+            titelKlasse={styles.title}
+            textKlasse={styles.subtitle}
+          />
         </header>
 
         <section aria-label="Produktgruppe">

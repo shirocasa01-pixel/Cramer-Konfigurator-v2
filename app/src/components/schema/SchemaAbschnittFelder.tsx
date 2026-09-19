@@ -1,8 +1,11 @@
 import { useSyncExternalStore } from 'react'
+import { BausteinPlus } from './BausteinPlus'
+import { EditierHuelle } from './EditierHuelle'
 import { SchemaFeldEingabe } from './SchemaFeldEingabe'
 import { useDraft } from '../../context/DraftContext'
-import { felderFuer, getSchema, subscribeSchema } from '../../lib/schemaStore'
+import { felderFuer, getEntwurfSchema, getSchema, subscribeSchema } from '../../lib/schemaStore'
 import { schreibeWert } from '../../lib/schemaWerte'
+import { useEditorModus } from '../../lib/editorModus'
 import styles from './SchemaAbschnittFelder.module.css'
 
 /**
@@ -17,23 +20,35 @@ import styles from './SchemaAbschnittFelder.module.css'
  * weil sie zusätzlich die automatisch erfassten Angaben oben abbildet.
  */
 export function SchemaAbschnittFelder({ abschnittId }: { abschnittId: string }) {
-  const schema = useSyncExternalStore(subscribeSchema, getSchema, getSchema)
+  const roh = useSyncExternalStore(subscribeSchema, getEntwurfSchema, getEntwurfSchema)
   const { draft, updateDraft } = useDraft()
+  const bearbeitung = useEditorModus()
+
+  const schema = bearbeitung ? roh : getSchema()
 
   if (!draft) return null
-  const felder = felderFuer(abschnittId, 'maske', { schema, serieId: draft.seriesId })
-  if (felder.length === 0) return null
+
+  const abschnitt = schema.abschnitte.find((a) => a.id === abschnittId)
+  // Im Bearbeitungsmodus auch die abgeschalteten zeigen — sonst kann man sie nicht
+  // wieder einschalten.
+  const felder = bearbeitung
+    ? [...(abschnitt?.felder ?? [])].sort((a, b) => a.sortierung - b.sortierung)
+    : felderFuer(abschnittId, 'maske', { schema, serieId: draft.seriesId })
+
+  if (felder.length === 0 && !bearbeitung) return null
 
   return (
     <section className={styles.block} aria-label="Ergänzende Angaben">
       {felder.map((feld) => (
-        <SchemaFeldEingabe
-          key={feld.id}
-          feld={feld}
-          draft={draft}
-          onChange={(wert) => updateDraft(schreibeWert(draft, feld, wert))}
-        />
+        <EditierHuelle key={feld.id} feld={feld} abschnittId={abschnittId}>
+          <SchemaFeldEingabe
+            feld={feld}
+            draft={draft}
+            onChange={(wert) => updateDraft(schreibeWert(draft, feld, wert))}
+          />
+        </EditierHuelle>
       ))}
+      <BausteinPlus abschnittId={abschnittId} vorhandeneIds={felder.map((f) => f.id)} />
     </section>
   )
 }

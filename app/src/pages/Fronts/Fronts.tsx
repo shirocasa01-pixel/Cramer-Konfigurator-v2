@@ -39,7 +39,7 @@ import {
   ZWEILAEUFIG_TYPE_ID,
 } from '../../lib/frontsHelpers'
 import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../../types'
-import { abschnittTexte } from '../../lib/schemaStore'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Fronts.module.css'
 
@@ -55,7 +55,6 @@ export default function FrontsPage() {
   const { draft, updateDraft, updateDraftFrom } = useDraft()
   const navigate = useNavigate()
 
-  const texte = abschnittTexte('fronten', { titel: 'Fronten & Abschlüsse' })
 
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
@@ -182,10 +181,12 @@ export default function FrontsPage() {
         <StepIndicator activeKey="fronten" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{texte.titel}</h1>
-          <p className={styles.subtitle}>
-            {texte.beschreibung}
-          </p>
+          <AbschnittKopf
+            abschnittId="fronten"
+            standardTitel="Fronten & Abschlüsse"
+            titelKlasse={styles.title}
+            textKlasse={styles.subtitle}
+          />
           <p className={styles.context}>
             {group.name} · Serie {series.name} · {formatDimensions(dim)} ·{' '}
             {fronts.columns.length} Segmente
