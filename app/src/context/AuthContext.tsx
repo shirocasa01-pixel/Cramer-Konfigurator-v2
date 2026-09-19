@@ -60,10 +60,18 @@ interface AuthContextValue {
   /** Validiert eine Mitarbeiter-E-Mail nach aktueller Regel (Testphase vs. Produktion). */
   validateStaffEmail: (email: string) => string | null
 
-  // --- Wartungsmodus (Phase 11) ---
+  // --- Wartungsmodus (Phase 11, Notfall-Zugang Phase 11.2) ---
   /** Effektiv aktiv = globaler Schalter (appConfig) ODER Admin-Toggle. */
   maintenanceActive: boolean
   setMaintenanceMode: (value: boolean) => void
+  /**
+   * Liest den Admin-Toggle frisch aus localStorage, statt auf den nächsten Render zu
+   * warten, und meldet den Stand direkt zurück — für den „Status aktualisieren"-Knopf auf
+   * der Wartungsseite. Der Toggle ist geräte-/browserlokal (siehe appConfig.ts); ein
+   * zweiter Tab am selben Gerät, in dem ein Admin den Wartungsmodus aufgehoben hat, wird
+   * damit sofort sichtbar, ohne dass diese Seite neu geladen werden muss.
+   */
+  refreshMaintenanceStatus: () => boolean
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -125,6 +133,22 @@ function loadStore(): UserStore {
   return defaultStore()
 }
 
+/**
+ * NUR den Wartungsmodus-Schalter aus localStorage lesen — bewusst getrennt von
+ * loadStore(): Admins und Berater dieses Tabs sollen von einem Statuscheck unberührt
+ * bleiben, auch wenn ein anderer Tab zwischenzeitlich einen eigenen Stand geschrieben hat.
+ */
+function liesWartungsmodusAusSpeicher(): boolean {
+  try {
+    const raw = localStorage.getItem(USERS_KEY)
+    if (!raw) return false
+    const parsed = JSON.parse(raw) as Partial<UserStore>
+    return Boolean(parsed.settings?.maintenanceMode)
+  } catch {
+    return false
+  }
+}
+
 function loadUser(): AuthUser | null {
   try {
     const raw = localStorage.getItem(AUTH_KEY)
@@ -154,6 +178,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       /* best-effort im Prototyp */
     }
   }, [store])
+
+  /*
+    SELBST-AUSSPERRUNG VERHINDERN, TEIL 1: Tab-übergreifender Sync.
+
+    Der Wartungsmodus-Schalter liegt in localStorage und damit geräte-/browserlokal (siehe
+    appConfig.ts). Ändert ein Administrator ihn in einem ANDEREN Tab desselben Browsers
+    (z. B. weil dieser Tab hinter dem Wartungs-Overlay feststeckt), feuert der Browser in
+    JEDEM ANDEREN Tab ein "storage"-Event — nur nicht in dem Tab, der die Änderung selbst
+    ausgelöst hat. Ohne diesen Listener bliebe dieser Tab bis zum nächsten Neuladen hinter
+    dem Overlay stehen, obwohl der Wartungsmodus längst aufgehoben ist.
+  */
+  useEffect(() => {
+    function onStorage(event: StorageEvent) {
+      if (event.key !== USERS_KEY) return
+      const maintenanceMode = liesWartungsmodusAusSpeicher()
+      setStore((s) =>
+        s.settings.maintenanceMode === maintenanceMode
+          ? s
+          : { ...s, settings: { ...s.settings, maintenanceMode } },
+      )
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
 
   // Ein Root-Admin existiert IMMER (fest verankerter Seed) ODER wurde im Store angelegt
   // → das „Systemeigentümer aktivieren"-Onboarding ist damit global deaktiviert.
@@ -340,6 +388,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setStore((s) => ({ ...s, settings: { ...s.settings, maintenanceMode: value } }))
   }, [])
 
+  /*
+    SELBST-AUSSPERRUNG VERHINDERN, TEIL 2: der manuelle "Status aktualisieren"-Knopf.
+
+    Liest synchron aus localStorage und schreibt das Ergebnis sofort in den State — der
+    Aufrufer bekommt den frischen Stand als Rückgabewert, ohne auf einen Re-Render warten
+    zu müssen (praktisch für eine unmittelbare Rückmeldung "weiterhin aktiv" im Knopf).
+  */
+  const refreshMaintenanceStatus = useCallback((): boolean => {
+    const maintenanceMode = liesWartungsmodusAusSpeicher()
+    setStore((s) =>
+      s.settings.maintenanceMode === maintenanceMode
+        ? s
+        : { ...s, settings: { ...s.settings, maintenanceMode } },
+    )
+    return appConfig.isMaintenanceMode || maintenanceMode
+  }, [])
+
   // Global (Env/Code) ODER Admin-Toggle.
   const maintenanceActive = appConfig.isMaintenanceMode || store.settings.maintenanceMode
 
@@ -364,6 +429,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       validateStaffEmail,
       maintenanceActive,
       setMaintenanceMode,
+      refreshMaintenanceStatus,
     }),
     [
       user,
@@ -383,6 +449,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       validateStaffEmail,
       maintenanceActive,
       setMaintenanceMode,
+      refreshMaintenanceStatus,
     ],
   )
 

@@ -25,6 +25,11 @@ const BEREICHE: Array<{ id: Bereich; titel: string; zweck: string }> = [
  * Artikelverwaltung im Aktionsmenü der Berateransicht hing: Der Administrator meldete
  * sich an und fand das schwächere Werkzeug. Beides steht jetzt hier zusammen, ergänzt um
  * die Übersicht, wie der Konfigurator aus den Stammdaten aufgebaut ist.
+ *
+ * SELBST-AUSSPERRUNG VERHINDERN (Phase 11.2): Ist der Wartungsmodus aktiv, zeigt die
+ * Kopfzeile das unabhängig vom gewählten Bereich sofort mit einem Ausschalt-Knopf — der
+ * Administrator, der gerade über den Notfall-Zugang der Wartungsseite hierher fand, muss
+ * dafür nicht erst in „Konten & Betrieb" navigieren.
  */
 export default function AdminDashboardPage() {
   const [bereich, setBereich] = useState<Bereich>('konfigurator')
@@ -96,6 +101,25 @@ export default function AdminDashboardPage() {
             zusammen, die sich ohne Programmänderung pflegen lassen.
           </p>
         </header>
+
+        {maintenanceActive ? (
+          <section className={styles.wartungsBanner} role="status" aria-label="Wartungsmodus aktiv">
+            <span className={styles.wartungsText}>
+              <strong>⚠ Wartungsmodus ist aktiv</strong> — Berater sehen aktuell die
+              Wartungsseite statt des Konfigurators.
+            </span>
+            {appConfig.isMaintenanceMode ? (
+              <span className={styles.wartungsHinweis}>
+                Global über die Umgebungsvariable erzwungen — hier nicht deaktivierbar,
+                nur per Redeploy.
+              </span>
+            ) : (
+              <Button variant="ghost" onClick={() => setMaintenanceMode(false)}>
+                Jetzt deaktivieren
+              </Button>
+            )}
+          </section>
+        ) : null}
 
         <nav className={styles.bereiche} aria-label="Arbeitsbereiche">
           {BEREICHE.map((b) => (

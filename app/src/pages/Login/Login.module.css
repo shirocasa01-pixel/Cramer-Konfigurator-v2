@@ -78,6 +78,16 @@
   padding: var(--space-3) var(--space-4);
 }
 
+/* Notfall-Zugang während der Wartung – bewusst neutral, keine Fehlermeldung. */
+.notice {
+  font-size: 0.9rem;
+  color: var(--color-ink-secondary);
+  background: color-mix(in srgb, var(--color-focus) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--color-focus) 35%, var(--color-line));
+  border-radius: var(--radius-sm);
+  padding: var(--space-3) var(--space-4);
+}
+
 .demo {
   display: flex;
   flex-wrap: wrap;

@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { BrandMark } from '../../components/ui/BrandMark'
 import { Button } from '../../components/ui/Button'
 import { TextField } from '../../components/ui/TextField'
@@ -10,10 +10,16 @@ import styles from './Login.module.css'
  * PHASE 1 + 10 – Authentifizierung.
  * Login per Berater-E-Mail ODER Admin-Benutzername. Ist noch kein Systemeigentümer
  * eingerichtet, bietet die Maske den simulierten Root-Aktivierungslink an.
+ *
+ * Diese Route bleibt IMMER erreichbar, auch bei aktivem Wartungsmodus (siehe die
+ * `maintenanceExempt`-Prüfung in `App.tsx`) — der Notfall-Zugang auf der Wartungsseite
+ * führt genau hierher, mit `?grund=wartung` in der URL für den Hinweis unten.
  */
 export default function LoginPage() {
   const { login } = useAuth()
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const ausWartungsmodus = searchParams.get('grund') === 'wartung'
 
   const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
@@ -48,6 +54,13 @@ export default function LoginPage() {
           <BrandMark size="lg" />
           <p className={styles.subtitle}>Vertriebs-Konfigurator · Interner Zugang</p>
         </header>
+
+        {ausWartungsmodus ? (
+          <p className={styles.notice} role="status">
+            🔒 Notfall-Zugang während der Wartung — mit dem Administrator-Konto anmelden,
+            um den Wartungsmodus zu beenden.
+          </p>
+        ) : null}
 
         <form className={styles.form} onSubmit={handleSubmit} noValidate>
           <TextField
