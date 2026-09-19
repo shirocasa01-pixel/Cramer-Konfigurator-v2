@@ -19,6 +19,8 @@ import {
 import { entferneAbgewaehlteAusstattung } from '../../lib/frontsHelpers'
 import type { Draft } from '../../types'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { Beschriftung, BeschriftungsGruppe, useTexte } from '../../components/schema/Beschriftung'
+import { Inspector } from '../../components/schema/Inspector'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Ausstattung.module.css'
 
@@ -46,6 +48,7 @@ function auswahlPatch(aktuell: Draft, selected: string[]): Partial<Draft> {
 export default function AusstattungPage() {
   const { draft, updateDraftFrom } = useDraft()
   const navigate = useNavigate()
+  const t = useTexte('ausstattung')
 
   const group = getProductGroup(draft?.productGroupId)
   const series = getSeries(draft?.productGroupId, draft?.seriesId)
@@ -113,21 +116,61 @@ export default function AusstattungPage() {
         </header>
 
         {sondertiefe ? (
-          <p className={styles.notice}>
-            <strong>Sondertiefe erkannt.</strong> Bei Korpustiefen unter 60 cm sind als Ausstattung nur
-            Einlegeböden möglich – die übrigen Optionen sind deaktiviert.
-          </p>
+          <Beschriftung
+            abschnittId="ausstattung"
+            schluessel="sondertiefe"
+            standard="Sondertiefe erkannt. Bei Korpustiefen unter 60 cm sind als Ausstattung nur Einlegeböden möglich – die übrigen Optionen sind deaktiviert."
+            as="p"
+            className={styles.notice}
+            mehrzeilig
+          />
         ) : null}
 
+        {/*
+          ERKLÄRTEXTE UNTER DEN OPTIONEN.
+
+          Der Satz unter „Einlegeboden" („Standardmäßig ausgewählt, abwählbar. Je Boden
+          eine eigene Rasterhöhe.") ist das, was den Berater durch diesen Schritt führt —
+          und das, was sich mit jeder Praxisrunde ändert. Beschriftung und Erklärtext jeder
+          Option sind deshalb editierbar, der Stift sitzt an der Kategorie-Überschrift und
+          öffnet alle Optionen dieser Kategorie zusammen.
+
+          Die OPTION selbst bleibt Code: An ihrer Kennung hängen die Artikel, die
+          Sondertiefen-Regel und die Abfrage hinter den Fronten.
+        */}
         {equipmentCategories.map((category) => (
           <section key={category.id} className={styles.category} aria-label={category.label}>
             <div className={styles.categoryHead}>
-              <h2 className={styles.categoryTitle}>{category.label}</h2>
+              <h2 className={styles.categoryTitle}>
+                <Beschriftung
+                  abschnittId="ausstattung"
+                  schluessel={`kategorie.${category.id}`}
+                  standard={category.label}
+                />
+                <BeschriftungsGruppe
+                  abschnittId="ausstattung"
+                  titel={`„${category.label}" beschriften`}
+                  eintraege={category.options.flatMap((o) => [
+                    {
+                      schluessel: `option.${o.id}.label`,
+                      standard: o.label,
+                      label: `${o.label} — Bezeichnung`,
+                    },
+                    {
+                      schluessel: `option.${o.id}.hinweis`,
+                      standard: o.hint ?? '',
+                      label: `${o.label} — Erklärtext`,
+                      mehrzeilig: true,
+                    },
+                  ])}
+                />
+              </h2>
             </div>
             <div className={styles.options}>
               {category.options.map((option) => {
                 const disabled = sondertiefe && !isEquipmentAvailableInSondertiefe(option.id)
                 const checked = selected.has(option.id) && !disabled
+                const hinweis = t(`option.${option.id}.hinweis`, option.hint ?? '')
                 return (
                   <label
                     key={option.id}
@@ -143,8 +186,11 @@ export default function AusstattungPage() {
                       onChange={() => toggle(option.id)}
                     />
                     <span className={styles.optionText}>
-                      <span className={styles.optionLabel}>{option.label}</span>
-                      {option.hint ? <span className={styles.optionHint}>{option.hint}</span> : null}
+                      <span className={styles.optionLabel}>
+                        {t(`option.${option.id}.label`, option.label)}
+                        <Inspector feld={`ausstattung.option.${option.id}`} />
+                      </span>
+                      {hinweis ? <span className={styles.optionHint}>{hinweis}</span> : null}
                     </span>
                   </label>
                 )
@@ -160,9 +206,14 @@ export default function AusstattungPage() {
             Zurück
           </Button>
           <Button onClick={() => navigate('/fronts')}>Weiter zu den Fronten</Button>
-          <span className={styles.hint}>
-            Auswahl jederzeit änderbar – sie steuert nur, welche Ausstattung hinter den Fronten angeboten wird.
-          </span>
+          <Beschriftung
+            abschnittId="ausstattung"
+            schluessel="fusshinweis"
+            standard="Auswahl jederzeit änderbar – sie steuert nur, welche Ausstattung hinter den Fronten angeboten wird."
+            as="span"
+            className={styles.hint}
+            mehrzeilig
+          />
         </div>
       </div>
     </AppShell>

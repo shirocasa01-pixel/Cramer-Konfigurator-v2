@@ -11,18 +11,28 @@ import {
 } from '../../config/productCatalog'
 import { artikelFuerSerie, dropdownsFuerSchritt, getSerie, schritte } from '../../lib/stammdaten'
 import { useStammdaten } from '../../lib/useStammdaten'
+import { useBearbeitungsModus } from '../../lib/editorModus'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { Beschriftung, BeschriftungsGruppe, useTexte } from '../../components/schema/Beschriftung'
+import { Inspector } from '../../components/schema/Inspector'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './ProductSelection.module.css'
 
 /**
- * Zeigt an, was die gewählte Serie in den Stammdaten freischaltet — der sichtbare
- * Beleg dafür, dass die Modus-Filterung greift. Die Zahlen entstehen live aus dem
- * Feld `Modus` der Excel; nichts davon ist im Code hinterlegt.
+ * WAS DIE GEWÄHLTE SERIE IN DEN STAMMDATEN FREISCHALTET — NUR FÜR DEN ADMINISTRATOR.
+ *
+ * Diese Zeile stand bisher in der Berateransicht: „Serien-Kürzel R · 117 von 190 Artikeln
+ * freigegeben, verteilt auf 5 Schritte …". Im Verkaufsgespräch sitzt der Kunde daneben und
+ * liest eine Zahl, die ihn nichts angeht und die niemand erklären kann. Der Berater wählt
+ * eine Serie, keinen Artikelbestand.
+ *
+ * Für den Administrator ist dieselbe Zeile wertvoll — sie belegt, dass die Modus-Filterung
+ * greift. Deshalb bleibt sie, aber hinter der Bearbeitungsschicht (Ebene 2 aufwärts).
  */
 function StammdatenHinweis({ seriesId }: { seriesId: string }) {
+  const bearbeitung = useBearbeitungsModus()
   const serie = getSerie(seriesId)
-  if (!serie) return null
+  if (!bearbeitung || !serie) return null
 
   const artikel = artikelFuerSerie(seriesId)
   const schritteMitAuswahl = schritte
@@ -34,8 +44,8 @@ function StammdatenHinweis({ seriesId }: { seriesId: string }) {
 
   return (
     <p className={styles.stammdatenNote}>
-      Serien-Kürzel <strong>{serie.code}</strong> · <strong>{artikel.length}</strong> von 190
-      Artikeln freigegeben, verteilt auf <strong>{schritteMitAuswahl.length}</strong> Schritte:{' '}
+      Serien-Kürzel <strong>{serie.code}</strong> · <strong>{artikel.length}</strong> Artikel
+      freigegeben, verteilt auf <strong>{schritteMitAuswahl.length}</strong> Schritte:{' '}
       {schritteMitAuswahl
         .map(({ schritt, dropdowns }) => `${schritt.bezeichnung} (${dropdowns.length})`)
         .join(' · ')}
@@ -55,6 +65,8 @@ export default function ProductSelectionPage() {
   // Die Artikelzahlen je Serie kommen aus dem Stammdaten-Stand — mitzeichnen, damit eine
   // Änderung in der Verwaltung (neuer Artikel, geänderter Modus) sofort sichtbar wird.
   useStammdaten()
+  const bearbeitung = useBearbeitungsModus()
+  const t = useTexte('produkt')
 
   if (!draft) return <Navigate to="/" replace />
 
@@ -91,9 +103,30 @@ export default function ProductSelectionPage() {
           />
         </header>
 
+        {/*
+          Produktgruppen-Bezeichnungen sind Verkaufstexte, keine Stammdaten: Der
+          Administrator benennt Kachel und Beschreibung im Bearbeitungsmodus, ohne dass
+          der Katalog angefasst werden muss. Der Stift sitzt an der Abschnitts-Überschrift
+          und öffnet alle Kacheln gemeinsam — ein Stift je Kachel würde die Reihe zerreißen.
+        */}
         <section aria-label="Produktgruppe">
           <h2 className={styles.sectionTitle}>
-            <span className={styles.sectionNo}>1</span> Produktgruppe
+            <span className={styles.sectionNo}>1</span>{' '}
+            <Beschriftung abschnittId="produkt" schluessel="gruppe.titel" standard="Produktgruppe" />
+            <Inspector feld="produkt.gruppe" />
+            <BeschriftungsGruppe
+              abschnittId="produkt"
+              titel="Produktgruppen benennen"
+              eintraege={productGroups.flatMap((g) => [
+                { schluessel: `gruppe.${g.id}.name`, standard: g.name, label: `${g.name} — Bezeichnung` },
+                {
+                  schluessel: `gruppe.${g.id}.beschreibung`,
+                  standard: g.description,
+                  label: `${g.name} — Beschreibung`,
+                  mehrzeilig: true,
+                },
+              ])}
+            />
           </h2>
           <div className={styles.tiles}>
             {productGroups.map((group) => {
@@ -113,9 +146,13 @@ export default function ProductSelectionPage() {
                   disabled={!group.active}
                   aria-pressed={selected}
                 >
-                  <span className={styles.tileName}>{group.name}</span>
-                  <span className={styles.tileDesc}>{group.description}</span>
-                  {!group.active ? <span className={styles.tileFlag}>bald verfügbar</span> : null}
+                  <span className={styles.tileName}>{t(`gruppe.${group.id}.name`, group.name)}</span>
+                  <span className={styles.tileDesc}>
+                    {t(`gruppe.${group.id}.beschreibung`, group.description)}
+                  </span>
+                  {!group.active ? (
+                    <span className={styles.tileFlag}>{t('gruppe.inaktiv', 'bald verfügbar')}</span>
+                  ) : null}
                   {selected ? (
                     <span className={styles.tileCheck} aria-hidden="true">
                       ✓
@@ -127,11 +164,31 @@ export default function ProductSelectionPage() {
           </div>
         </section>
 
+        {/*
+          Die Artikelzahl unter jeder Serie („117 Artikel") ist eine Kennzahl der
+          Stammdatenpflege und stand hier im Verkaufsgespräch. Sie sagt nichts über das
+          Möbel aus — eine Serie mit 117 Artikeln ist nicht besser als eine mit 40 — und
+          lud zu genau dieser Fehldeutung ein. Für den Administrator bleibt sie im
+          Bearbeitungsmodus stehen, weil er daran die Freigaben prüft.
+        */}
         {selectedGroup && selectedGroup.series.length > 0 ? (
           <section aria-label="Serie">
             <h2 className={styles.sectionTitle}>
-              <span className={styles.sectionNo}>2</span> Serie
-              <span className={styles.sectionHint}>· {selectedGroup.name}</span>
+              <span className={styles.sectionNo}>2</span>{' '}
+              <Beschriftung abschnittId="produkt" schluessel="serie.titel" standard="Serie" />
+              <span className={styles.sectionHint}>
+                · {t(`gruppe.${selectedGroup.id}.name`, selectedGroup.name)}
+              </span>
+              <Inspector feld="produkt.serie" />
+              <BeschriftungsGruppe
+                abschnittId="produkt"
+                titel="Serien benennen"
+                eintraege={selectedGroup.series.map((s) => ({
+                  schluessel: `serie.${s.id}.name`,
+                  standard: s.name,
+                  label: `Serie ${s.name}`,
+                }))}
+              />
             </h2>
             <div className={styles.series}>
               {selectedGroup.series.map((series) => {
@@ -146,10 +203,12 @@ export default function ProductSelectionPage() {
                     onClick={() => selectSeries(series.id)}
                     aria-pressed={selected}
                   >
-                    {series.name}
-                    <span className={styles.serieCount}>
-                      {artikelFuerSerie(series.id).length}&nbsp;Artikel
-                    </span>
+                    {t(`serie.${series.id}.name`, series.name)}
+                    {bearbeitung ? (
+                      <span className={styles.serieCount}>
+                        {artikelFuerSerie(series.id).length}&nbsp;Artikel
+                      </span>
+                    ) : null}
                   </button>
                 )
               })}

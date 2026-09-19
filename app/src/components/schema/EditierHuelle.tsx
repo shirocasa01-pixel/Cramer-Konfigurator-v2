@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react'
 import { FeldEinstellungen } from '../admin/FeldEinstellungen'
-import { aktualisiereFeld, entferneFeld } from '../../lib/schemaStore'
-import { useEditorModus } from '../../lib/editorModus'
+import { FeldInspector } from './Inspector'
+import { aktualisiereFeld, entferneFeld, verschiebeFeld } from '../../lib/schemaStore'
+import { useBearbeitungsModus } from '../../lib/editorModus'
 import { dropdowns } from '../../data/stammdaten.generated'
 import type { SchemaFeld } from '../../types/schema'
 import styles from './Editierbar.module.css'
@@ -35,13 +36,16 @@ export function datenquelle(feld: SchemaFeld): string | null {
 export function EditierHuelle({
   feld,
   abschnittId,
+  /** Modul (Ebene 2), zu dem das Feld gehört — der Inspector nennt es beim Namen. */
+  modulId,
   children,
 }: {
   feld: SchemaFeld
   abschnittId: string
+  modulId?: string
   children: ReactNode
 }) {
-  const bearbeitung = useEditorModus()
+  const bearbeitung = useBearbeitungsModus()
   const [offen, setOffen] = useState(false)
 
   if (!bearbeitung) return <>{children}</>
@@ -51,6 +55,27 @@ export function EditierHuelle({
   return (
     <div className={feld.aktiv ? styles.huelle : styles.huelleAus}>
       <div className={styles.werkzeuge}>
+        {/*
+          Anordnen über zwei Pfeile statt Ziehen und Fallenlassen: Der Konfigurator wird
+          auch auf dem iPad bearbeitet, wo ein Ziehvorgang mit dem Seiten-Scrollen
+          konkurriert. Ein Schritt je Klick ist langsamer, aber er geht immer.
+        */}
+        <button
+          type="button"
+          className={styles.stift}
+          title={`„${feld.label}" nach oben`}
+          onClick={() => verschiebeFeld(abschnittId, feld.id, -1)}
+        >
+          ↑
+        </button>
+        <button
+          type="button"
+          className={styles.stift}
+          title={`„${feld.label}" nach unten`}
+          onClick={() => verschiebeFeld(abschnittId, feld.id, 1)}
+        >
+          ↓
+        </button>
         <button
           type="button"
           className={styles.stift}
@@ -82,7 +107,16 @@ export function EditierHuelle({
 
       {children}
 
-      {quelle ? <span className={styles.quelle}>◆ {quelle}</span> : null}
+      {quelle ? (
+        <span className={styles.quelle}>
+          ◆ {quelle}
+          <FeldInspector feld={feld} modulId={modulId ?? abschnittId} />
+        </span>
+      ) : (
+        <span className={styles.quelle}>
+          <FeldInspector feld={feld} modulId={modulId ?? abschnittId} />
+        </span>
+      )}
 
       <FeldEinstellungen
         offen={offen}

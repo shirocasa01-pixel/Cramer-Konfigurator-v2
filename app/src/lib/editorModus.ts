@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { useAuth } from '../context/AuthContext'
 
 /**
  * BEARBEITUNGSMODUS — der Konfigurator, während der Administrator ihn umbaut.
@@ -35,7 +36,33 @@ export function setzeEditorModus(wert: boolean): void {
   melde()
 }
 
-/** true ⇒ die Bearbeitungsschicht ist eingeschaltet. */
+/**
+ * true ⇒ der Schalter steht auf „Bearbeiten".
+ *
+ * Nur der Schalter — ob die Bearbeitungsschicht auch erscheinen DARF, beantwortet
+ * `useBearbeitungsModus()`. Wer eine Oberfläche baut, nimmt immer den gesicherten Haken.
+ */
 export function useEditorModus(): boolean {
   return useSyncExternalStore(subscribeEditorModus, getEditorModus, getEditorModus)
+}
+
+/**
+ * DIE RECHTE-SPERRE DER BEARBEITUNGSSCHICHT.
+ *
+ * Der eine Haken, den jede Stift-, Plus- und Inspector-Anzeige abfragt: Bearbeitungsmodus
+ * eingeschaltet UND angemeldet als Administrator. Für einen Berater bleibt die Oberfläche
+ * dadurch vollständig sauber — kein Rahmen, kein Stift, kein Plus, kein Datenquellen-Text.
+ *
+ * Die Rolle wird bei JEDEM Rendern neu gelesen statt einmal beim Einschalten gemerkt: Ein
+ * Rollenwechsel (Abmelden, Wechsel des Kontos) nimmt die Schicht damit sofort weg und
+ * nicht erst beim nächsten Seitenwechsel.
+ *
+ * Grenze wie bei der übrigen Anmeldung: Das ist eine Oberflächen-Sperre, keine
+ * Sicherheitsgrenze — die gesamte Anmeldung läuft im Browser (siehe `data/seedAdmin.ts`).
+ * Echten Schutz gibt es erst mit server-seitiger Rollenprüfung.
+ */
+export function useBearbeitungsModus(): boolean {
+  const { isAdmin } = useAuth()
+  const eingeschaltet = useEditorModus()
+  return eingeschaltet && isAdmin
 }

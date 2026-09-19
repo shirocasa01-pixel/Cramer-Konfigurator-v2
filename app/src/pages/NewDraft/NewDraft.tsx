@@ -10,9 +10,9 @@ import { Button } from '../../components/ui/Button'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
 import { felderFuer, getEntwurfSchema, getSchema, subscribeSchema } from '../../lib/schemaStore'
-import { useEditorModus } from '../../lib/editorModus'
+import { useBearbeitungsModus } from '../../lib/editorModus'
 import { pruefeSchemaFelder } from '../../lib/draftValidation'
-import { schreibeWert } from '../../lib/schemaWerte'
+import { schreibeMaterial, schreibeWert } from '../../lib/schemaWerte'
 import styles from './NewDraft.module.css'
 
 /**
@@ -30,7 +30,7 @@ export default function NewDraftPage() {
   const navigate = useNavigate()
   const started = useRef(false)
   const roh = useSyncExternalStore(subscribeSchema, getEntwurfSchema, getEntwurfSchema)
-  const bearbeitung = useEditorModus()
+  const bearbeitung = useBearbeitungsModus()
   const schema = bearbeitung ? roh : getSchema()
 
   // Genau einen frischen Entwurf anlegen, falls keiner existiert (StrictMode-sicher).
@@ -86,7 +86,7 @@ export default function NewDraftPage() {
         {angezeigte.length > 0 ? (
           <section className={styles.autoGrid} aria-label="Automatisch erfasste Daten">
             {angezeigte.map((feld) => (
-              <EditierHuelle key={feld.id} feld={feld} abschnittId="auftragskopf">
+              <EditierHuelle key={feld.id} feld={feld} abschnittId="auftragskopf" modulId="auftragskopf">
                 <SchemaFeldEingabe feld={feld} draft={draft} onChange={() => {}} />
               </EditierHuelle>
             ))}
@@ -95,7 +95,7 @@ export default function NewDraftPage() {
 
         <section className={styles.formGrid} aria-label="Eingaben">
           {eingaben.map((feld) => (
-            <EditierHuelle key={feld.id} feld={feld} abschnittId="auftragskopf">
+            <EditierHuelle key={feld.id} feld={feld} abschnittId="auftragskopf" modulId="auftragskopf">
               <SchemaFeldEingabe
                 feld={feld}
                 draft={draft}
@@ -103,6 +103,7 @@ export default function NewDraftPage() {
                   updateDraft(schreibeWert(draft, feld, wert))
                   if (feld.typ === 'auswahl') setTouched((prev) => ({ ...prev, [feld.id]: true }))
                 }}
+                onMaterial={(wahl) => updateDraft(schreibeMaterial(draft, feld, wahl))}
                 onBlur={() => setTouched((prev) => ({ ...prev, [feld.id]: true }))}
                 fehler={touched[feld.id] ? errors[feld.id] : undefined}
               />

@@ -21,7 +21,9 @@ import {
   isKorpusGrunddatenComplete,
 } from '../../lib/korpusMass'
 import type { Draft, KorpusGrunddaten } from '../../types'
-import { abschnittTexte } from '../../lib/schemaStore'
+import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { Beschriftung, fuelle, useTexte } from '../../components/schema/Beschriftung'
+import { Inspector } from '../../components/schema/Inspector'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Dimensions.module.css'
 
@@ -57,9 +59,11 @@ export default function DimensionsPage() {
     }
   }, [useRaster, draft, updateDraft])
 
-  // Nur die Raster-Maske (Refugium) wird zentral getextet; die Freimaß-Variante behaelt
-  // ihren eigenen Text, weil sie eine andere Eingabelogik beschreibt.
-  const texte = abschnittTexte('masse', { titel: 'Korpus – Maße & Grunddaten' })
+  // Beide Masken sind editierbar, aber nicht über denselben Text: Die Raster-Maske
+  // (Refugium) nimmt Überschrift und Einleitung des Abschnitts, die Freimaß-Variante
+  // eigene Schlüssel — sie beschreibt eine andere Eingabelogik, und ein gemeinsamer Text
+  // wäre für eine der beiden immer falsch.
+  const t = useTexte('masse')
 
   if (!draft) return <Navigate to="/" replace />
   if (!group || !series) return <Navigate to="/products" replace />
@@ -100,12 +104,32 @@ export default function DimensionsPage() {
         <StepIndicator activeKey="masse" />
 
         <header className={styles.header}>
-          <h1 className={styles.title}>{useRaster ? texte.titel : 'Maße & Segmente'}</h1>
-          <p className={styles.subtitle}>
-            {useRaster
-              ? texte.beschreibung
-              : 'Gesamtmaße der Möbelhülle erfassen und die Anzahl der Korpus-Segmente (Spalten) festlegen. Daraus werden die Front-Typ-Spalten initialisiert – von links nach rechts.'}
-          </p>
+          {useRaster ? (
+            <AbschnittKopf
+              abschnittId="masse"
+              standardTitel="Korpus – Maße & Grunddaten"
+              titelKlasse={styles.title}
+              textKlasse={styles.subtitle}
+            />
+          ) : (
+            <>
+              <Beschriftung
+                abschnittId="masse"
+                schluessel="freimass.titel"
+                standard="Maße & Segmente"
+                as="h1"
+                className={styles.title}
+              />
+              <Beschriftung
+                abschnittId="masse"
+                schluessel="freimass.einleitung"
+                standard="Gesamtmaße der Möbelhülle erfassen und die Anzahl der Korpus-Segmente (Spalten) festlegen. Daraus werden die Front-Typ-Spalten initialisiert – von links nach rechts."
+                as="p"
+                className={styles.subtitle}
+                mehrzeilig
+              />
+            </>
+          )}
           <p className={styles.context}>
             {group.name} · Serie {series.name}
           </p>
@@ -121,7 +145,7 @@ export default function DimensionsPage() {
           <>
             <section className={styles.grid} aria-label="Gesamtmaße">
               <TextField
-                label="Gesamthöhe (cm)"
+                label={t('freimass.hoehe', 'Gesamthöhe (cm)')}
                 required
                 inputMode="decimal"
                 placeholder="z. B. 220"
@@ -131,7 +155,7 @@ export default function DimensionsPage() {
                 error={touched.heightCm ? errors.heightCm : undefined}
               />
               <TextField
-                label="Gesamtbreite (cm)"
+                label={t('freimass.breite', 'Gesamtbreite (cm)')}
                 required
                 inputMode="decimal"
                 placeholder="z. B. 300"
@@ -141,7 +165,7 @@ export default function DimensionsPage() {
                 error={touched.widthCm ? errors.widthCm : undefined}
               />
               <TextField
-                label="Gesamttiefe (cm)"
+                label={t('freimass.tiefe', 'Gesamttiefe (cm)')}
                 required
                 inputMode="decimal"
                 placeholder="z. B. 60"
@@ -154,10 +178,22 @@ export default function DimensionsPage() {
 
             <section className={styles.segments} aria-label="Korpus-Segmente">
               <div className={styles.segmentsHead}>
-                <span className={styles.segmentsLabel}>Anzahl Korpus-Segmente (Spalten)</span>
-                <span className={styles.segmentsHint}>
-                  Wie viele physische Korpus-Spalten hat das Möbel? (z. B. 3)
+                <span className={styles.segmentsLabel}>
+                  <Beschriftung
+                    abschnittId="masse"
+                    schluessel="freimass.segmente.titel"
+                    standard="Anzahl Korpus-Segmente (Spalten)"
+                  />
+                  <Inspector feld="masse.breite" />
                 </span>
+                <Beschriftung
+                  abschnittId="masse"
+                  schluessel="freimass.segmente.hinweis"
+                  standard="Wie viele physische Korpus-Spalten hat das Möbel? (z. B. 3)"
+                  as="span"
+                  className={styles.segmentsHint}
+                  mehrzeilig
+                />
               </div>
               <div className={styles.stepper}>
                 <button
@@ -187,20 +223,54 @@ export default function DimensionsPage() {
           </>
         )}
 
+        {/*
+          ERGEBNISTEXT MIT PLATZHALTERN.
+
+          Der Satz ist editierbar, die Zahlen darin nicht: Die Platzhalter für Höhe,
+          Breite und Tiefe werden beim Anzeigen ersetzt. So kann der Administrator die
+          Formulierung an den Verkaufston anpassen, ohne dass jemand Maße von Hand in
+          einen Text schreibt — die einzige Fassung, die dauerhaft richtig bleibt.
+        */}
         {useRaster ? null : (
           <section className={styles.aussenmass} aria-label="Erfasstes Außenmaß">
             <div className={styles.aussenmassHead}>
-              <span className={styles.aussenmassLabel}>Erfasstes Außenmaß</span>
+              <span className={styles.aussenmassLabel}>
+                <Beschriftung
+                  abschnittId="masse"
+                  schluessel="freimass.aussenmass.titel"
+                  standard="Erfasstes Außenmaß"
+                />
+                <Inspector feld="masse.aussenmass" />
+              </span>
             </div>
-            <p className={styles.aussenmassSentence}>
-              Ihr Möbel hat ein Maß von <strong>{formatKorpusMass(masse.gesamthoeheCm)}</strong> (Gesamthöhe),{' '}
-              <strong>{formatKorpusMass(masse.gesamtbreiteCm)}</strong> (Gesamtbreite) und{' '}
-              <strong>{formatKorpusMass(masse.korpustiefeCm)}</strong> (Korpustiefe ohne Fronten).
-            </p>
-            <p className={styles.aussenmassHint}>
-              Für diese Serie werden die eingegebenen Gesamtmaße unverändert übernommen. Die Ableitung
-              über die Frontbreiten (Fugen, Abschlusssets) greift bislang nur beim Kleiderschrank.
-            </p>
+            <Beschriftung
+              abschnittId="masse"
+              schluessel="freimass.aussenmass.satz"
+              standard="Ihr Möbel hat ein Maß von {hoehe} (Gesamthöhe), {breite} (Gesamtbreite) und {tiefe} (Korpustiefe ohne Fronten)."
+              as="p"
+              className={styles.aussenmassSentence}
+              mehrzeilig
+              platzhalterHinweis="Platzhalter: {hoehe}, {breite}, {tiefe} — sie werden durch die errechneten Maße ersetzt."
+              anzeige={fuelle(
+                t(
+                  'freimass.aussenmass.satz',
+                  'Ihr Möbel hat ein Maß von {hoehe} (Gesamthöhe), {breite} (Gesamtbreite) und {tiefe} (Korpustiefe ohne Fronten).',
+                ),
+                {
+                  hoehe: formatKorpusMass(masse.gesamthoeheCm),
+                  breite: formatKorpusMass(masse.gesamtbreiteCm),
+                  tiefe: formatKorpusMass(masse.korpustiefeCm),
+                },
+              )}
+            />
+            <Beschriftung
+              abschnittId="masse"
+              schluessel="freimass.aussenmass.hinweis"
+              standard="Für diese Serie werden die eingegebenen Gesamtmaße unverändert übernommen. Die Ableitung über die Frontbreiten (Fugen, Abschlusssets) greift bislang nur beim Kleiderschrank."
+              as="p"
+              className={styles.aussenmassHint}
+              mehrzeilig
+            />
           </section>
         )}
 

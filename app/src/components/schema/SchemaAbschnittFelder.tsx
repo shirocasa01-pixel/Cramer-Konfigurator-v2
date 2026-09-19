@@ -4,8 +4,9 @@ import { EditierHuelle } from './EditierHuelle'
 import { SchemaFeldEingabe } from './SchemaFeldEingabe'
 import { useDraft } from '../../context/DraftContext'
 import { felderFuer, getEntwurfSchema, getSchema, subscribeSchema } from '../../lib/schemaStore'
-import { schreibeWert } from '../../lib/schemaWerte'
-import { useEditorModus } from '../../lib/editorModus'
+import { schreibeMaterial, schreibeWert } from '../../lib/schemaWerte'
+import { useBearbeitungsModus } from '../../lib/editorModus'
+import { moduleFuerAbschnitt } from '../../config/module'
 import styles from './SchemaAbschnittFelder.module.css'
 
 /**
@@ -22,7 +23,7 @@ import styles from './SchemaAbschnittFelder.module.css'
 export function SchemaAbschnittFelder({ abschnittId }: { abschnittId: string }) {
   const roh = useSyncExternalStore(subscribeSchema, getEntwurfSchema, getEntwurfSchema)
   const { draft, updateDraft } = useDraft()
-  const bearbeitung = useEditorModus()
+  const bearbeitung = useBearbeitungsModus()
 
   const schema = bearbeitung ? roh : getSchema()
 
@@ -37,14 +38,19 @@ export function SchemaAbschnittFelder({ abschnittId }: { abschnittId: string }) 
 
   if (felder.length === 0 && !bearbeitung) return null
 
+  // Zu welchem Modul die ergänzten Bausteine gehören, beantwortet der Inspector; ohne
+  // Zuordnung im Katalog bleibt es beim Schritt selbst.
+  const modulId = moduleFuerAbschnitt(abschnittId)[0]?.id ?? abschnittId
+
   return (
     <section className={styles.block} aria-label="Ergänzende Angaben">
       {felder.map((feld) => (
-        <EditierHuelle key={feld.id} feld={feld} abschnittId={abschnittId}>
+        <EditierHuelle key={feld.id} feld={feld} abschnittId={abschnittId} modulId={modulId}>
           <SchemaFeldEingabe
             feld={feld}
             draft={draft}
             onChange={(wert) => updateDraft(schreibeWert(draft, feld, wert))}
+            onMaterial={(wahl) => updateDraft(schreibeMaterial(draft, feld, wahl))}
           />
         </EditierHuelle>
       ))}

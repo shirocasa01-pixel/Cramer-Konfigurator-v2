@@ -32,7 +32,19 @@ import { caPrefix, formatDimensions } from '../../lib/massFormat'
 import { describeKorpusGrunddatenZeilen } from '../../lib/korpusMass'
 import type { FrontElement, KorpusGrunddaten, KorpusInnen, PriceGroup } from '../../types'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { Beschriftung, fuelle, useTexte } from '../../components/schema/Beschriftung'
+import { Inspector } from '../../components/schema/Inspector'
 import styles from './Summary.module.css'
+
+/*
+  Die beiden längeren Texte dieses Schritts stehen als Konstanten: Sie werden beim
+  Anzeigen gebraucht UND als Standard im Bearbeitungsdialog. Zwei Fassungen desselben
+  Satzes würden früher oder später auseinanderlaufen.
+*/
+const VK_HINWEIS =
+  'Verbindlicher Endpreis für Angebot und AV-PDF. Über „Berechneten Preis übernehmen" wird das Ergebnis der Kalkulation eingesetzt; ein abweichender Wert ist möglich, sollte aber begründet werden. Eingabe in deutscher Schreibweise: Komma trennt die Cent, Punkt die Tausender — 9.009,00 sind neuntausendneun Euro.'
+const AV_FEHLEND =
+  'Für die Übergabe an die Arbeitsvorbereitung fehlt noch {fehlend} — in Schritt 1 „Entwurf" nachtragen. Für PDF und „Speichern & abschließen" ist das nicht nötig.'
 
 /**
  * PHASE 6 – Abschluss / Zusammenfassung.
@@ -42,6 +54,7 @@ export default function SummaryPage() {
   const { draft, updateDraft, finalizeDraft, cloudSaving } = useDraft()
   const navigate = useNavigate()
   const [scanOpen, setScanOpen] = useState(false)
+  const t = useTexte('abschluss')
 
   const onScanReceived = useCallback(
     (image: string) => updateDraft({ scanImage: image }),
@@ -99,11 +112,22 @@ export default function SummaryPage() {
         {/* Scan-Bereich */}
         <section className={styles.scan} aria-label="Handzeichnung scannen">
           <div className={styles.scanText}>
-            <h2 className={styles.scanTitle}>Handzeichnung (Skizze)</h2>
-            <p className={styles.scanHint}>
-              Per Smartphone scannen – das Bild wird automatisch als kontrastreiches Dokument
-              optimiert und erscheint hier sowie auf Seite 2 des PDFs.
-            </p>
+            <h2 className={styles.scanTitle}>
+              <Beschriftung
+                abschnittId="abschluss"
+                schluessel="scan.titel"
+                standard="Handzeichnung (Skizze)"
+              />
+              <Inspector feld="abschluss.scan" />
+            </h2>
+            <Beschriftung
+              abschnittId="abschluss"
+              schluessel="scan.hinweis"
+              standard="Per Smartphone scannen – das Foto wird farbecht übernommen, der Kontrast automatisch angehoben. Es erscheint hier sowie auf Seite 2 des PDFs."
+              as="p"
+              className={styles.scanHint}
+              mehrzeilig
+            />
             <Button variant="ghost" onClick={() => setScanOpen(true)}>
               {draft.scanImage ? 'Skizze neu scannen' : 'Skizze via Smartphone scannen'}
             </Button>
@@ -224,21 +248,42 @@ export default function SummaryPage() {
           }
         />
 
+        {/*
+          DER VERKAUFSPREIS-HINWEIS ist der Text, an dem am häufigsten nachgebessert wird:
+          Er erklärt die deutsche Schreibweise, die Abweichung zur Kalkulation und die
+          Verbindlichkeit gegenüber dem Kunden. Genau deshalb gehört er dem Administrator
+          und nicht dem Quelltext.
+        */}
         <section className={styles.vkBox} aria-label="Verkaufspreis">
           <div className={styles.vkHead}>
-            <h2 className={styles.vkTitle}>Verkaufspreis (VK)</h2>
-            <span className={styles.vatNote}>verbindlicher Endpreis · inkl. 19% MwSt.</span>
+            <h2 className={styles.vkTitle}>
+              <Beschriftung
+                abschnittId="abschluss"
+                schluessel="vk.titel"
+                standard="Verkaufspreis (VK)"
+              />
+              <Inspector feld="abschluss.vk" />
+            </h2>
+            <Beschriftung
+              abschnittId="abschluss"
+              schluessel="vk.mwst"
+              standard="verbindlicher Endpreis · inkl. 19% MwSt."
+              as="span"
+              className={styles.vatNote}
+            />
           </div>
-          <p className={styles.vkHint}>
-            Verbindlicher Endpreis für Angebot und AV-PDF. Über „Berechneten Preis übernehmen" wird
-            das Ergebnis der Kalkulation eingesetzt; ein abweichender Wert ist möglich, sollte aber
-            begründet werden. Eingabe in deutscher Schreibweise: Komma trennt die Cent, Punkt die
-            Tausender — <b>9.009,00</b> sind neuntausendneun Euro.
-          </p>
+          <Beschriftung
+            abschnittId="abschluss"
+            schluessel="vk.hinweis"
+            standard={VK_HINWEIS}
+            as="p"
+            className={styles.vkHint}
+            mehrzeilig
+          />
           <div className={styles.vkRow}>
             <div className={styles.vkField}>
               <TextField
-                label="VK-Preis"
+                label={t('vk.feld', 'VK-Preis')}
                 inputMode="decimal"
                 placeholder="z. B. 9.009,00"
                 value={draft.vkPreis ?? ''}
@@ -277,11 +322,16 @@ export default function SummaryPage() {
         </div>
 
         {avFehlend.length > 0 ? (
-          <p className={styles.avHinweis} role="status">
-            Für die Übergabe an die Arbeitsvorbereitung fehlt noch{' '}
-            <b>{avFehlend.join(' und ')}</b> — in Schritt 1 „Entwurf" nachtragen. Für PDF und
-            „Speichern &amp; abschließen" ist das nicht nötig.
-          </p>
+          <Beschriftung
+            abschnittId="abschluss"
+            schluessel="av.fehlend"
+            standard={AV_FEHLEND}
+            as="p"
+            className={styles.avHinweis}
+            mehrzeilig
+            platzhalterHinweis="Platzhalter: {fehlend} — die noch fehlenden Angaben."
+            anzeige={fuelle(t('av.fehlend', AV_FEHLEND), { fehlend: avFehlend.join(' und ') })}
+          />
         ) : null}
       </div>
 

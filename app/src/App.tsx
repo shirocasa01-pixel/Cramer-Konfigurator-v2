@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { useEffect, type ReactNode } from 'react'
 import { useAuth } from './context/AuthContext'
+import { setzeEditorModus } from './lib/editorModus'
 import { MaintenanceOverlay } from './components/layout/MaintenanceOverlay'
 import LoginPage from './pages/Login/Login'
 import DashboardPage from './pages/Dashboard/Dashboard'
@@ -35,6 +36,18 @@ function RequireAdmin({ children }: { children: ReactNode }) {
 export default function App() {
   const { isAuthenticated, isAdmin, maintenanceActive } = useAuth()
   const location = useLocation()
+
+  /*
+    Die Bearbeitungsschicht folgt der Rolle, nicht dem Verlauf.
+
+    Jede Stift-, Plus- und Inspector-Anzeige fragt zwar `useBearbeitungsModus()` und wird
+    damit ohnehin ausgeblendet — aber der Schalter selbst soll gar nicht erst
+    angeschaltet bleiben, wenn sich ein Berater anmeldet, während der Administrator den
+    Modus noch offen hatte. Abmelden und Kontowechsel laufen beide hier durch.
+  */
+  useEffect(() => {
+    if (!isAdmin) setzeEditorModus(false)
+  }, [isAdmin])
 
   // Wartungsmodus fängt das gesamte Routing ab – außer Login/Admin, damit
   // Administratoren den Modus wieder deaktivieren können.

@@ -40,8 +40,22 @@ import {
 } from '../../lib/frontsHelpers'
 import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../../types'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { Beschriftung, BeschriftungsGruppe, fuelle, useTexte } from '../../components/schema/Beschriftung'
+import { Inspector } from '../../components/schema/Inspector'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Fronts.module.css'
+
+/*
+  Die Positionstexte einer Front-Spalte. Sie stehen als Konstanten, weil sie sowohl
+  angezeigt als auch im Bearbeitungsdialog als Standard gebraucht werden — und weil
+  „Front-Typ {n}" mit Platzhalter geschrieben ist, damit die Nummer nicht in den Text
+  wandert und dort irgendwann falsch steht.
+*/
+const SPALTE_TITEL = 'Front-Typ {n}'
+const SPALTE_LINKS = 'ganz links'
+const SPALTE_RECHTS = 'ganz rechts'
+const SPALTE_MITTE = 'Segment {n}'
+const SPALTE_LEER = 'Noch keine Front-Bauteile – unten hinzufügen (von unten nach oben).'
 
 /**
  * SCHRITT 7 – Fronten & Abschlüsse (Spalten-/Segment-Architektur).
@@ -54,7 +68,7 @@ import styles from './Fronts.module.css'
 export default function FrontsPage() {
   const { draft, updateDraft, updateDraftFrom } = useDraft()
   const navigate = useNavigate()
-
+  const t = useTexte('fronten')
 
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
@@ -243,18 +257,48 @@ export default function FrontsPage() {
         {fronts.columns.map((column, index) => (
           <section key={column.id} className={styles.column} aria-label={`Front-Typ ${index + 1}`}>
             <div className={styles.columnHead}>
-              <h2 className={styles.columnTitle}>Front-Typ {index + 1}</h2>
+              <h2 className={styles.columnTitle}>
+                {fuelle(t('spalte.titel', SPALTE_TITEL), { n: String(index + 1) })}
+                {index === 0 ? (
+                  <BeschriftungsGruppe
+                    abschnittId="fronten"
+                    titel="Positionstexte der Front-Spalten"
+                    eintraege={[
+                      {
+                        schluessel: 'spalte.titel',
+                        standard: SPALTE_TITEL,
+                        label: 'Überschrift je Spalte',
+                        hinweis: 'Platzhalter: {n} — die Nummer der Spalte von links.',
+                      },
+                      { schluessel: 'spalte.links', standard: SPALTE_LINKS, label: 'Erste Spalte' },
+                      { schluessel: 'spalte.rechts', standard: SPALTE_RECHTS, label: 'Letzte Spalte' },
+                      {
+                        schluessel: 'spalte.mitte',
+                        standard: SPALTE_MITTE,
+                        label: 'Spalten dazwischen',
+                        hinweis: 'Platzhalter: {n}',
+                      },
+                      {
+                        schluessel: 'spalte.leer',
+                        standard: SPALTE_LEER,
+                        label: 'Text ohne Front-Bauteile',
+                        mehrzeilig: true,
+                      },
+                    ]}
+                  />
+                ) : null}
+              </h2>
               <span className={styles.columnPos}>
                 {index === 0
-                  ? 'ganz links'
+                  ? t('spalte.links', SPALTE_LINKS)
                   : index === fronts.columns.length - 1
-                    ? 'ganz rechts'
-                    : `Segment ${index + 1}`}
+                    ? t('spalte.rechts', SPALTE_RECHTS)
+                    : fuelle(t('spalte.mitte', SPALTE_MITTE), { n: String(index + 1) })}
               </span>
             </div>
 
             {column.elements.length === 0 ? (
-              <p className={styles.empty}>Noch keine Front-Bauteile – unten hinzufügen (von unten nach oben).</p>
+              <p className={styles.empty}>{t('spalte.leer', SPALTE_LEER)}</p>
             ) : (
               <div className={styles.elements}>
                 {column.elements.map((element) => {
@@ -288,22 +332,35 @@ export default function FrontsPage() {
                 {availableTypes.map((type) => {
                   const disabled = !canAddFrontType(fronts, type.id)
                   return (
-                    <button
-                      key={type.id}
-                      type="button"
-                      className={styles.addBtn}
-                      disabled={disabled}
-                      title={
-                        disabled && type.id === ZWEILAEUFIG_TYPE_ID
-                          ? 'Nur möglich, wenn noch keine andere Front geplant ist.'
-                          : undefined
-                      }
-                      onClick={() => addElement(column.id, type.id)}
-                    >
-                      + {type.label}
-                    </button>
+                    <span key={type.id} className={styles.addSlot}>
+                      <button
+                        type="button"
+                        className={styles.addBtn}
+                        disabled={disabled}
+                        title={
+                          disabled && type.id === ZWEILAEUFIG_TYPE_ID
+                            ? 'Nur möglich, wenn noch keine andere Front geplant ist.'
+                            : undefined
+                        }
+                        onClick={() => addElement(column.id, type.id)}
+                      >
+                        + {t(`typ.${type.id}`, type.label)}
+                      </button>
+                      {index === 0 ? <Inspector feld={`fronten.typ.${type.id}`} /> : null}
+                    </span>
                   )
                 })}
+                {index === 0 ? (
+                  <BeschriftungsGruppe
+                    abschnittId="fronten"
+                    titel="Front-Typen benennen"
+                    eintraege={availableTypes.map((ty) => ({
+                      schluessel: `typ.${ty.id}`,
+                      standard: ty.label,
+                      label: `Front-Typ „${ty.id}"`,
+                    }))}
+                  />
+                ) : null}
               </div>
             )}
 
@@ -324,7 +381,13 @@ export default function FrontsPage() {
             benötigt." Die Sonderausstattung (Notizen) darunter bleibt erhalten. */}
         {istKleiderschrank ? null : (
           <section className={styles.extra} aria-label="Ergänzende Komponenten">
-            <h2 className={styles.sectionTitle}>Ergänzende Komponenten</h2>
+            <Beschriftung
+              abschnittId="fronten"
+              schluessel="ergaenzend.titel"
+              standard="Ergänzende Komponenten"
+              as="h2"
+              className={styles.sectionTitle}
+            />
             <FinishesSection
               grifffarbe={fronts.grifffarbe}
               abschlussOben={fronts.abschlussOben}
@@ -335,9 +398,15 @@ export default function FrontsPage() {
         )}
 
         <section className={styles.extra} aria-label="Sonderausstattung">
-          <h2 className={styles.sectionTitle}>Sonderausstattung</h2>
+          <Beschriftung
+            abschnittId="fronten"
+            schluessel="sonderausstattung.titel"
+            standard="Sonderausstattung"
+            as="h2"
+            className={styles.sectionTitle}
+          />
           <Textarea
-            label="Notizen / Sonderkonstruktionen"
+            label={t('sonderausstattung.label', 'Notizen / Sonderkonstruktionen')}
             placeholder="Freie Notizen, Sonderkonstruktionen oder logistische Hinweise – werden unverändert an die AV übergeben."
             value={fronts.sonderausstattung ?? ''}
             onChange={(event) => updateFronts({ sonderausstattung: event.target.value })}

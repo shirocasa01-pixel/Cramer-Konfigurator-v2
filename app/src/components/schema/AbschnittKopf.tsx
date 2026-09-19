@@ -1,7 +1,7 @@
 import { useState, useSyncExternalStore } from 'react'
 import { AbschnittTexteModal } from './AbschnittTexteModal'
 import { abschnittTexte, getEntwurfSchema, getSchema, subscribeSchema } from '../../lib/schemaStore'
-import { useEditorModus } from '../../lib/editorModus'
+import { useBearbeitungsModus } from '../../lib/editorModus'
 import styles from './Editierbar.module.css'
 
 /**
@@ -26,7 +26,7 @@ export function AbschnittKopf({
   titelUeberschreibung?: string
 }) {
   const roh = useSyncExternalStore(subscribeSchema, getEntwurfSchema, getEntwurfSchema)
-  const bearbeitung = useEditorModus()
+  const bearbeitung = useBearbeitungsModus()
   const [offen, setOffen] = useState(false)
   // Der Administrator sieht seinen Entwurf, der Berater den veroeffentlichten Stand.
   const texte = abschnittTexte(abschnittId, { titel: standardTitel }, bearbeitung ? roh : getSchema())

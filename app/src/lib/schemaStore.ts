@@ -155,6 +155,20 @@ export function abschnittTexte(
   }
 }
 
+/**
+ * Die überschriebenen Beschriftungen eines Abschnitts (Ebene 2).
+ *
+ * Bewusst ein flaches `Record` statt einer Liste: Der Aufrufer fragt nach genau einem
+ * Schlüssel und bekommt bei fehlendem Eintrag seinen Standard zurück — dadurch bleibt
+ * jeder Text im Code lesbar und die Überschreibung ist die Ausnahme, nicht die Regel.
+ */
+export function abschnittTexteMap(
+  id: string,
+  schema: KonfiguratorSchema = veroeffentlicht,
+): Record<string, string> {
+  return getAbschnitt(id, schema)?.texte ?? {}
+}
+
 /** Prüft die Sichtbarkeitsregeln eines Feldes gegen die laufende Serie. */
 export function serieErlaubt(feld: SchemaFeld, serieId: string | undefined): boolean {
   const regel = feld.regeln?.find((r) => r.art === 'nurSerien')
@@ -177,6 +191,28 @@ export function aktualisiereAbschnitt(
   Object.assign(abschnitt, patch)
   setzeEntwurf(naechster)
 }
+
+/**
+ * Setzt oder löscht Beschriftungen fest programmierter Module.
+ *
+ * Ein leerer Text löscht den Schlüssel, statt eine leere Zeichenkette zu speichern: Der
+ * Administrator bekommt damit den Standard aus dem Code zurück — das ist, was „Feld
+ * leeren" an dieser Stelle bedeuten soll. Ohne diese Regel bliebe eine unsichtbare
+ * Beschriftung stehen.
+ */
+export function aktualisiereTexte(abschnittId: string, patch: Record<string, string>): void {
+  const naechster = klone(getEntwurfSchema())
+  const abschnitt = naechster.abschnitte.find((a) => a.id === abschnittId)
+  if (!abschnitt) return
+  const texte = { ...(abschnitt.texte ?? {}) }
+  for (const [schluessel, wert] of Object.entries(patch)) {
+    if (wert.trim()) texte[schluessel] = wert
+    else delete texte[schluessel]
+  }
+  abschnitt.texte = Object.keys(texte).length > 0 ? texte : undefined
+  setzeEntwurf(naechster)
+}
+
 
 /**
  * Ersetzt ein Feld im Entwurf, an seiner bisherigen Stelle.

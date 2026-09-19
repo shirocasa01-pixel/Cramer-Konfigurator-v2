@@ -13,6 +13,7 @@ const TYP_LABEL: Record<FeldTyp, string> = {
   mehrzeilig: 'Mehrzeiliges Textfeld',
   zahl: 'Zahlenfeld',
   auswahl: 'Auswahl (Dropdown)',
+  material: 'Oberflächen-Modul',
   checkbox: 'Ja/Nein-Auswahl',
   datum: 'Datum',
   hinweis: 'Hinweistext',

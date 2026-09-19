@@ -6,29 +6,91 @@ import styles from './MobileScan.module.css'
 
 type Phase = 'starting' | 'live' | 'nocamera' | 'captured' | 'sending' | 'done' | 'error'
 
-/** Globaler Threshold auf Basis der mittleren Helligkeit → Dokumenten-Look. */
-function binarize(ctx: CanvasRenderingContext2D, width: number, height: number) {
+/**
+ * KONTRAST-ANHEBUNG STATT SCHWARZ-WEISS-UMWANDLUNG.
+ *
+ * Vorher lief hier eine Binarisierung: Jedes Pixel wurde über einen globalen Schwellwert
+ * entweder ganz weiß oder ganz schwarz. Bei einer Bleistiftskizze ist das der schlechteste
+ * denkbare Umgang mit dem Bild — die feinen grauen Linien liegen dicht am Papierweiß und
+ * fallen weg, während jeder Schatten, jede Falte und jeder Handabdruck als schwarzer Fleck
+ * stehen bleibt. Farbige Markierungen des Beraters verschwanden ohnehin.
+ *
+ * Stattdessen eine Tonwertspreizung über die Helligkeit: Der dunkelste und der hellste
+ * Bereich des Bildes werden auf Schwarz und Weiß gezogen, alles dazwischen linear
+ * verteilt. Die Rechnung läuft auf der HELLIGKEIT und wird als gemeinsamer Faktor auf
+ * R, G und B angewandt — dadurch bleibt der Farbton erhalten und das Papier wird weiß,
+ * ohne dass die Skizze eingefärbt wird.
+ *
+ * Die Grenzen sind Perzentile, keine Extremwerte: Ein einzelner dunkler Punkt (Staub auf
+ * der Linse, ein Loch im Blatt) würde sonst die gesamte Spreizung bestimmen.
+ *
+ * Der Schwarzpunkt ist zusätzlich GEDECKELT, und das ist der Unterschied zwischen
+ * „kontrastreich" und „farbecht": Ohne Deckel zieht die Spreizung immer das dunkelste
+ * Element des Bildes auf Schwarz. Enthält die Skizze eine blaue oder rote Markierung, ist
+ * sie genau dieses dunkelste Element — und käme als schwarzer Strich heraus. Mit Deckel
+ * bleibt sie farbig, und den Kontrastgewinn trägt der Weißpunkt: Das Papier wird weiß,
+ * was auch schlecht belichtete Aufnahmen aufhellt.
+ */
+const SCHWARZPUNKT_ANTEIL = 0.005 // die dunkelsten 0,5 % markieren den Schwarzpunkt …
+const SCHWARZPUNKT_MAX = 32 // … der aber nie höher liegt als das, was noch als „dunkel" gilt
+const WEISSPUNKT_ANTEIL = 0.02 // die hellsten 2 % auf Weiß — das ist das Papier
+
+function hebeKontrastAn(ctx: CanvasRenderingContext2D, width: number, height: number) {
   const image = ctx.getImageData(0, 0, width, height)
   const data = image.data
-  let sum = 0
-  for (let i = 0; i < data.length; i += 4) sum += 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-  const mean = sum / (data.length / 4)
-  const threshold = mean * 0.92 // etwas dunkler, damit Bleistiftlinien erhalten bleiben
+  const pixel = data.length / 4
+
+  const histogramm = new Uint32Array(256)
   for (let i = 0; i < data.length; i += 4) {
     const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
-    const value = lum > threshold ? 255 : 0
-    data[i] = value
-    data[i + 1] = value
-    data[i + 2] = value
+    histogramm[Math.max(0, Math.min(255, Math.round(lum)))]++
+  }
+
+  const untenGrenze = pixel * SCHWARZPUNKT_ANTEIL
+  const obenGrenze = pixel * WEISSPUNKT_ANTEIL
+
+  let summe = 0
+  let schwarz = 0
+  for (let wert = 0; wert < 256; wert++) {
+    summe += histogramm[wert]
+    if (summe >= untenGrenze) {
+      schwarz = Math.min(wert, SCHWARZPUNKT_MAX)
+      break
+    }
+  }
+  summe = 0
+  let weiss = 255
+  for (let wert = 255; wert >= 0; wert--) {
+    summe += histogramm[wert]
+    if (summe >= obenGrenze) {
+      weiss = wert
+      break
+    }
+  }
+
+  // Ein zu enger Bereich (gleichmäßig ausgeleuchtetes, fast leeres Blatt) würde das
+  // Rauschen auf den vollen Tonumfang aufziehen. Dann lieber das Original lassen.
+  if (weiss - schwarz < 32) return
+
+  const faktor = 255 / (weiss - schwarz)
+  for (let i = 0; i < data.length; i += 4) {
+    const lum = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2]
+    const gespreizt = Math.max(0, Math.min(255, (lum - schwarz) * faktor))
+    // Gemeinsamer Faktor auf alle drei Kanäle: die Helligkeit ändert sich, der Farbton
+    // nicht. `lum || 1` fängt nur das absolut schwarze Pixel ab (Division durch null).
+    const skala = gespreizt / (lum || 1)
+    data[i] = Math.min(255, data[i] * skala)
+    data[i + 1] = Math.min(255, data[i + 1] * skala)
+    data[i + 2] = Math.min(255, data[i + 2] * skala)
   }
   ctx.putImageData(image, 0, 0)
 }
 
 /**
  * PHASE 6 – Mobile Scan-Ansicht (öffentliche Route `/scan/:draftId`, ohne Login).
- * Öffnet die Kamera (getUserMedia bei sicherem Kontext, sonst Datei-Aufnahme),
- * wandelt die Handzeichnung in ein kontrastreiches S/W-Dokument und überträgt es
- * an die Laptop-Session (Relay).
+ * Öffnet die Kamera (getUserMedia bei sicherem Kontext, sonst Datei-Aufnahme), hebt den
+ * Kontrast der Handzeichnung an — farbecht, ohne Schwarz-Weiß-Umwandlung — und überträgt
+ * das Bild an die Laptop-Session (Relay).
  */
 export default function MobileScanPage() {
   const { draftId = '' } = useParams()
@@ -92,8 +154,8 @@ export default function MobileScanPage() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     ctx.drawImage(source, 0, 0, width, height)
-    binarize(ctx, width, height)
-    setPreview(canvas.toDataURL('image/jpeg', 0.82))
+    hebeKontrastAn(ctx, width, height)
+    setPreview(canvas.toDataURL('image/jpeg', 0.88))
     setPhase('captured')
     stopStream()
   }

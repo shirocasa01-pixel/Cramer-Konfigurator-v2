@@ -2,13 +2,32 @@ import { useState } from 'react'
 import { FeldEinstellungen } from '../admin/FeldEinstellungen'
 import { Modal } from '../ui/Modal'
 import { aktualisiereFeld, ergaenzeFeld } from '../../lib/schemaStore'
-import { useEditorModus } from '../../lib/editorModus'
+import { useBearbeitungsModus } from '../../lib/editorModus'
 import type { FeldTyp, SchemaFeld } from '../../types/schema'
 import styles from './Editierbar.module.css'
 
-/** Der Bausteinkatalog hinter dem Plus. */
-const BAUSTEINE: Array<{ typ: FeldTyp; titel: string; zweck: string }> = [
-  { typ: 'auswahl', titel: 'Dropdown-Modul', zweck: 'Artikel oder Werte auswählen' },
+/**
+ * Der Bausteinkatalog hinter dem Plus.
+ *
+ * Oben die MODULE — fertig programmierte Bausteine mit eigener Logik, die der
+ * Administrator an beliebiger Stelle wieder einsetzen kann. Darunter die einfachen
+ * Felder. Die Trennung steht bewusst im Katalog und nicht nur im Kopf: Ein Modul bringt
+ * eine Kopplung mit (Material → Ausführung → Preisgruppe, Dropdown → Artikelstamm), ein
+ * Textfeld nimmt nur entgegen, was jemand hineinschreibt.
+ */
+const BAUSTEINE: Array<{ typ: FeldTyp; titel: string; zweck: string; modul?: boolean }> = [
+  {
+    typ: 'material',
+    titel: 'Oberflächen-Modul',
+    zweck: 'Materialgruppe (z. B. Decoboard) mit gekoppeltem Ausführungs-Dropdown und automatischer Preisgruppe',
+    modul: true,
+  },
+  {
+    typ: 'auswahl',
+    titel: 'Dropdown-Modul',
+    zweck: 'Artikel aus einem Auswahlfeld der Artikelverwaltung, gefiltert über die Serie',
+    modul: true,
+  },
   { typ: 'text', titel: 'Textfeld', zweck: 'Freie Eingabe, einzeilig' },
   { typ: 'mehrzeilig', titel: 'Mehrzeiliges Textfeld', zweck: 'Adressen, längere Angaben' },
   { typ: 'zahl', titel: 'Zahlenfeld', zweck: 'Mengen und Maße' },
@@ -50,7 +69,7 @@ export function BausteinPlus({
   abschnittId: string
   vorhandeneIds: string[]
 }) {
-  const bearbeitung = useEditorModus()
+  const bearbeitung = useBearbeitungsModus()
   const [katalogOffen, setKatalogOffen] = useState(false)
   const [neu, setNeu] = useState<SchemaFeld | null>(null)
 
@@ -81,7 +100,10 @@ export function BausteinPlus({
         <div className={styles.katalog}>
           {BAUSTEINE.map((b) => (
             <button key={b.typ} type="button" className={styles.katalogKachel} onClick={() => anlegen(b.typ)}>
-              <span className={styles.katalogTitel}>{b.titel}</span>
+              <span className={styles.katalogTitel}>
+                {b.titel}
+                {b.modul ? <span className={styles.modulMarke}>Modul</span> : null}
+              </span>
               <span className={styles.katalogZweck}>{b.zweck}</span>
             </button>
           ))}

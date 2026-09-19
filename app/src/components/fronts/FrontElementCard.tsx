@@ -25,8 +25,20 @@ import {
   parseRasterEingabe,
 } from '../../lib/frontsHelpers'
 import { useStammdaten } from '../../lib/useStammdaten'
+import { Beschriftung, BeschriftungsGruppe, useTexte } from '../schema/Beschriftung'
+import { Inspector } from '../schema/Inspector'
 import type { FrontElement, FrontFieldValue, MaterialSelection } from '../../types'
 import styles from './FrontElementCard.module.css'
+
+/**
+ * Die Türanschlag-Seiten in der Reihenfolge, in der sie am Möbel liegen: links links,
+ * rechts rechts. Eine Liste statt zweier Literale im JSX, damit Reihenfolge und Wert
+ * nicht getrennt voneinander geändert werden können — genau das war der Fehler.
+ */
+const ANSCHLAG_SEITEN: Array<{ key: 'links' | 'rechts'; label: string }> = [
+  { key: 'links', label: 'links' },
+  { key: 'rechts', label: 'rechts' },
+]
 
 interface FrontElementCardProps {
   element: FrontElement
@@ -66,6 +78,10 @@ export function FrontElementCard({
   // Die Aufkantungs-Liste und die Gruppen-Labels kommen aus den Oberflächen-Stammdaten;
   // ohne dieses Abonnement bliebe die Karte nach einer Änderung in der Verwaltung stehen.
   useStammdaten()
+  // Beschriftungen des Fronten-Moduls: im Code der Standard, im Schema die Fassung des
+  // Administrators. Eingabefelder bekommen ihren Text über `t`, weil ein `label` eine
+  // Zeichenkette sein muss und keine Komponente mit Stift sein kann.
+  const t = useTexte('fronten')
   const type = getFrontType(element.typeId)
   const styleLine = getStyleLine(element.typeId, element.styleLineId)
   const labelError = labelTouched && !element.label.trim() ? 'Kennzeichnung ist erforderlich.' : undefined
@@ -205,7 +221,7 @@ export function FrontElementCard({
       ) : null}
 
       <TextField
-        label="Kennzeichnung / Position"
+        label={t('feld.kennzeichnung', 'Kennzeichnung / Position')}
         required
         placeholder="z. B. D1, S1, oben links"
         value={element.label}
@@ -220,7 +236,7 @@ export function FrontElementCard({
           .join(' ')}
       >
         <TextField
-          label="Breite (cm)"
+          label={t('feld.breite', 'Breite (cm)')}
           inputMode="decimal"
           placeholder="z. B. 50"
           value={element.widthCm ?? ''}
@@ -229,7 +245,7 @@ export function FrontElementCard({
         {/* Zweiläufige Schiebetür: kein Höhenfeld – sie geht immer über die volle Höhe. */}
         {type?.ohneHoehe || type?.hoeheModi ? null : (
           <TextField
-            label="Höhe (cm)"
+            label={t('feld.hoehe', 'Höhe (cm)')}
             inputMode="decimal"
             placeholder="z. B. 200"
             value={element.heightCm ?? ''}
@@ -239,14 +255,45 @@ export function FrontElementCard({
       </div>
 
       {type?.ohneHoehe ? (
-        <p className={styles.handleHint}>
-          Höhe immer über die volle Korpushöhe – technisch nicht anders möglich.
-        </p>
+        <Beschriftung
+          abschnittId="fronten"
+          schluessel="feld.volleHoehe"
+          standard="Höhe immer über die volle Korpushöhe – technisch nicht anders möglich."
+          as="p"
+          className={styles.handleHint}
+          mehrzeilig
+        />
       ) : null}
 
       {type?.hoeheModi ? (
         <div className={styles.handleBlock}>
-          <span className={styles.blockLabel}>Türhöhe – genau eine der drei Angaben</span>
+          <span className={styles.blockLabel}>
+            <Beschriftung
+              abschnittId="fronten"
+              schluessel="feld.tuerhoehe.titel"
+              standard="Türhöhe – genau eine der drei Angaben"
+            />
+            <Inspector feld="fronten.hoehe" />
+            <BeschriftungsGruppe
+              abschnittId="fronten"
+              titel="Beschriftungen der Front-Karte"
+              eintraege={[
+                { schluessel: 'feld.kennzeichnung', standard: 'Kennzeichnung / Position', label: 'Kennzeichnung' },
+                { schluessel: 'feld.breite', standard: 'Breite (cm)', label: 'Breitenfeld' },
+                { schluessel: 'feld.hoehe', standard: 'Höhe (cm)', label: 'Höhenfeld (cm)' },
+                { schluessel: 'feld.hoeheRaster', standard: 'Höhe (Raster)', label: 'Höhenfeld (Raster)' },
+                {
+                  schluessel: 'feld.oberkante',
+                  standard: 'Höhe bis Korpusoberkante',
+                  label: 'Häkchen „bis Korpusoberkante"',
+                },
+                { schluessel: 'stillinie.titel', standard: 'Stil-Linie', label: 'Überschrift Stil-Linie' },
+                { schluessel: 'anschlag.titel', standard: 'Türanschlag', label: 'Überschrift Türanschlag' },
+                { schluessel: 'anschlag.links', standard: 'links', label: 'Türanschlag links' },
+                { schluessel: 'anschlag.rechts', standard: 'rechts', label: 'Türanschlag rechts' },
+              ]}
+            />
+          </span>
           <label
             className={[
               styles.check,
@@ -262,7 +309,7 @@ export function FrontElementCard({
               disabled={Boolean(hoeheModus) && hoeheModus !== 'korpusoberkante'}
               onChange={(event) => setModusOberkante(event.target.checked)}
             />
-            Höhe bis Korpusoberkante
+            {t('feld.oberkante', 'Höhe bis Korpusoberkante')}
           </label>
           {hoeheModus === 'korpusoberkante' ? (
             <p className={styles.handleHint}>
@@ -273,7 +320,7 @@ export function FrontElementCard({
           ) : null}
           <div className={styles.hoeheRow}>
             <TextField
-              label="Höhe (Raster)"
+              label={t('feld.hoeheRaster', 'Höhe (Raster)')}
               inputMode="decimal"
               placeholder={`${DREHTUER_RASTER_MIN}–${DREHTUER_RASTER_MAX}`}
               value={element.hoeheRaster ?? ''}
@@ -305,20 +352,36 @@ export function FrontElementCard({
         </div>
       ) : null}
 
+      {/*
+        TÜRANSCHLAG — die Reihenfolge ist hier Teil der Bedeutung.
+
+        Die Optionen standen als „rechts, links" in der Reihe: Der LINKE Knopf war mit
+        „rechts" beschriftet und umgekehrt. Beim Klicken schaut niemand auf die Schrift,
+        sondern auf die Seite — die Türen kamen dadurch spiegelverkehrt in der
+        Arbeitsvorbereitung an. „Links" steht deshalb links und steuert die linke Türseite,
+        „rechts" steht rechts und steuert die rechte.
+      */}
       {type?.tuerAnschlag ? (
         <div className={styles.styleBlock}>
-          <span className={styles.blockLabel}>Türanschlag</span>
+          <span className={styles.blockLabel}>
+            <Beschriftung
+              abschnittId="fronten"
+              schluessel="anschlag.titel"
+              standard="Türanschlag"
+            />
+            <Inspector feld="fronten.anschlag" />
+          </span>
           <div className={styles.handleChecks} role="radiogroup" aria-label="Türanschlag">
-            {(['rechts', 'links'] as const).map((seite) => (
-              <label key={seite} className={styles.check}>
+            {ANSCHLAG_SEITEN.map((seite) => (
+              <label key={seite.key} className={styles.check}>
                 <input
                   type="radio"
                   className={styles.checkbox}
                   name={`anschlag-${element.id}`}
-                  checked={element.tuerAnschlag === seite}
-                  onChange={() => onChange({ tuerAnschlag: seite })}
+                  checked={element.tuerAnschlag === seite.key}
+                  onChange={() => onChange({ tuerAnschlag: seite.key })}
                 />
-                {seite === 'rechts' ? 'rechts' : 'links'}
+                {t(`anschlag.${seite.key}`, seite.label)}
               </label>
             ))}
           </div>
@@ -327,7 +390,14 @@ export function FrontElementCard({
 
       {type && type.styleLines.length > 0 ? (
         <div className={styles.styleBlock}>
-          <span className={styles.blockLabel}>Stil-Linie</span>
+          <span className={styles.blockLabel}>
+            <Beschriftung
+              abschnittId="fronten"
+              schluessel="stillinie.titel"
+              standard="Stil-Linie"
+            />
+            <Inspector feld="fronten.stilLinie" />
+          </span>
           <div className={styles.styleChips}>
             {type.styleLines.map((line) => (
               <button

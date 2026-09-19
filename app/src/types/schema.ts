@@ -20,7 +20,15 @@
  * nicht eingebbar und stehen nicht im Entwurf, sondern werden beim Rendern berechnet.
  */
 
-/** Feldtypen des Bausteinkatalogs. */
+/**
+ * Feldtypen des Bausteinkatalogs.
+ *
+ * `material` ist kein Einzelfeld, sondern ein fertig programmiertes MODUL (Ebene 2): die
+ * Materialgruppen-Chips mit dem daran gekoppelten Ausführungs-Dropdown, wie sie im
+ * Schritt „Material" stehen — inklusive der automatischen Preisgruppen-Zuordnung. Der
+ * Administrator kann es überall im Konfigurator noch einmal einsetzen, ohne die Kopplung
+ * nachbauen zu müssen; die Rechenlogik dahinter bleibt im Code.
+ */
 export type FeldTyp =
   | 'text'
   | 'mehrzeilig'
@@ -30,6 +38,7 @@ export type FeldTyp =
   | 'datum'
   | 'hinweis'
   | 'ueberschrift'
+  | 'material'
 
 /**
  * Bestehende Entwurfsfelder, an die ein Schemafeld gebunden werden kann.
@@ -106,6 +115,20 @@ export interface SchemaAbschnitt {
   aktiv: boolean
   sortierung: number
   felder: SchemaFeld[]
+  /**
+   * BESCHRIFTUNGEN DER FEST PROGRAMMIERTEN MODULE (Ebene 2).
+   *
+   * Nicht jeder Text der Oberfläche ist ein Schemafeld: Die Rasterstufen im Schritt
+   * „Maße", die Bereichsüberschriften im Schritt „Material", die Positionszeile
+   * „Front-Typ 1" gehören zu Modulen, deren Rechenlogik im Code steht und dort bleiben
+   * soll. Beschriften darf sie trotzdem der Administrator — der Schlüssel zeigt auf die
+   * Stelle im Modul (z. B. `hoehe.mode.18R`), der Wert ist sein Text.
+   *
+   * Fehlt ein Schlüssel, gilt der im Code hinterlegte Standard. Ein Umbau am Modul kann
+   * dadurch keine Beschriftung verlieren, und „zurücksetzen" ist schlicht ein gelöschter
+   * Schlüssel.
+   */
+  texte?: Record<string, string>
 }
 
 export interface KonfiguratorSchema {

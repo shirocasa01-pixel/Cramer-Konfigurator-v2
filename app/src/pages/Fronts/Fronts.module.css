@@ -239,3 +239,9 @@
   border-left: 3px solid var(--color-danger);
   background: rgba(178, 59, 59, 0.06);
 }
+
+/* Knopf und sein Inspector-Abzeichen bleiben in der Reihe beieinander. */
+.addSlot {
+  display: inline-flex;
+  align-items: center;
+}

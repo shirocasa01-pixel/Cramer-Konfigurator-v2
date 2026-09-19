@@ -20,8 +20,18 @@ import { isDimensionsValid } from '../../lib/dimensionsValidation'
 import { isKorpusGrunddatenComplete, resolveKorpusBreiteCm } from '../../lib/korpusMass'
 import type { KorpusInnen, MaterialSelection } from '../../types'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
+import { Beschriftung, BeschriftungsGruppe, fuelle, useTexte } from '../../components/schema/Beschriftung'
+import { Inspector } from '../../components/schema/Inspector'
 import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFelder'
 import styles from './Korpus.module.css'
+
+/*
+  Die beiden Erklärtexte zur getrennten Innenkorpus-Wahl stehen als Konstanten, weil sie
+  an zwei Stellen gebraucht werden: beim Anzeigen und als Standard im Bearbeitungsdialog.
+*/
+const INNEN_JE_KORPUS_CHECKBOX = 'Innenmaterial je Korpus getrennt wählen ({anzahl} Korpi)'
+const INNEN_JE_KORPUS_HINWEIS =
+  'Sobald im Schritt „Maße" mehrere Korpi angelegt sind, lässt sich das Innenmaterial hier je Korpus getrennt wählen — etwa Decoboard hinter den Drehtüren und Furnier im offenen Mittelteil.'
 
 /**
  * SCHRITT 4 – Material.
@@ -38,7 +48,7 @@ import styles from './Korpus.module.css'
 export default function KorpusPage() {
   const { draft, updateDraft } = useDraft()
   const navigate = useNavigate()
-
+  const t = useTexte('material')
 
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
@@ -118,7 +128,34 @@ export default function KorpusPage() {
 
         {zeigeModusUmschalter ? (
           <section className={styles.modeToggle} aria-label="Außenkorpus-Modus">
-            <span className={styles.modeLabel}>Außenkorpus</span>
+            <span className={styles.modeLabel}>
+              <Beschriftung
+                abschnittId="material"
+                schluessel="modus.titel"
+                standard="Außenkorpus"
+              />
+              <Inspector feld="material.modus" />
+              <BeschriftungsGruppe
+                abschnittId="material"
+                titel="Außenkorpus-Modus benennen"
+                eintraege={[
+                  { schluessel: 'modus.komplett', standard: 'Komplett auswählen', label: 'Option „komplett"' },
+                  { schluessel: 'modus.getrennt', standard: 'Getrennte Konfiguration', label: 'Option „getrennt"' },
+                  {
+                    schluessel: 'modus.hinweis.komplett',
+                    standard: 'Ein Material für den gesamten Außenkorpus.',
+                    label: 'Hinweis bei „komplett"',
+                    mehrzeilig: true,
+                  },
+                  {
+                    schluessel: 'modus.hinweis.getrennt',
+                    standard: 'Linke Seite, rechte Seite und Abdeckplatte unabhängig konfigurierbar.',
+                    label: 'Hinweis bei „getrennt"',
+                    mehrzeilig: true,
+                  },
+                ]}
+              />
+            </span>
             <div className={styles.modeChips} role="group">
               <button
                 type="button"
@@ -126,7 +163,7 @@ export default function KorpusPage() {
                 onClick={() => setMode('komplett')}
                 aria-pressed={mode === 'komplett'}
               >
-                Komplett auswählen
+                {t('modus.komplett', 'Komplett auswählen')}
               </button>
               <button
                 type="button"
@@ -134,13 +171,16 @@ export default function KorpusPage() {
                 onClick={() => setMode('getrennt')}
                 aria-pressed={mode === 'getrennt'}
               >
-                Getrennte Konfiguration
+                {t('modus.getrennt', 'Getrennte Konfiguration')}
               </button>
             </div>
             <span className={styles.modeHint}>
               {mode === 'komplett'
-                ? 'Ein Material für den gesamten Außenkorpus.'
-                : 'Linke Seite, rechte Seite und Abdeckplatte unabhängig konfigurierbar.'}
+                ? t('modus.hinweis.komplett', 'Ein Material für den gesamten Außenkorpus.')
+                : t(
+                    'modus.hinweis.getrennt',
+                    'Linke Seite, rechte Seite und Abdeckplatte unabhängig konfigurierbar.',
+                  )}
             </span>
           </section>
         ) : null}
@@ -151,8 +191,24 @@ export default function KorpusPage() {
           return (
             <section key={area.id} className={styles.area} aria-label={area.label}>
               <div className={styles.areaHead}>
-                <h2 className={styles.areaTitle}>{area.label}</h2>
-                {area.hint ? <span className={styles.areaHint}>{area.hint}</span> : null}
+                <h2 className={styles.areaTitle}>
+                  <Beschriftung
+                    abschnittId="material"
+                    schluessel={`bereich.${area.id}.titel`}
+                    standard={area.label}
+                  />
+                  <Inspector feld="material.bereich" />
+                </h2>
+                {area.hint ? (
+                  <Beschriftung
+                    abschnittId="material"
+                    schluessel={`bereich.${area.id}.hinweis`}
+                    standard={area.hint}
+                    as="span"
+                    className={styles.areaHint}
+                    mehrzeilig
+                  />
+                ) : null}
                 {area.id === 'innen' ? (
                   <span className={styles.variant}>Ausführung: {series.name}</span>
                 ) : null}
@@ -189,6 +245,13 @@ export default function KorpusPage() {
                   onChange={(next) => updateArea(area.id, next)}
                 />
               )}
+              {/*
+                Die getrennte Innenkorpus-Wahl erklärt sich nicht von selbst: Wer sie
+                nicht kennt, übersieht sie — und wer sie sucht, findet sie bei nur einem
+                Korpus gar nicht. Beide Texte sind deshalb editierbar, und der Stift hängt
+                an der Stelle, an der der Administrator sie liest. Die Anzahl der Korpi
+                kommt als Platzhalter, damit sie richtig bleibt.
+              */}
               {area.id === 'innen' ? (
                 korpusse.length > 1 ? (
                   <label className={styles.check}>
@@ -198,14 +261,26 @@ export default function KorpusPage() {
                       checked={innenJeKorpus}
                       onChange={(event) => setInnenModus(event.target.checked)}
                     />
-                    Innenmaterial je Korpus getrennt wählen ({korpusse.length} Korpi)
+                    <Beschriftung
+                      abschnittId="material"
+                      schluessel="innen.checkbox"
+                      standard={INNEN_JE_KORPUS_CHECKBOX}
+                      platzhalterHinweis="Platzhalter: {anzahl} — die Zahl der angelegten Korpi."
+                      anzeige={fuelle(t('innen.checkbox', INNEN_JE_KORPUS_CHECKBOX), {
+                        anzahl: String(korpusse.length),
+                      })}
+                    />
+                    <Inspector feld="material.innenJeKorpus" />
                   </label>
                 ) : (
-                  <p className={styles.innenHint}>
-                    Sobald im Schritt „Maße" mehrere Korpi angelegt sind, lässt sich das
-                    Innenmaterial hier je Korpus getrennt wählen — etwa Decoboard hinter den
-                    Drehtüren und Furnier im offenen Mittelteil.
-                  </p>
+                  <Beschriftung
+                    abschnittId="material"
+                    schluessel="innen.hinweis"
+                    standard={INNEN_JE_KORPUS_HINWEIS}
+                    as="p"
+                    className={styles.innenHint}
+                    mehrzeilig
+                  />
                 )
               ) : null}
               {isAbdeckplatte && selection && selection.materialGroupId === 'glas' ? (
@@ -224,8 +299,24 @@ export default function KorpusPage() {
         {series.hasSichtRueckwand !== false ? (
           <section className={styles.area} aria-label={rueckwandAussenArea.label}>
             <div className={styles.areaHead}>
-              <h2 className={styles.areaTitle}>{rueckwandAussenArea.label}</h2>
-              {rueckwandAussenArea.hint ? <span className={styles.areaHint}>{rueckwandAussenArea.hint}</span> : null}
+              <h2 className={styles.areaTitle}>
+                <Beschriftung
+                  abschnittId="material"
+                  schluessel="rueckwand.titel"
+                  standard={rueckwandAussenArea.label}
+                />
+                <Inspector feld="material.rueckwandAussen" />
+              </h2>
+              {rueckwandAussenArea.hint ? (
+                <Beschriftung
+                  abschnittId="material"
+                  schluessel="rueckwand.hinweis"
+                  standard={rueckwandAussenArea.hint}
+                  as="span"
+                  className={styles.areaHint}
+                  mehrzeilig
+                />
+              ) : null}
             </div>
             <label className={styles.check}>
               <input
@@ -234,7 +325,11 @@ export default function KorpusPage() {
                 checked={Boolean(draft.sichtRueckwandAussen)}
                 onChange={(event) => updateDraft({ sichtRueckwandAussen: event.target.checked })}
               />
-              Sicht-Rückwand? (sichtbare Außen-Rückwand konfigurieren)
+              <Beschriftung
+                abschnittId="material"
+                schluessel="rueckwand.checkbox"
+                standard="Sicht-Rückwand? (sichtbare Außen-Rückwand konfigurieren)"
+              />
             </label>
             {draft.sichtRueckwandAussen ? (
               <MaterialSelect
@@ -251,7 +346,14 @@ export default function KorpusPage() {
         {abschlussAktiv ? (
           <section className={styles.area} aria-label="Abschlussset">
             <div className={styles.areaHead}>
-              <h2 className={styles.areaTitle}>Abschlussset (Außenabschluss links/rechts)</h2>
+              <h2 className={styles.areaTitle}>
+                <Beschriftung
+                  abschnittId="material"
+                  schluessel="abschlussset.titel"
+                  standard="Abschlussset (Außenabschluss links/rechts)"
+                />
+                <Inspector feld="material.abschlussset" />
+              </h2>
               <span className={styles.areaHint}>
                 {abschlussSet?.position === 'beide'
                   ? 'links & rechts'
@@ -300,7 +402,11 @@ export default function KorpusPage() {
                   checked={Boolean(abschlussSet?.materialGetrennt)}
                   onChange={(event) => patchAbschlussSet({ materialGetrennt: event.target.checked })}
                 />
-                Material für Abschlussset links und rechts getrennt wählen
+                <Beschriftung
+                  abschnittId="material"
+                  schluessel="abschlussset.getrennt"
+                  standard="Material für Abschlussset links und rechts getrennt wählen"
+                />
               </label>
             ) : null}
           </section>
