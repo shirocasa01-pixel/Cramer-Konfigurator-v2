@@ -1,0 +1,210 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.serieLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+  margin-bottom: var(--space-2);
+}
+
+.serieSelect {
+  min-width: 15rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font: inherit;
+}
+
+.serieSelect:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.bilanz {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin: 0;
+}
+
+.kennzahl,
+.kennzahlGut,
+.kennzahlOffen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 5.5rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.kennzahlGut {
+  border-color: color-mix(in srgb, var(--color-success) 45%, var(--color-line));
+}
+
+.kennzahlOffen {
+  border-color: color-mix(in srgb, var(--color-danger) 40%, var(--color-line));
+}
+
+.kennzahlWert {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.kennzahlLabel {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.erklaerung {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--color-ink-secondary);
+}
+
+.erklaerung code {
+  font-size: 0.85em;
+  padding: 0.05em 0.35em;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-ink) 7%, transparent);
+}
+
+.leer {
+  margin: 0;
+  color: var(--color-ink-muted);
+}
+
+.schritte {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.schritt {
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+
+.schrittKopf {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: color-mix(in srgb, var(--color-ink) 4%, transparent);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.schrittNr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+}
+
+.schrittName {
+  font-weight: 700;
+}
+
+.schrittMeta {
+  margin-left: auto;
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+}
+
+.felder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.feld,
+.feldOffen {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4);
+  border-top: 1px solid color-mix(in srgb, var(--color-line) 60%, transparent);
+}
+
+.feld:first-child,
+.feldOffen:first-child {
+  border-top: none;
+}
+
+.feldNr {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+  min-width: 5.5rem;
+}
+
+.feldName {
+  font-weight: 600;
+  min-width: 12rem;
+}
+
+.feldArtikel {
+  font-size: 0.82rem;
+  color: var(--color-ink-secondary);
+  font-variant-numeric: tabular-nums;
+  min-width: 6rem;
+}
+
+.badgeGut,
+.badgeOffen {
+  margin-left: auto;
+  padding: 0.1rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.75rem;
+  white-space: nowrap;
+}
+
+.badgeGut {
+  background: color-mix(in srgb, var(--color-success) 14%, transparent);
+  color: color-mix(in srgb, var(--color-success) 75%, var(--color-ink));
+}
+
+.badgeOffen {
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  color: color-mix(in srgb, var(--color-danger) 78%, var(--color-ink));
+}
+
+@media (max-width: 760px) {
+  .feld,
+  .feldOffen {
+    flex-wrap: wrap;
+  }
+
+  .badgeGut,
+  .badgeOffen {
+    margin-left: 0;
+  }
+}

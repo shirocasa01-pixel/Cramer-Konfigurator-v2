@@ -168,3 +168,50 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* --- Arbeitsbereiche ------------------------------------------------------ */
+
+.bereiche {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.bereich,
+.bereichAktiv {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1 1 12rem;
+  padding: var(--space-3) var(--space-4);
+  text-align: left;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.bereich:hover {
+  border-color: color-mix(in srgb, var(--color-ink) 28%, var(--color-line));
+}
+
+.bereichAktiv {
+  border-color: var(--color-ink);
+  box-shadow: inset 0 0 0 1px var(--color-ink);
+}
+
+.bereich:focus-visible,
+.bereichAktiv:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}
+
+.bereichTitel {
+  font-weight: 700;
+}
+
+.bereichZweck {
+  font-size: 0.8rem;
+  color: var(--color-ink-muted);
+}

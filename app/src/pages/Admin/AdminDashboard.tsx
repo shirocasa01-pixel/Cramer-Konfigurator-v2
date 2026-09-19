@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react'
+import { KonfiguratorStruktur } from '../../components/admin/KonfiguratorStruktur'
+import { StammdatenAdminModal } from '../../components/admin/StammdatenAdminModal'
 import { AppShell } from '../../components/layout/AppShell'
 import { Button } from '../../components/ui/Button'
 import { TextField } from '../../components/ui/TextField'
@@ -6,12 +8,26 @@ import { useAuth } from '../../context/AuthContext'
 import { appConfig } from '../../config/appConfig'
 import styles from './Admin.module.css'
 
+/** Die Arbeitsbereiche der Administration. */
+type Bereich = 'konfigurator' | 'stammdaten' | 'konten'
+
+const BEREICHE: Array<{ id: Bereich; titel: string; zweck: string }> = [
+  { id: 'konfigurator', titel: 'Konfigurator', zweck: 'Aufbau aus Schritten und Auswahlfeldern' },
+  { id: 'stammdaten', titel: 'Stammdaten & Artikel', zweck: 'Artikel, Preiszeilen, Oberflächen' },
+  { id: 'konten', titel: 'Konten & Betrieb', zweck: 'Zugänge, Registrierung, Wartung' },
+]
+
 /**
- * PHASE 10 – Admin-Dashboard (nur mit Administrator-Zugang).
- * Mitarbeiter- und Admin-Konten anlegen/verwalten und die E-Mail-Regel
- * (Testphase: beliebig · Produktion: nur @cramer.de) umschalten.
+ * ADMINISTRATION — eine Anlaufstelle für alles, was ohne Code gepflegt wird.
+ *
+ * Vorher lag hier ausschließlich die Kontenverwaltung, während die Stammdaten- und
+ * Artikelverwaltung im Aktionsmenü der Berateransicht hing: Der Administrator meldete
+ * sich an und fand das schwächere Werkzeug. Beides steht jetzt hier zusammen, ergänzt um
+ * die Übersicht, wie der Konfigurator aus den Stammdaten aufgebaut ist.
  */
 export default function AdminDashboardPage() {
+  const [bereich, setBereich] = useState<Bereich>('konfigurator')
+  const [stammdatenOffen, setStammdatenOffen] = useState(false)
   const {
     user,
     consultants,
@@ -73,13 +89,49 @@ export default function AdminDashboardPage() {
     <AppShell>
       <div className={styles.page}>
         <header className={styles.header}>
-          <h1 className={styles.title}>Systemverwaltung</h1>
+          <h1 className={styles.title}>Administration</h1>
           <p className={styles.subtitle}>
-            Angemeldet als Administrator <strong>{user?.name}</strong>. Konten anlegen, verwalten und
-            die Registrierungsregeln konfigurieren.
+            Angemeldet als Administrator <strong>{user?.name}</strong>. Hier laufen die Bereiche
+            zusammen, die sich ohne Programmänderung pflegen lassen.
           </p>
         </header>
 
+        <nav className={styles.bereiche} aria-label="Arbeitsbereiche">
+          {BEREICHE.map((b) => (
+            <button
+              key={b.id}
+              type="button"
+              className={b.id === bereich ? styles.bereichAktiv : styles.bereich}
+              onClick={() => setBereich(b.id)}
+              aria-current={b.id === bereich}
+            >
+              <span className={styles.bereichTitel}>{b.titel}</span>
+              <span className={styles.bereichZweck}>{b.zweck}</span>
+            </button>
+          ))}
+        </nav>
+
+        {bereich === 'konfigurator' ? (
+          <section className={styles.block} aria-label="Konfigurator-Struktur">
+            <h2 className={styles.blockTitle}>Aufbau des Konfigurators</h2>
+            <KonfiguratorStruktur />
+          </section>
+        ) : null}
+
+        {bereich === 'stammdaten' ? (
+          <section className={styles.block} aria-label="Stammdaten">
+            <h2 className={styles.blockTitle}>Stammdaten &amp; Artikelverwaltung</h2>
+            <p className={styles.subtitle}>
+              Artikel, Preiszeilen und Achsen, Oberflächen, Berater und Filialen — dieselbe
+              Verwaltung, die auch im Aktionsmenü erreichbar ist. Das Handbuch darin erklärt
+              Schritt für Schritt, wie ein neuer Artikel in ein Auswahlfeld kommt.
+            </p>
+            <Button onClick={() => setStammdatenOffen(true)}>Stammdatenverwaltung öffnen</Button>
+          </section>
+        ) : null}
+
+        {bereich !== 'konten' ? null : (
+          <>
         <section className={styles.block} aria-label="Einstellungen">
           <h2 className={styles.blockTitle}>Registrierungs-Regeln</h2>
           <label className={styles.toggleRow}>
@@ -184,7 +236,10 @@ export default function AdminDashboardPage() {
             ))}
           </ul>
         </section>
+          </>
+        )}
       </div>
+      <StammdatenAdminModal open={stammdatenOffen} onClose={() => setStammdatenOffen(false)} />
     </AppShell>
   )
 }
