@@ -7,7 +7,8 @@ import { TextField } from '../../components/ui/TextField'
 import { ScanBridgeModal } from '../../components/scan/ScanBridgeModal'
 import { KalkulationsPanel } from '../../components/pricing/KalkulationsPanel'
 import { useDraft } from '../../context/DraftContext'
-import { getBranch } from '../../config/branches'
+import { felderFuer } from '../../lib/schemaStore'
+import { anzeigeWert, zeigeFeld } from '../../lib/schemaWerte'
 import { getProductGroup, getSeries } from '../../config/productCatalog'
 import { getVisibleKorpusAreas } from '../../config/korpus'
 import { getFrontType, getStyleLine } from '../../config/frontCatalog'
@@ -58,7 +59,6 @@ export default function SummaryPage() {
   if (!isReference && !isFrontsComplete(draft.fronts)) return <Navigate to="/fronts" replace />
   const fronts = draft.fronts ?? { columns: [] }
 
-  const branch = getBranch(draft.branchId)
   const dim = draft.dimensions
 
   /**
@@ -118,15 +118,18 @@ export default function SummaryPage() {
           )}
         </section>
 
+        {/* Auftragskopf aus dem Konfigurator-Schema — dieselbe Definition wie Maske und PDF. */}
         <Block title="Auftrag">
-          <Row k="Auftragsnummer" v={draft.orderNumber} />
-          <Row k="Kunde" v={draft.customerName} />
-          <Row k="Filiale" v={branch?.name ?? '—'} />
-          <Row k="Berater" v={draft.consultant.name} />
-          <Row k="Entwurfsnummer" v={draft.id} mono />
-          {draft.variantLabel?.trim() || draft.variantOf ? (
-            <Row k="Variante" v={draft.variantLabel?.trim() || 'Variante'} />
-          ) : null}
+          {felderFuer('auftragskopf', 'zusammenfassung', { serieId: draft.seriesId })
+            .filter((feld) => zeigeFeld(draft, feld))
+            .map((feld) => (
+              <Row
+                key={feld.id}
+                k={feld.label}
+                v={anzeigeWert(draft, feld) || '—'}
+                mono={feld.quelle === 'entwurfsnummer'}
+              />
+            ))}
         </Block>
 
         <Block title="Produkt & Maße">

@@ -703,6 +703,16 @@ export interface Draft {
    */
   variantLabel?: string
 
+  /**
+   * Werte der Felder, die der Administrator selbst im Konfigurator-Schema angelegt hat
+   * (`src/types/schema.ts`), geschlüsselt über die Feld-ID.
+   *
+   * Sie stehen bewusst getrennt von den typisierten Feldern darüber: An jenen hängen
+   * Kalkulation, Dashboard-Suche und eigene Supabase-Spalten, hier dagegen darf ohne
+   * Code-Änderung etwas dazukommen.
+   */
+  zusatzfelder?: Record<string, string>
+
   // --- Phase 3 ---
   productGroupId?: string
   seriesId?: string

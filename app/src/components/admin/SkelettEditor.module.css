@@ -1,0 +1,299 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+/* --- Kopfzeile mit Entwurfsstatus ----------------------------------------- */
+
+.statusZeile {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+}
+
+.statusLive,
+.statusEntwurf {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.statusEntwurf {
+  color: color-mix(in srgb, var(--color-danger) 75%, var(--color-ink));
+}
+
+.statusAktionen {
+  display: flex;
+  gap: var(--space-2);
+}
+
+/* --- Abschnitte ------------------------------------------------------------ */
+
+.abschnitt {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-lg);
+}
+
+.abschnittKopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.abschnittTitel {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.abschnittMeta {
+  margin-left: auto;
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+}
+
+.abschnittText {
+  margin: 0;
+  max-width: 78ch;
+  font-size: 0.88rem;
+  color: var(--color-ink-secondary);
+}
+
+/* --- Felder ---------------------------------------------------------------- */
+
+.felder {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.feld,
+.feldAus {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+}
+
+.feldAus {
+  opacity: 0.55;
+  border-style: dashed;
+}
+
+.feldText {
+  display: flex;
+  flex-direction: column;
+  min-width: 14rem;
+}
+
+.feldLabel {
+  font-weight: 600;
+}
+
+.pflicht {
+  color: var(--color-danger);
+}
+
+.feldMeta {
+  font-size: 0.76rem;
+  color: var(--color-ink-muted);
+}
+
+.marken {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-left: auto;
+}
+
+.marke,
+.markePdf,
+.markeRegel {
+  padding: 0.05rem 0.5rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.7rem;
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  color: var(--color-ink-secondary);
+  white-space: nowrap;
+}
+
+.markePdf {
+  background: color-mix(in srgb, var(--color-success) 16%, transparent);
+  color: color-mix(in srgb, var(--color-success) 78%, var(--color-ink));
+}
+
+.markeRegel {
+  background: color-mix(in srgb, var(--color-focus) 18%, transparent);
+  color: var(--color-ink);
+}
+
+.aktionen {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.knopf,
+.knopfWeg {
+  width: 1.9rem;
+  height: 1.9rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+
+.knopf:hover:not(:disabled),
+.knopfWeg:hover {
+  border-color: var(--color-ink);
+}
+
+.knopf:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.knopfWeg:hover {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.plus {
+  align-self: flex-start;
+  padding: var(--space-2) var(--space-4);
+  border: 1px dashed var(--color-line);
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--color-ink-secondary);
+  cursor: pointer;
+  font: inherit;
+}
+
+.plus:hover {
+  border-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+/* --- Bausteinkatalog ------------------------------------------------------- */
+
+.katalog {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3);
+}
+
+.katalogKachel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-3);
+  text-align: left;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  cursor: pointer;
+}
+
+.katalogKachel:hover {
+  border-color: var(--color-ink);
+}
+
+.katalogTitel {
+  font-weight: 700;
+}
+
+.katalogZweck {
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+}
+
+/* --- Einstellungsmaske ----------------------------------------------------- */
+
+.maske {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.gruppe {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-3);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.gruppeTitel {
+  padding: 0 var(--space-2);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--color-ink-muted);
+}
+
+.gruppeHinweis {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-ink-secondary);
+}
+
+.serienGitter {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(10rem, 1fr));
+  gap: 0.25rem var(--space-3);
+}
+
+.schalter {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.schalter input {
+  accent-color: var(--color-ink);
+}
+
+.systemhinweis {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--color-ink-muted);
+}
+
+.systemhinweis code {
+  padding: 0.05em 0.35em;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--color-ink) 8%, transparent);
+}
+
+.maskeAktionen {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}

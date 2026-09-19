@@ -1,0 +1,41 @@
+.ueberschrift {
+  grid-column: 1 / -1;
+  margin: var(--space-2) 0 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.hinweis {
+  grid-column: 1 / -1;
+  margin: 0;
+  max-width: 68ch;
+  font-size: 0.9rem;
+  color: var(--color-ink-secondary);
+}
+
+.checkboxZeile {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: 0.15rem;
+  accent-color: var(--color-ink);
+  flex: none;
+}
+
+.checkboxLabel {
+  display: block;
+  font-weight: 600;
+}
+
+.checkboxHinweis {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.85rem;
+  color: var(--color-ink-muted);
+}

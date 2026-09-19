@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { KonfiguratorStruktur } from '../../components/admin/KonfiguratorStruktur'
+import { SkelettEditor } from '../../components/admin/SkelettEditor'
 import { StammdatenAdminModal } from '../../components/admin/StammdatenAdminModal'
 import { AppShell } from '../../components/layout/AppShell'
 import { Button } from '../../components/ui/Button'
@@ -112,10 +113,21 @@ export default function AdminDashboardPage() {
         </nav>
 
         {bereich === 'konfigurator' ? (
-          <section className={styles.block} aria-label="Konfigurator-Struktur">
-            <h2 className={styles.blockTitle}>Aufbau des Konfigurators</h2>
-            <KonfiguratorStruktur />
-          </section>
+          <>
+            <section className={styles.block} aria-label="Skelett-Editor">
+              <h2 className={styles.blockTitle}>Oberfläche bearbeiten</h2>
+              <p className={styles.subtitle}>
+                Der Konfigurator als Gerüst: Bausteine umsortieren, umbenennen, abschalten oder
+                ergänzen. Was hier steht, rendert die Erfassungsmaske — und dieselbe Definition
+                lesen Zusammenfassung und AV-PDF.
+              </p>
+              <SkelettEditor />
+            </section>
+            <section className={styles.block} aria-label="Konfigurator-Struktur">
+              <h2 className={styles.blockTitle}>Auswahlfelder aus der Artikelverwaltung</h2>
+              <KonfiguratorStruktur />
+            </section>
+          </>
         ) : null}
 
         {bereich === 'stammdaten' ? (

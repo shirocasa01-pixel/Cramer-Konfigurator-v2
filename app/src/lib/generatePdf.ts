@@ -1,7 +1,6 @@
 import { jsPDF } from 'jspdf'
 import type { Draft } from '../types'
 import { brand } from '../config/brand'
-import { getBranch } from '../config/branches'
 import { getProductGroup, getSeries } from '../config/productCatalog'
 import { getVisibleKorpusAreas } from '../config/korpus'
 import { getFrontType, getStyleLine } from '../config/frontCatalog'
@@ -18,14 +17,8 @@ import { describeAusstattungAuswahl, describeColumnEquipment } from './ausstattu
 import { formatVkPreis } from './pricing'
 import { caPrefix, formatDimensions } from './massFormat'
 import { describeKorpusGrunddatenZeilen } from './korpusMass'
-
-const dateTimeFmt = new Intl.DateTimeFormat('de-DE', {
-  day: '2-digit',
-  month: '2-digit',
-  year: 'numeric',
-  hour: '2-digit',
-  minute: '2-digit',
-})
+import { felderFuer, getAbschnitt } from './schemaStore'
+import { anzeigeWert, zeigeFeld } from './schemaWerte'
 
 /**
  * Erzeugt das kompakte AV-Übergabe-PDF (Seite 1: Daten, Seite 2: gescannte Skizze).
@@ -97,7 +90,7 @@ export function buildPdf(draft: Draft): jsPDF {
     y += bold ? 18 : 14
   }
 
-  const branch = getBranch(draft.branchId)
+
   const group = getProductGroup(draft.productGroupId)
   const series = getSeries(draft.productGroupId, draft.seriesId)
   const dim = draft.dimensions
@@ -113,14 +106,17 @@ export function buildPdf(draft: Draft): jsPDF {
   y += 6
   doc.setTextColor(20, 22, 26)
 
-  section('Auftrag')
-  kv('Auftragsnummer', draft.orderNumber)
-  kv('Kunde', draft.customerName)
-  kv('Filiale', branch ? `${branch.name}, ${branch.postalCode} ${branch.city}` : '—')
-  kv('Berater', draft.consultant.name)
-  kv('Datum', dateTimeFmt.format(new Date(draft.finalizedAt ?? draft.createdAt)))
-  if (draft.variantLabel?.trim() || draft.variantOf) {
-    kv('Variante', draft.variantLabel?.trim() || 'Variante')
+  /*
+   * AUFTRAGSKOPF — aus dem Konfigurator-Schema, nicht mehr Zeile für Zeile programmiert.
+   *
+   * Gedruckt wird, was der Administrator im Schema für das PDF freigegeben hat, in seiner
+   * Sortierung. Ein neues Feld erscheint damit hier, ohne dass diese Datei angefasst wird.
+   */
+  const kopfAbschnitt = getAbschnitt('auftragskopf')
+  section(kopfAbschnitt?.titel && kopfAbschnitt.id !== 'auftragskopf' ? kopfAbschnitt.titel : 'Auftrag')
+  for (const feld of felderFuer('auftragskopf', 'pdf', { serieId: draft.seriesId })) {
+    if (!zeigeFeld(draft, feld, { lang: true })) continue
+    kv(feld.label, anzeigeWert(draft, feld, { lang: true }) || '—')
   }
 
   section('Produkt & Maße')

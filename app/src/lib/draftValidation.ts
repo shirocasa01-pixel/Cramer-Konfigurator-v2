@@ -1,28 +1,30 @@
 import type { Draft } from '../types'
+import type { SchemaFeld } from '../types/schema.ts'
+import { leseWert } from './schemaWerte.ts'
+
+/** Feld-ID → Fehlermeldung. Ein leeres Objekt bedeutet „gültig". */
+export type DraftFormErrors = Record<string, string>
 
 /**
- * Pflichtfelder der Entwurfsanlage (Schritt 2). Auftrags- & Artikelnummer sind
- * bewusst NICHT enthalten – sie werden erst später (spätestens vor der AV-Übergabe)
- * befüllt. Pflicht bleiben Kunde & Filiale zur eindeutigen Zuordnung des Entwurfs.
+ * Pflichtprüfung der Entwurfsanlage — regelbasiert aus dem Konfigurator-Schema.
+ *
+ * Welche Felder Pflicht sind, stand bis zur Schema-Umstellung hier im Code (Kunde und
+ * Filiale). Jetzt entscheidet das `pflicht`-Häkchen am Schemafeld, das der Administrator
+ * setzt; diese Funktion prüft nur noch, ob ein als Pflicht markiertes Feld gefüllt ist.
  */
-export type DraftFormFields = Pick<Draft, 'customerName' | 'branchId'>
+export function pruefeSchemaFelder(draft: Draft | null | undefined, felder: SchemaFeld[]): DraftFormErrors {
+  const fehler: DraftFormErrors = {}
+  if (!draft) return fehler
 
-export interface DraftFormErrors {
-  customerName?: string
-  branchId?: string
+  for (const feld of felder) {
+    if (!feld.pflicht || feld.quelle) continue
+    if (leseWert(draft, feld).trim()) continue
+    fehler[feld.id] =
+      feld.typ === 'auswahl' ? `Bitte ${feld.label} wählen.` : `${feld.label} ist erforderlich.`
+  }
+  return fehler
 }
 
-/**
- * Regelbasierte Validierung der Entwurfsanlage. Liefert feldbezogene Fehler;
- * ein leeres Objekt bedeutet „gültig“. Wird in Echtzeit bei jeder Eingabe genutzt.
- */
-export function validateDraftForm(fields: DraftFormFields): DraftFormErrors {
-  const errors: DraftFormErrors = {}
-  if (!fields.customerName.trim()) errors.customerName = 'Kundenname ist erforderlich.'
-  if (!fields.branchId) errors.branchId = 'Bitte eine Filiale wählen.'
-  return errors
-}
-
-export function isDraftFormValid(fields: DraftFormFields): boolean {
-  return Object.keys(validateDraftForm(fields)).length === 0
+export function istSchemaGueltig(draft: Draft | null | undefined, felder: SchemaFeld[]): boolean {
+  return Object.keys(pruefeSchemaFelder(draft, felder)).length === 0
 }
