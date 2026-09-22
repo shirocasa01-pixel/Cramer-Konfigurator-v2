@@ -5,23 +5,16 @@
  * VITE_SUPABASE_ANON_KEY) und landen über Vite im Browser-Bundle — hier darf
  * deshalb nur der ANON-Key mit aktiver Row-Level-Security stehen.
  */
-import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Draft } from '../types'
 import { friereBeimSpeichernEin, normalisiereBeimLaden } from './pricingSnapshot'
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim()
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim()
+import { isSupabaseConfigured, supabase } from './supabaseClient'
 
 /**
- * true ⇒ beide Umgebungsvariablen sind gesetzt. Fehlt eine, bleibt die App
- * lauffähig (rein lokale Entwürfe), statt schon beim Import zu crashen — die
- * Speicherfunktion meldet den fehlenden Zugang dann im Klartext.
+ * Fehlt die Konfiguration, bleibt die App lauffähig, statt schon beim Import zu
+ * crashen — die Speicherfunktion meldet den fehlenden Zugang dann im Klartext.
  */
-export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
-
-export const supabase: SupabaseClient | null = isSupabaseConfigured
-  ? createClient(supabaseUrl as string, supabaseAnonKey as string)
-  : null
+export { isSupabaseConfigured, supabase }
 
 /** Liefert den Client oder wirft eine verständliche Fehlermeldung. */
 function client(): SupabaseClient {

@@ -15,14 +15,16 @@
  * nicht unterscheidbar, `v1.02` und `v1.20` schon. Läuft die Minor-Stelle über (nach
  * v1.99), springt die Zählung von selbst auf die nächste Hauptversion.
  *
- * PROTOTYP-GRENZE, dieselbe wie bei Zugängen, Stammdaten und dem Konfigurator-Schema:
- * Der Stand liegt im `localStorage`. Zwischen zwei TABS desselben Browsers wird er über
- * das `storage`-Ereignis synchron gehalten — zwischen zwei GERÄTEN nicht. Dafür bräuchte
- * es eine eigene Tabelle in Supabase; in der Mappe steht bisher nur `projects`.
- * Die Schnittstelle unten bliebe dabei dieselbe.
+ * SUPABASE IST DIE QUELLE (09/2026): Die Historie liegt als Dokument `versionen` in
+ * `system_daten` und ist damit auf allen Geräten gleich. Die neue Nummer wird auf dem
+ * aktuellen Serverstand vergeben — veröffentlichen zwei Administratoren gleichzeitig,
+ * bekommen sie zwei aufeinanderfolgende Nummern statt zweimal dieselbe. Der localStorage
+ * hält nur einen Zwischenspeicher und den persönlichen Gelesen-Stand.
  */
+import { aendereDokument, meldeSchreibfehler } from './supabaseSystem.ts'
 
-const VERSIONEN_KEY = 'cramer-planer.versionen.v1'
+export const VERSIONEN_DOKUMENT = 'versionen'
+const VERSIONEN_KEY = 'cramer-planer.versionen.cache.v2'
 const GELESEN_KEY = 'cramer-planer.versionen.gelesen.v1'
 
 /** Womit ein frisches System startet — und wohin die Bereinigung zurücksetzt. */
@@ -66,9 +68,21 @@ function sichere() {
   try {
     localStorage.setItem(VERSIONEN_KEY, JSON.stringify(versionen))
   } catch {
-    /* best-effort im Prototyp */
+    /* best-effort */
   }
   melde()
+}
+
+function nurGueltige(wert: unknown): Versionsstand[] {
+  return Array.isArray(wert) ? (wert as Versionsstand[]).filter((v) => typeof v?.version === 'string') : []
+}
+
+/** Übernimmt den Serverstand — von `systemSync.ts` aufgerufen. */
+export function uebernehmeVersionenVomServer(wert: unknown): void {
+  const neu = nurGueltige(wert)
+  if (JSON.stringify(neu) === JSON.stringify(versionen)) return
+  versionen = neu
+  sichere()
 }
 
 export function subscribeVersionen(h: () => void): () => void {
@@ -106,8 +120,8 @@ export function getAktuelleVersion(): Versionsstand {
  * Getrennt von `veroeffentliche()`, weil der Bestätigungsdialog sie ANZEIGEN muss
  * („wird als v1.03 veröffentlicht"), bevor irgendetwas geschrieben wird.
  */
-export function naechsteVersion(major = false): string {
-  const [hauptText, nebenText] = getAktuelleVersion().version.split('.')
+export function naechsteVersion(major = false, liste: Versionsstand[] = versionen): string {
+  const [hauptText, nebenText] = (liste[0]?.version ?? STARTVERSION).split('.')
   const haupt = Number(hauptText) || 1
   const neben = Number(nebenText) || 0
 
@@ -127,6 +141,15 @@ export function veroeffentliche(opts: { von?: string; notiz?: string; major?: bo
   }
   versionen = [eintrag, ...versionen]
   sichere()
+  // Auf dem Serverstand nummerieren: Hat inzwischen ein anderer Administrator
+  // veröffentlicht, bekommt dieser Eintrag die Nummer danach.
+  aendereDokument<Versionsstand[]>(VERSIONEN_DOKUMENT, (server) => {
+    const liste = nurGueltige(server)
+    return [{ ...eintrag, version: naechsteVersion(opts.major, liste) }, ...liste]
+  }).then(
+    (serverStand) => uebernehmeVersionenVomServer(serverStand),
+    (error) => meldeSchreibfehler(`Version ${eintrag.version}`, error),
+  )
   return eintrag
 }
 
@@ -183,6 +206,9 @@ export function setzeVersionenZurueck(): void {
     /* best-effort */
   }
   sichere()
+  aendereDokument<Versionsstand[]>(VERSIONEN_DOKUMENT, () => []).catch((error) =>
+    meldeSchreibfehler('Versionshistorie', error),
+  )
 }
 
 // ---------------------------------------------------------------------------

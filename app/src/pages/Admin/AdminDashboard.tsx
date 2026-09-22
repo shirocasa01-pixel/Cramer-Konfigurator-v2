@@ -133,8 +133,8 @@ export default function AdminDashboardPage() {
                 Wartungsmodus {maintenanceActive ? '· AKTIV' : ''}
               </span>
               <span className={styles.toggleHint}>
-                Blendet bei allen Nutzern ein Wartungs-Overlay ein. Schnellschalter (gerätelokal);
-                global über die Env-Variable <code>VITE_MAINTENANCE_MODE</code> + Redeploy.
+                Blendet bei allen Beratern auf allen Geräten ein Wartungs-Overlay ein (gespeichert in
+                Supabase). Zusätzlich global über die Env-Variable <code>VITE_MAINTENANCE_MODE</code> + Redeploy.
                 {appConfig.isMaintenanceMode
                   ? ' Aktuell global per Env erzwungen – hier nicht deaktivierbar.'
                   : ''}

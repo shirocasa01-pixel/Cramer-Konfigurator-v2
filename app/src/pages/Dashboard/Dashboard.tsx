@@ -6,7 +6,7 @@ import { Modal } from '../../components/ui/Modal'
 import { Select } from '../../components/ui/Select'
 import { TextField } from '../../components/ui/TextField'
 import { useAuth } from '../../context/AuthContext'
-import { useDraft } from '../../context/DraftContext'
+import { gehoertNutzer, useDraft } from '../../context/DraftContext'
 import { getBranch, getBranches } from '../../config/branches'
 import { getProductGroup, getSeries } from '../../config/productCatalog'
 import { getVisibleKorpusAreas } from '../../config/korpus'
@@ -233,15 +233,20 @@ export default function DashboardPage() {
                           className={styles.duplicate}
                           onClick={() => void handleDuplicate(draft)}
                           aria-label={`Entwurf ${draft.id} duplizieren`}
-                          title="Als neue Variante duplizieren"
+                          title={
+                            gehoertNutzer(draft, user?.id)
+                              ? 'Als neue Variante duplizieren'
+                              : `Als eigenen Entwurf duplizieren — die Kopie gehört ${user?.name ?? 'Ihnen'}`
+                          }
                         >
                           Duplizieren
                         </button>
+                        {/* Löschen nur bei eigenen Entwürfen — fremde lassen sich nur duplizieren. */}
                         {draft.isVerification ? (
                           <span className={styles.pinned} title="Referenz-Entwurf (nicht löschbar)">
                             ★
                           </span>
-                        ) : (
+                        ) : !gehoertNutzer(draft, user?.id) ? null : (
                           <button
                             type="button"
                             className={styles.delete}

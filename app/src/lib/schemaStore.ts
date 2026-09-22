@@ -8,16 +8,22 @@
  *   ENTWURF          was der Administrator gerade bearbeitet — nur er sieht es
  *   VERÖFFENTLICHT   was Berater, Zusammenfassung und PDF verwenden
  *
- * Prototyp-Grenze, dieselbe wie bei Zugängen und Stammdaten: Das Overlay liegt im
- * `localStorage` und damit im Browser des Administrators. Mit einem Backend zieht es an
- * den Server; die Schnittstelle unten bleibt dieselbe.
+ * SUPABASE IST DIE QUELLE (09/2026): Beide Stände liegen als Dokumente in
+ * `system_daten` (`schema_veroeffentlicht`, `schema_entwurf`). Damit sehen alle Berater
+ * denselben veröffentlichten Stand, und mehrere Administratoren arbeiten am SELBEN
+ * Entwurf — auch von verschiedenen Geräten aus. `null` heißt jeweils: kein eigener Stand,
+ * es gilt die Auslieferung bzw. es ist kein Entwurf offen. Der localStorage ist nur
+ * Zwischenspeicher für einen schnellen Start.
  */
 
 import basisSchema from '../config/konfigurator-schema.json'
 import type { KonfiguratorSchema, SchemaAbschnitt, SchemaFeld } from '../types/schema.ts'
+import { aendereDokument, meldeSchreibfehler } from './supabaseSystem.ts'
 
-const ENTWURF_KEY = 'cramer-planer.schema.entwurf.v1'
-const VEROEFFENTLICHT_KEY = 'cramer-planer.schema.veroeffentlicht.v1'
+export const SCHEMA_ENTWURF_DOKUMENT = 'schema_entwurf'
+export const SCHEMA_VEROEFFENTLICHT_DOKUMENT = 'schema_veroeffentlicht'
+const ENTWURF_KEY = 'cramer-planer.schema.entwurf.cache.v2'
+const VEROEFFENTLICHT_KEY = 'cramer-planer.schema.veroeffentlicht.cache.v2'
 
 /** Der Auslieferungsstand aus dem Repo — immer die Rückfallebene. */
 export const AUSLIEFERUNG = basisSchema as KonfiguratorSchema
@@ -42,8 +48,20 @@ function sichere(schluessel: string, schema: KonfiguratorSchema | null) {
     if (schema) localStorage.setItem(schluessel, JSON.stringify(schema))
     else localStorage.removeItem(schluessel)
   } catch {
-    /* best-effort im Prototyp */
+    /* best-effort */
   }
+}
+
+/** Schreibt einen Stand nach Supabase; Fehler erscheinen in der Statusanzeige im Kopf. */
+function nachSupabase(dokument: string, schema: KonfiguratorSchema | null, was: string) {
+  aendereDokument<KonfiguratorSchema | null>(dokument, () => schema).catch((error) =>
+    meldeSchreibfehler(was, error),
+  )
+}
+
+function gueltig(wert: unknown): KonfiguratorSchema | null {
+  const s = wert as KonfiguratorSchema | null
+  return s && Array.isArray(s.abschnitte) ? s : null
 }
 
 let veroeffentlicht: KonfiguratorSchema = lade(VEROEFFENTLICHT_KEY) ?? klone(AUSLIEFERUNG)
@@ -74,37 +92,72 @@ export function hatOffenenEntwurf(): boolean {
   return entwurf != null
 }
 
+/** Übernimmt die Serverstände — von `systemSync.ts` aufgerufen. */
+export function uebernehmeSchemaVomServer(werte: { veroeffentlicht: unknown; entwurf: unknown }): void {
+  const v = gueltig(werte.veroeffentlicht) ?? klone(AUSLIEFERUNG)
+  const e = gueltig(werte.entwurf)
+  if (JSON.stringify(v) === JSON.stringify(veroeffentlicht) && JSON.stringify(e) === JSON.stringify(entwurf)) return
+  veroeffentlicht = v
+  entwurf = e
+  sichere(VEROEFFENTLICHT_KEY, gueltig(werte.veroeffentlicht))
+  sichere(ENTWURF_KEY, entwurf)
+  melde()
+}
+
+/*
+  Der Entwurf wird bei JEDER Bearbeitung geschrieben (jedes Tippen im Editor). Nach
+  Supabase geht er gebündelt, eine Sekunde nach der letzten Änderung — sonst entstünde
+  pro Tastendruck ein Schreibvorgang.
+*/
+let entwurfTimer: ReturnType<typeof setTimeout> | null = null
+function entwurfNachSupabase() {
+  if (entwurfTimer) clearTimeout(entwurfTimer)
+  entwurfTimer = setTimeout(() => {
+    entwurfTimer = null
+    nachSupabase(SCHEMA_ENTWURF_DOKUMENT, entwurf, 'Konfigurator-Entwurf')
+  }, 1000)
+}
+
 /** Übernimmt eine Änderung in den Entwurf, ohne sie zu veröffentlichen. */
 export function setzeEntwurf(naechster: KonfiguratorSchema): void {
   entwurf = klone(naechster)
   sichere(ENTWURF_KEY, entwurf)
   melde()
+  entwurfNachSupabase()
 }
 
 /** Verwirft den Entwurf und arbeitet wieder auf dem veröffentlichten Stand. */
 export function verwerfeEntwurf(): void {
+  if (entwurfTimer) clearTimeout(entwurfTimer)
   entwurf = null
   sichere(ENTWURF_KEY, null)
   melde()
+  nachSupabase(SCHEMA_ENTWURF_DOKUMENT, null, 'Konfigurator-Entwurf')
 }
 
 /** Macht den Entwurf für alle gültig. */
 export function veroeffentliche(): void {
   if (!entwurf) return
+  if (entwurfTimer) clearTimeout(entwurfTimer)
   veroeffentlicht = { ...klone(entwurf), version: veroeffentlicht.version + 1 }
   entwurf = null
   sichere(VEROEFFENTLICHT_KEY, veroeffentlicht)
   sichere(ENTWURF_KEY, null)
   melde()
+  nachSupabase(SCHEMA_VEROEFFENTLICHT_DOKUMENT, veroeffentlicht, 'Veröffentlichter Konfigurator')
+  nachSupabase(SCHEMA_ENTWURF_DOKUMENT, null, 'Konfigurator-Entwurf')
 }
 
 /** Setzt alles auf den Auslieferungsstand aus dem Repo zurück. */
 export function setzeAufAuslieferungZurueck(): void {
+  if (entwurfTimer) clearTimeout(entwurfTimer)
   veroeffentlicht = klone(AUSLIEFERUNG)
   entwurf = null
   sichere(VEROEFFENTLICHT_KEY, null)
   sichere(ENTWURF_KEY, null)
   melde()
+  nachSupabase(SCHEMA_VEROEFFENTLICHT_DOKUMENT, null, 'Veröffentlichter Konfigurator')
+  nachSupabase(SCHEMA_ENTWURF_DOKUMENT, null, 'Konfigurator-Entwurf')
 }
 
 // ---------------------------------------------------------------------------

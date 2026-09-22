@@ -5,149 +5,71 @@ import {
   useEffect,
   useMemo,
   useState,
+  useSyncExternalStore,
   type ReactNode,
 } from 'react'
-import { getConsultants } from '../data/consultants'
+import { STANDARD_PASSWORT, getConsultants } from '../data/consultants'
 import { SEED_ROOT_ADMIN } from '../data/seedAdmin'
 import { appConfig } from '../config/appConfig'
 import { isValidEmail } from '../lib/validation'
 import { makeId } from '../lib/frontsHelpers'
 import { sha256Hex } from '../lib/passwort'
-import { getMitarbeiterListe } from '../lib/stammdatenStore'
-import { hatZugang, pruefeZugang } from '../lib/zugangStore'
-import type { Admin, AdminSummary, AuthUser, Consultant, UserRole, UserSettings } from '../types'
+import { getMitarbeiterListe, verwerfeAusstehendeAenderungen } from '../lib/stammdatenStore'
+import { useStammdaten } from '../lib/useStammdaten'
+import { pruefeZugang } from '../lib/zugangStore'
+import { getEinstellungen, setzeEinstellung, subscribeEinstellungen } from '../lib/einstellungenStore'
+import { getSyncStatus, istTabelleFehlt, setzeBearbeiter, subscribeSyncStatus } from '../lib/supabaseSystem'
+import { aktualisiereSystem, uebernehmeAlteLokaleStaende } from '../lib/systemSync'
+import type { AdminSummary, AuthUser, Consultant, UserRole, UserSettings } from '../types'
 
+/**
+ * Die ANMELDUNG dieses Geräts — nur die Sitzung, kein Konto. Konten, Rollen, Passwörter
+ * und Einstellungen liegen seit 09/2026 ausschließlich in Supabase (siehe
+ * `lib/systemSync.ts`); gegen deren aktuellen Stand wird die Sitzung laufend geprüft.
+ */
 const AUTH_KEY = 'cramer-planer.auth'
-const USERS_KEY = 'cramer-planer.users.v1'
-
-/** Persistierter Benutzer-Bestand (Prototyp: localStorage; Produktion: Backend/SSO). */
-interface UserStore {
-  admins: Admin[]
-  consultants: Consultant[]
-  settings: UserSettings
-  /** Einmal-Token des simulierten Root-Aktivierungslinks. */
-  rootActivationToken: string | null
-}
 
 interface AuthContextValue {
   user: AuthUser | null
   isAuthenticated: boolean
   isAdmin: boolean
-  /** Login per E-Mail ODER Admin-Benutzername + Passwort (async wegen Hash-Vergleich). */
+  /** Login per E-Mail ODER Admin-Benutzername + Passwort (async: Prüfung in Supabase). */
   login: (identifier: string, password: string) => Promise<{ ok: boolean; error?: string; isAdmin?: boolean }>
   logout: () => void
 
-  // --- Benutzerverwaltung (Phase 10) ---
-  /** Anzeige-Liste (Seed-Root + im Store angelegte Admins), ohne Passwörter/Hashes. */
+  // --- Benutzerverwaltung ---
+  /** Das fest verankerte Hauptadmin-Konto — für die Eindeutigkeitsprüfung der Verwaltung. */
   admins: AdminSummary[]
+  /** Aktive Berater aus den (Supabase-)Stammdaten. */
   consultants: Consultant[]
   settings: UserSettings
-  /** true => ein Root-Admin ist eingerichtet. */
+  /** Immer true: Der Root-Admin ist fest verankert (`data/seedAdmin.ts`). */
   rootInitialized: boolean
   /** Aktueller Aktivierungs-Token (für die simulierte Setup-URL). */
   activationToken: string | null
   /** Erzeugt/erneuert den simulierten Aktivierungslink und liefert den Token. */
   requestRootActivation: () => string
-  /** Richtet den Root-Admin ein (validiert den Token) und meldet ihn an. */
+  /** Richtet den Root-Admin ein — seit dem fest verankerten Konto stets abgelehnt. */
   setupRootAdmin: (
     token: string,
     data: { username: string; email: string; password: string },
   ) => string | null
-  addConsultant: (data: { name: string; email: string; password: string }) => string | null
-  deleteConsultant: (id: string) => void
-  addAdmin: (data: { username: string; email: string; password: string }) => string | null
   setEnforceCramerEmail: (value: boolean) => void
   /** Validiert eine Mitarbeiter-E-Mail nach aktueller Regel (Testphase vs. Produktion). */
   validateStaffEmail: (email: string) => string | null
 
-  // --- Wartungsmodus (Phase 11, Notfall-Zugang Phase 11.2) ---
-  /** Effektiv aktiv = globaler Schalter (appConfig) ODER Admin-Toggle. */
+  // --- Wartungsmodus ---
+  /** Effektiv aktiv = globaler Schalter (appConfig) ODER Admin-Schalter in Supabase. */
   maintenanceActive: boolean
   setMaintenanceMode: (value: boolean) => void
   /**
-   * Liest den Admin-Toggle frisch aus localStorage, statt auf den nächsten Render zu
-   * warten, und meldet den Stand direkt zurück — für den „Status aktualisieren"-Knopf auf
-   * der Wartungsseite. Der Toggle ist geräte-/browserlokal (siehe appConfig.ts); ein
-   * zweiter Tab am selben Gerät, in dem ein Admin den Wartungsmodus aufgehoben hat, wird
-   * damit sofort sichtbar, ohne dass diese Seite neu geladen werden muss.
+   * Lädt den Stand frisch aus Supabase und meldet, ob die Wartung weiterhin aktiv ist —
+   * für den „Status aktualisieren"-Knopf auf der Wartungsseite.
    */
-  refreshMaintenanceStatus: () => boolean
+  refreshMaintenanceStatus: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
-
-/**
- * Stamm-Filiale eines Beraters aus Blatt „40 Mitarbeiter".
- *
- * Geschlüsselt über die Personalnummer — sie ist die Identität des Mitarbeiters und
- * zugleich die `id` des angemeldeten Nutzers. Fehlt die Zuordnung, bleibt das
- * Filialfeld im Entwurf schlicht leer; der Berater wählt dann wie bisher selbst.
- */
-function heimatFiliale(personalnr: string): string | undefined {
-  return getMitarbeiterListe().find((m) => m.personalnr === personalnr)?.filiale || undefined
-}
-
-function defaultStore(): UserStore {
-  return {
-    admins: [],
-    consultants: getConsultants(),
-    settings: { enforceCramerEmail: false, maintenanceMode: false },
-    rootActivationToken: null,
-  }
-}
-
-/**
- * Berater aus den Stammdaten UND die von Hand angelegten zusammenführen.
- *
- * Der gespeicherte Bestand darf die Mappe nicht überstimmen: Ein neuer Berater ist laut
- * `data/consultants.ts` eine Zeile in „40 Mitarbeiter" und keine Code-Änderung — ohne
- * diese Zusammenführung erschiene er aber nur in Browsern, die den Bestand noch nie
- * gespeichert haben. Umgekehrt bleiben im Dashboard angelegte Berater (eigene ID, nicht
- * in der Mappe) erhalten.
- */
-function mergeConsultants(gespeichert: Consultant[] | undefined): Consultant[] {
-  const ausStammdaten = getConsultants()
-  if (!gespeichert?.length) return ausStammdaten
-  const bekannt = new Set(ausStammdaten.map((c) => c.id))
-  return [...ausStammdaten, ...gespeichert.filter((c) => !bekannt.has(c.id))]
-}
-
-function loadStore(): UserStore {
-  try {
-    const raw = localStorage.getItem(USERS_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<UserStore>
-      return {
-        admins: parsed.admins ?? [],
-        consultants: mergeConsultants(parsed.consultants),
-        settings: {
-          enforceCramerEmail: Boolean(parsed.settings?.enforceCramerEmail),
-          maintenanceMode: Boolean(parsed.settings?.maintenanceMode),
-        },
-        rootActivationToken: parsed.rootActivationToken ?? null,
-      }
-    }
-  } catch {
-    /* Seed unten */
-  }
-  return defaultStore()
-}
-
-/**
- * NUR den Wartungsmodus-Schalter aus localStorage lesen — bewusst getrennt von
- * loadStore(): Admins und Berater dieses Tabs sollen von einem Statuscheck unberührt
- * bleiben, auch wenn ein anderer Tab zwischenzeitlich einen eigenen Stand geschrieben hat.
- */
-function liesWartungsmodusAusSpeicher(): boolean {
-  try {
-    const raw = localStorage.getItem(USERS_KEY)
-    if (!raw) return false
-    const parsed = JSON.parse(raw) as Partial<UserStore>
-    return Boolean(parsed.settings?.maintenanceMode)
-  } catch {
-    return false
-  }
-}
 
 function loadUser(): AuthUser | null {
   try {
@@ -156,257 +78,158 @@ function loadUser(): AuthUser | null {
     const parsed = JSON.parse(raw) as Partial<AuthUser>
     if (!parsed.id || !parsed.email) return null
     const role: UserRole = parsed.role === 'admin' ? 'admin' : 'consultant'
-    return { id: parsed.id, name: parsed.name ?? parsed.email, email: parsed.email, role }
+    return { id: parsed.id, name: parsed.name ?? parsed.email, email: parsed.email, role, branchId: parsed.branchId }
   } catch {
     return null
   }
 }
 
+const SEED_SUMMARY: AdminSummary = {
+  id: SEED_ROOT_ADMIN.id,
+  username: SEED_ROOT_ADMIN.username,
+  email: SEED_ROOT_ADMIN.email,
+  isRoot: SEED_ROOT_ADMIN.isRoot,
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(loadUser)
-  const [store, setStore] = useState<UserStore>(loadStore)
+  const [activationToken, setActivationToken] = useState<string | null>(null)
+  const settings = useSyncExternalStore(subscribeEinstellungen, getEinstellungen, getEinstellungen)
+  const syncStatus = useSyncExternalStore(subscribeSyncStatus, getSyncStatus, getSyncStatus)
+  const stammdaten = useStammdaten()
 
   useEffect(() => {
     if (user) localStorage.setItem(AUTH_KEY, JSON.stringify(user))
     else localStorage.removeItem(AUTH_KEY)
+    // Jede Zeile, die dieses Gerät nach Supabase schreibt, trägt ihren Urheber.
+    setzeBearbeiter(user ? `${user.name} (${user.email})` : null)
   }, [user])
 
-  useEffect(() => {
-    try {
-      localStorage.setItem(USERS_KEY, JSON.stringify(store))
-    } catch {
-      /* best-effort im Prototyp */
-    }
-  }, [store])
-
   /*
-    SELBST-AUSSPERRUNG VERHINDERN, TEIL 1: Tab-übergreifender Sync.
+    SITZUNG GEGEN DEN SUPABASE-STAND PRÜFEN.
 
-    Der Wartungsmodus-Schalter liegt in localStorage und damit geräte-/browserlokal (siehe
-    appConfig.ts). Ändert ein Administrator ihn in einem ANDEREN Tab desselben Browsers
-    (z. B. weil dieser Tab hinter dem Wartungs-Overlay feststeckt), feuert der Browser in
-    JEDEM ANDEREN Tab ein "storage"-Event — nur nicht in dem Tab, der die Änderung selbst
-    ausgelöst hat. Ohne diesen Listener bliebe dieser Tab bis zum nächsten Neuladen hinter
-    dem Overlay stehen, obwohl der Wartungsmodus längst aufgehoben ist.
+    Wird ein Konto auf einem anderen Gerät gesperrt, gelöscht oder umgestuft, soll das
+    hier ankommen — nicht erst beim nächsten Anmelden. Geprüft wird erst nach dem ersten
+    Abgleich, sonst entschiede ein veralteter Zwischenstand über die Sitzung.
   */
   useEffect(() => {
-    function onStorage(event: StorageEvent) {
-      if (event.key !== USERS_KEY) return
-      const maintenanceMode = liesWartungsmodusAusSpeicher()
-      setStore((s) =>
-        s.settings.maintenanceMode === maintenanceMode
-          ? s
-          : { ...s, settings: { ...s.settings, maintenanceMode } },
-      )
+    if (!user || user.id === SEED_ROOT_ADMIN.id || !syncStatus.ersterAbgleichFertig) return
+    const m = getMitarbeiterListe().find((x) => x.personalnr === user.id)
+    if (!m || m.status !== 'aktiv') {
+      setUser(null)
+      return
     }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
+    const role: UserRole = m.rolle === 'admin' ? 'admin' : 'consultant'
+    if (role !== user.role || m.name !== user.name || m.email !== user.email) {
+      setUser({ ...user, role, name: m.name, email: m.email })
+    }
+  }, [user, stammdaten.version, syncStatus.ersterAbgleichFertig])
 
-  // Ein Root-Admin existiert IMMER (fest verankerter Seed) ODER wurde im Store angelegt
-  // → das „Systemeigentümer aktivieren"-Onboarding ist damit global deaktiviert.
-  const rootInitialized = SEED_ROOT_ADMIN.isRoot || store.admins.some((admin) => admin.isRoot)
+  /*
+    Ein Berater-Gerät rechnet NIE mit Stammdaten, die nur dort liegen: Ungespeicherte
+    Verwaltungs-Eingaben eines früher hier angemeldeten Administrators werden verworfen.
+    Ein Administrator dagegen bringt beim Anmelden einmalig die früher nur lokal
+    gespeicherten Stände (Konfigurator, Versionen, Papierkorb, Einstellungen) nach
+    Supabase — nur dort, wo dort noch nichts steht.
+  */
+  useEffect(() => {
+    if (!user) return
+    if (user.role !== 'admin') verwerfeAusstehendeAenderungen()
+    else void uebernehmeAlteLokaleStaende()
+  }, [user?.id, user?.role])
 
-  // Anzeige-Liste fürs Dashboard: Seed-Root zuerst, dann Store-Admins (ohne Passwörter).
-  const adminSummaries: AdminSummary[] = [
-    {
-      id: SEED_ROOT_ADMIN.id,
-      username: SEED_ROOT_ADMIN.username,
-      email: SEED_ROOT_ADMIN.email,
-      isRoot: SEED_ROOT_ADMIN.isRoot,
-    },
-    ...store.admins.map((a) => ({ id: a.id, username: a.username, email: a.email, isRoot: a.isRoot })),
-  ]
+  const login = useCallback<AuthContextValue['login']>(async (identifier, password) => {
+    const id = identifier.trim().toLowerCase()
 
-  const login = useCallback<AuthContextValue['login']>(
-    async (identifier, password) => {
-      const id = identifier.trim().toLowerCase()
+    // 1) Fest verankerter Hauptadmin (SHA-256-Vergleich, kein Klartext im Code). Er
+    //    funktioniert auch ohne Verbindung zu Supabase — der Weg zurück bleibt offen.
+    if (id === SEED_ROOT_ADMIN.username.toLowerCase() || id === SEED_ROOT_ADMIN.email.toLowerCase()) {
+      try {
+        if ((await sha256Hex(password)) === SEED_ROOT_ADMIN.passwordHash) {
+          setUser({ id: SEED_ROOT_ADMIN.id, name: SEED_ROOT_ADMIN.username, email: SEED_ROOT_ADMIN.email, role: 'admin' })
+          return { ok: true, isAdmin: true }
+        }
+      } catch {
+        /* Web-Crypto nicht verfügbar → unten weiter prüfen */
+      }
+    }
 
-      // 1) Fest verankerter Seed-Root-Admin (SHA-256-Vergleich, kein Klartext im Code).
-      if (id === SEED_ROOT_ADMIN.username.toLowerCase() || id === SEED_ROOT_ADMIN.email.toLowerCase()) {
-        try {
-          if ((await sha256Hex(password)) === SEED_ROOT_ADMIN.passwordHash) {
-            setUser({
-              id: SEED_ROOT_ADMIN.id,
-              name: SEED_ROOT_ADMIN.username,
-              email: SEED_ROOT_ADMIN.email,
-              role: 'admin',
-            })
-            return { ok: true, isAdmin: true }
-          }
-        } catch {
-          /* Web-Crypto nicht verfügbar → unten weiter prüfen */
+    // 2) Alle aktiven Mitarbeiter aus den Stammdaten — Berater UND Administratoren.
+    //    Ist das Konto hier (noch) unbekannt, erst frisch aus Supabase laden: Es kann
+    //    gerade eben auf einem anderen Gerät angelegt worden sein.
+    const finde = () =>
+      getMitarbeiterListe().find((m) => m.status === 'aktiv' && m.email.trim().toLowerCase() === id)
+    let mitarbeiter = finde()
+    if (!mitarbeiter) {
+      await aktualisiereSystem()
+      mitarbeiter = finde()
+    }
+    if (!mitarbeiter) return { ok: false, error: 'E-Mail/Benutzername oder Passwort ist nicht korrekt.' }
+
+    //    Eigenes Passwort, falls vergeben — sonst das Standard-Passwort. Die Prüfung
+    //    läuft in der Datenbank; ohne deren Antwort wird NICHT auf das Standard-Passwort
+    //    ausgewichen, denn es könnte ein eigenes gelten.
+    let ergebnis: 'ok' | 'falsch' | 'kein'
+    try {
+      ergebnis = await pruefeZugang(mitarbeiter.personalnr, password)
+    } catch (error) {
+      if (!istTabelleFehlt(error)) {
+        return {
+          ok: false,
+          error: 'Anmeldung gerade nicht möglich — keine Verbindung zu Supabase. Bitte Internetverbindung prüfen.',
         }
       }
+      ergebnis = 'kein' // Tabellen noch nicht angelegt ⇒ es kann kein eigenes Passwort geben
+    }
+    const passt = ergebnis === 'ok' || (ergebnis === 'kein' && password === STANDARD_PASSWORT)
+    if (!passt) return { ok: false, error: 'E-Mail/Benutzername oder Passwort ist nicht korrekt.' }
 
-      // 2) Im Dashboard angelegte Admins (Prototyp: Klartext).
-      const admin = store.admins.find(
-        (a) => (a.email.toLowerCase() === id || a.username.toLowerCase() === id) && a.password === password,
-      )
-      if (admin) {
-        setUser({ id: admin.id, name: admin.username, email: admin.email, role: 'admin' })
-        return { ok: true, isAdmin: true }
-      }
-
-      // 3) Berater (Consultants) mit dem Prototyp-Demopasswort.
-      //    Sobald der Administrator in der Berateransicht ein eigenes Passwort vergeben
-      //    hat, gilt NUR noch dieses — sonst käme man mit dem allen bekannten
-      //    Demopasswort weiterhin in ein Konto, das gerade abgesichert wurde.
-      const consultant = store.consultants.find(
-        (c) => c.email.toLowerCase() === id && c.password === password && !hatZugang(c.id),
-      )
-      if (consultant) {
-        setUser({
-          id: consultant.id,
-          name: consultant.name,
-          email: consultant.email,
-          role: 'consultant',
-          branchId: heimatFiliale(consultant.id),
-        })
-        return { ok: true, isAdmin: false }
-      }
-
-      // 4) Mitarbeiter aus den Stammdaten, die der Administrator in der Berateransicht
-      //    freigeschaltet hat. Nur „aktiv" — ein gesperrter Stammsatz kommt nicht herein,
-      //    auch wenn das Passwort noch hinterlegt ist.
-      const mitarbeiter = getMitarbeiterListe().find(
-        (m) => m.status === 'aktiv' && m.email.trim().toLowerCase() === id,
-      )
-      if (mitarbeiter && (await pruefeZugang(mitarbeiter.personalnr, password))) {
-        setUser({
-          id: mitarbeiter.personalnr,
-          name: mitarbeiter.name,
-          email: mitarbeiter.email,
-          role: mitarbeiter.rolle === 'admin' ? 'admin' : 'consultant',
-          branchId: mitarbeiter.filiale || undefined,
-        })
-        return { ok: true, isAdmin: mitarbeiter.rolle === 'admin' }
-      }
-
-      return { ok: false, error: 'E-Mail/Benutzername oder Passwort ist nicht korrekt.' }
-    },
-    [store.admins, store.consultants],
-  )
+    const isAdmin = mitarbeiter.rolle === 'admin'
+    setUser({
+      id: mitarbeiter.personalnr,
+      name: mitarbeiter.name,
+      email: mitarbeiter.email,
+      role: isAdmin ? 'admin' : 'consultant',
+      branchId: mitarbeiter.filiale || undefined,
+    })
+    return { ok: true, isAdmin }
+  }, [])
 
   const logout = useCallback(() => setUser(null), [])
 
   const requestRootActivation = useCallback(() => {
     const token = makeId('act')
-    setStore((s) => ({ ...s, rootActivationToken: token }))
+    setActivationToken(token)
     return token
   }, [])
 
+  // Der Root-Admin ist fest verankert — das frühere Onboarding bleibt nur als Hinweisseite.
   const setupRootAdmin = useCallback<AuthContextValue['setupRootAdmin']>(
-    (token, data) => {
-      if (rootInitialized) return 'Es ist bereits ein Root-Administrator eingerichtet.'
-      if (!store.rootActivationToken || token !== store.rootActivationToken) {
-        return 'Ungültiger oder abgelaufener Aktivierungslink.'
-      }
-      if (!data.username.trim()) return 'Benutzername ist erforderlich.'
-      if (!isValidEmail(data.email)) return 'Bitte eine gültige E-Mail-Adresse angeben.'
-      if (data.password.length < 6) return 'Das Passwort muss mindestens 6 Zeichen haben.'
-      const admin: Admin = {
-        id: makeId('adm'),
-        username: data.username.trim(),
-        email: data.email.trim(),
-        password: data.password,
-        isRoot: true,
-      }
-      setStore((s) => ({ ...s, admins: [...s.admins, admin], rootActivationToken: null }))
-      setUser({ id: admin.id, name: admin.username, email: admin.email, role: 'admin' })
-      return null
-    },
-    [rootInitialized, store.rootActivationToken],
+    () => 'Es ist bereits ein Root-Administrator eingerichtet.',
+    [],
   )
 
   const validateStaffEmail = useCallback<AuthContextValue['validateStaffEmail']>(
     (email) => {
       if (!isValidEmail(email)) return 'Bitte eine gültige E-Mail-Adresse eingeben.'
-      if (store.settings.enforceCramerEmail && !email.trim().toLowerCase().endsWith('@cramer.de')) {
+      if (settings.enforceCramerEmail && !email.trim().toLowerCase().endsWith('@cramer.de')) {
         return 'E-Mail muss auf „@cramer.de“ enden (Produktions-Regel aktiv).'
       }
       return null
     },
-    [store.settings.enforceCramerEmail],
+    [settings.enforceCramerEmail],
   )
 
-  const addConsultant = useCallback<AuthContextValue['addConsultant']>(
-    (data) => {
-      if (!data.name.trim()) return 'Name ist erforderlich.'
-      const emailError = validateStaffEmail(data.email)
-      if (emailError) return emailError
-      if (data.password.length < 6) return 'Das Passwort muss mindestens 6 Zeichen haben.'
-      const exists = store.consultants.some(
-        (c) => c.email.toLowerCase() === data.email.trim().toLowerCase(),
-      )
-      if (exists) return 'Für diese E-Mail existiert bereits ein Konto.'
-      const consultant: Consultant = {
-        id: makeId('c'),
-        name: data.name.trim(),
-        email: data.email.trim(),
-        password: data.password,
-      }
-      setStore((s) => ({ ...s, consultants: [...s.consultants, consultant] }))
-      return null
-    },
-    [store.consultants, validateStaffEmail],
-  )
+  const setEnforceCramerEmail = useCallback((value: boolean) => setzeEinstellung({ enforceCramerEmail: value }), [])
+  const setMaintenanceMode = useCallback((value: boolean) => setzeEinstellung({ maintenanceMode: value }), [])
 
-  const deleteConsultant = useCallback((id: string) => {
-    setStore((s) => ({ ...s, consultants: s.consultants.filter((c) => c.id !== id) }))
+  const refreshMaintenanceStatus = useCallback(async (): Promise<boolean> => {
+    await aktualisiereSystem()
+    return appConfig.isMaintenanceMode || getEinstellungen().maintenanceMode
   }, [])
 
-  const addAdmin = useCallback<AuthContextValue['addAdmin']>(
-    (data) => {
-      if (!data.username.trim()) return 'Benutzername ist erforderlich.'
-      if (!isValidEmail(data.email)) return 'Bitte eine gültige E-Mail-Adresse angeben.'
-      if (data.password.length < 6) return 'Das Passwort muss mindestens 6 Zeichen haben.'
-      const exists = store.admins.some(
-        (a) =>
-          a.username.toLowerCase() === data.username.trim().toLowerCase() ||
-          a.email.toLowerCase() === data.email.trim().toLowerCase(),
-      )
-      if (exists) return 'Benutzername oder E-Mail ist bereits vergeben.'
-      const admin: Admin = {
-        id: makeId('adm'),
-        username: data.username.trim(),
-        email: data.email.trim(),
-        password: data.password,
-        isRoot: false,
-      }
-      setStore((s) => ({ ...s, admins: [...s.admins, admin] }))
-      return null
-    },
-    [store.admins],
-  )
-
-  const setEnforceCramerEmail = useCallback((value: boolean) => {
-    setStore((s) => ({ ...s, settings: { ...s.settings, enforceCramerEmail: value } }))
-  }, [])
-
-  const setMaintenanceMode = useCallback((value: boolean) => {
-    setStore((s) => ({ ...s, settings: { ...s.settings, maintenanceMode: value } }))
-  }, [])
-
-  /*
-    SELBST-AUSSPERRUNG VERHINDERN, TEIL 2: der manuelle "Status aktualisieren"-Knopf.
-
-    Liest synchron aus localStorage und schreibt das Ergebnis sofort in den State — der
-    Aufrufer bekommt den frischen Stand als Rückgabewert, ohne auf einen Re-Render warten
-    zu müssen (praktisch für eine unmittelbare Rückmeldung "weiterhin aktiv" im Knopf).
-  */
-  const refreshMaintenanceStatus = useCallback((): boolean => {
-    const maintenanceMode = liesWartungsmodusAusSpeicher()
-    setStore((s) =>
-      s.settings.maintenanceMode === maintenanceMode
-        ? s
-        : { ...s, settings: { ...s.settings, maintenanceMode } },
-    )
-    return appConfig.isMaintenanceMode || maintenanceMode
-  }, [])
-
-  // Global (Env/Code) ODER Admin-Toggle.
-  const maintenanceActive = appConfig.isMaintenanceMode || store.settings.maintenanceMode
+  const maintenanceActive = appConfig.isMaintenanceMode || settings.maintenanceMode
+  const consultants = useMemo(() => getConsultants(), [stammdaten.version])
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -415,16 +238,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       isAdmin: user?.role === 'admin',
       login,
       logout,
-      admins: adminSummaries,
-      consultants: store.consultants,
-      settings: store.settings,
-      rootInitialized,
-      activationToken: store.rootActivationToken,
+      admins: [SEED_SUMMARY],
+      consultants,
+      settings,
+      rootInitialized: true,
+      activationToken,
       requestRootActivation,
       setupRootAdmin,
-      addConsultant,
-      deleteConsultant,
-      addAdmin,
       setEnforceCramerEmail,
       validateStaffEmail,
       maintenanceActive,
@@ -433,18 +253,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }),
     [
       user,
-      store.admins,
-      store.consultants,
-      store.settings,
-      store.rootActivationToken,
-      rootInitialized,
       login,
       logout,
+      consultants,
+      settings,
+      activationToken,
       requestRootActivation,
       setupRootAdmin,
-      addConsultant,
-      deleteConsultant,
-      addAdmin,
       setEnforceCramerEmail,
       validateStaffEmail,
       maintenanceActive,

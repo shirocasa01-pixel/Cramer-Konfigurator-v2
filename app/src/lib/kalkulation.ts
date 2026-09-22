@@ -10,7 +10,7 @@
  *   4. BEPREISEN       je Position ein Lookup über die Artikelnummer; kein Treffer ⇒
  *                      „auf Anfrage", niemals geraten
  *   5. MÖBELPREIS      Summe aller Bauteil-Positionen
- *   6. ZUSCHLÄGE       gestuft: erst % auf den Möbelpreis, dann % auf die Auftragssumme
+ *   6. ZUSCHLÄGE       % auf den Möbelpreis: Montage, Lieferung, Raumteiler, Sichtrückwand
  *   7. ERGEBNIS        Positionen + Summen + Meldungen + Vollständigkeitsstatus
  *
  * Drei Prinzipien sind durchgehalten:
@@ -67,12 +67,13 @@ import type {
   PriceBucket,
   PriceGroup,
   SegmentEquipmentItem,
+  ZuschlagArt,
 } from '../types/index.ts'
 
 // Beide Aufzählungen liegen zentral in `types/index.ts`, weil der Preis-Snapshot
 // (eingefrorene Aufträge) dieselben Werte trägt. Re-Export, damit bestehende
 // Importe aus diesem Modul unverändert weiterlaufen.
-export type { PositionsHerkunft, PositionsStatus }
+export type { PositionsHerkunft, PositionsStatus, ZuschlagArt }
 
 // ---------------------------------------------------------------------------
 // Ergebnis-Typen
@@ -106,6 +107,8 @@ export interface KalkPosition {
   status: PositionsStatus
   /** Begründung: warum abgeleitet, was aufgerundet, warum ohne Preis. */
   hinweis?: string
+  /** Nur bei Zuschlägen: welcher Aufschlag — die Abschlussseite hängt ihre Checkboxen daran. */
+  zuschlagArt?: ZuschlagArt
   /**
    * Teilpositionen, wenn der Betrag aus mehreren Bezugsgrößen entsteht (Grundpreis +
    * Preis je m² o. Ä.). Bei einer gewöhnlichen Stückposition enthält die Liste genau
@@ -1079,69 +1082,93 @@ function baueAusstattungsPositionen(
 // ---------------------------------------------------------------------------
 
 /**
- * ZUSCHLÄGE — nur noch Service-Aufschläge.
+ * ZUSCHLÄGE — vier prozentuale Aufschläge, alle auf den MÖBELPREIS.
  *
- * Die prozentualen Aufschläge aus dem Preisblatt (Sichtrückwand, Raumteiler, wandhängende
- * Kastenmöbel) sind mit der Stammdaten-Reform gestrichen:
+ * Die Sätze stehen in „50 Meta" und nicht im Code:
  *
- *   „Prozent Artikel, Prozent Möbel, Prozent Auftragssumme … bitte ganz streichen. Das
- *    kann am Ende, wenn der Endpreis vom Konfigurator steht, vom Verkäufer entschieden
- *    werden. … Für die Flexibilität des Verkäufers haben wir ja im Abschluss die
- *    Unterteilung von kalkuliertem Preis und der Eingabe des Angebotspreises."
+ *   • Montagekosten        +10 %  — Checkbox im Abschluss, standardmäßig an
+ *   • Lieferung regional    +3 %  — Checkbox im Abschluss, standardmäßig an
+ *   • Raumteiler            +5 %  — automatisch, sobald „Raumteiler" angehakt ist (ZUS-001)
+ *   • Sichtrückwand        +10 %  — automatisch, sobald „Sicht-Rückwand" angehakt ist (ZUS-004)
  *
- * Der Konfigurator weist damit den LISTENPREIS aus. Die betroffenen Artikel stehen
- * weiterhin im Stamm — mit Preislogik AUF_ANFRAGE und dem Prozentsatz in der Bemerkung.
+ * Raumteiler und Sichtrückwand waren mit der Stammdaten-Reform aus der Kalkulation
+ * gestrichen worden; seit 09/2026 rechnet der Konfigurator sie wieder selbst. Die
+ * übrigen früheren Prozent-Artikel (wandhängende Kastenmöbel, Überhöhe) bleiben
+ * AUF_ANFRAGE und damit Sache des Angebotspreises.
  *
- * Montage und regionale Lieferung bleiben: Das sind ausdrücklich Service-Aufschläge,
- * ihre Sätze stehen in „50 Meta" und gehören nicht in die Verhandlung des Verkäufers.
+ * Basis ist bei allen vieren der Möbelpreis, nicht eine laufende Zwischensumme: Die
+ * Aufschläge dürfen sich nicht gegenseitig verzinsen, und jeder Betrag muss sich im
+ * Kundengespräch als „x % vom Möbel" nachrechnen lassen.
  */
-function baueZuschlaege(draft: Draft, moebelpreis: number, meldungen: KalkMeldung[]): KalkPosition[] {
+function baueZuschlaege(draft: Draft, moebelpreis: number): KalkPosition[] {
   const zuschlaege: KalkPosition[] = []
-  const opts = draft.pricingOptions
+  const opts = preisOptionen(draft)
 
-  if (draft.sichtRueckwandAussen) {
-    meldungen.push({
-      schwere: 'info',
-      text:
-        'Sichtrückwand außen ist gewählt. Der frühere prozentuale Aufschlag wird nicht mehr ' +
-        'automatisch gerechnet — der Konfigurator weist den Listenpreis aus, der Aufschlag ' +
-        'gehört in den Angebotspreis im Abschluss.',
-    })
+  if (opts.montage) {
+    zuschlaege.push(prozentZuschlag('montage', 'Montagekosten', meta.montageZuschlagPct, moebelpreis))
+  }
+  if (opts.lieferungRegional) {
+    zuschlaege.push(prozentZuschlag('lieferung', 'Lieferung regional', meta.lieferungRegionalPct, moebelpreis))
   }
 
-  if (opts?.montage) {
+  if (draft.raumteiler) {
     zuschlaege.push(
-      pauschalZuschlag(
-        `Montage (+${Math.round(meta.montageZuschlagPct * 100)} %)`,
-        runde2(moebelpreis * meta.montageZuschlagPct),
-      ),
+      prozentZuschlag('raumteiler', 'Raumteiler-Aufschlag', meta.raumteilerZuschlagPct, moebelpreis, 'automatisch'),
     )
   }
-  if (opts?.lieferungRegional) {
+  if (draft.sichtRueckwandAussen) {
     zuschlaege.push(
-      pauschalZuschlag(
-        `Lieferung regional (+${Math.round(meta.lieferungRegionalPct * 100)} %)`,
-        runde2(moebelpreis * meta.lieferungRegionalPct),
-      ),
+      prozentZuschlag('sichtrueckwand', 'Sichtrückwand-Aufschlag', meta.sichtrueckwandZuschlagPct, moebelpreis, 'automatisch'),
     )
   }
 
   return zuschlaege
 }
 
-function pauschalZuschlag(label: string, betrag: number): KalkPosition {
+/**
+ * Montage und Lieferung sind STANDARDMÄSSIG AN. Nur ein ausdrückliches `false` im Entwurf
+ * schaltet sie ab — ein Entwurf ohne `pricingOptions` (jeder neue, und alle älteren, die
+ * die Checkboxen nie gesehen haben) rechnet beide mit.
+ */
+export function preisOptionen(draft: Draft): { montage: boolean; lieferungRegional: boolean } {
+  return {
+    montage: draft.pricingOptions?.montage ?? true,
+    lieferungRegional: draft.pricingOptions?.lieferungRegional ?? true,
+  }
+}
+
+/** Sätze der abwählbaren Service-Aufschläge — für die Anzeige abgewählter Zeilen. */
+export const SERVICE_SAETZE = {
+  montage: meta.montageZuschlagPct,
+  lieferungRegional: meta.lieferungRegionalPct,
+} as const
+
+/** Prozent lesbar: 0.1 → „10", 0.035 → „3,5". */
+export function prozentText(pct: number): string {
+  return String(runde2(pct * 100)).replace('.', ',')
+}
+
+function prozentZuschlag(
+  art: ZuschlagArt,
+  name: string,
+  pct: number,
+  moebelpreis: number,
+  zusatz?: string,
+): KalkPosition {
+  const betrag = runde2(moebelpreis * pct)
   return {
     id: naechsteId(),
     herkunft: 'zuschlag',
     bucket: 'upgrade',
-    label,
+    zuschlagArt: art,
+    label: `${name} (+${prozentText(pct)} %)`,
     achsen: [],
     teile: [{ menge: 1, mengeText: '1', preis: betrag, preisEinheit: '€', gesamt: betrag }],
     menge: 1,
     einzelpreis: betrag,
     gesamt: betrag,
     status: 'berechnet',
-    hinweis: 'Basis: Auftragssumme',
+    hinweis: ['Basis: Möbelpreis', zusatz].filter(Boolean).join(' · '),
   }
 }
 
@@ -1191,7 +1218,7 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
   ]
 
   const moebelpreis = runde2(positionen.reduce((summe, p) => summe + (p.gesamt ?? 0), 0))
-  const zuschlaege = baueZuschlaege(draft, moebelpreis, meldungen)
+  const zuschlaege = baueZuschlaege(draft, moebelpreis)
   const gesamt = runde2(moebelpreis + zuschlaege.reduce((summe, p) => summe + (p.gesamt ?? 0), 0))
 
   const offenePositionen = positionen.filter((p) => p.status !== 'berechnet').length

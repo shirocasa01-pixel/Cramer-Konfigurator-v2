@@ -36,8 +36,9 @@ export default function WartungPage() {
     // Ein Tick Verzögerung macht die Prüfung sichtbar — ohne sie wäre der Klick bei
     // gleichbleibendem Status (der häufigste Fall) nicht von einem toten Knopf zu
     // unterscheiden.
-    window.setTimeout(() => {
-      const nochAktiv = refreshMaintenanceStatus()
+    window.setTimeout(async () => {
+      // Frisch aus Supabase — der Schalter gilt für alle Geräte.
+      const nochAktiv = await refreshMaintenanceStatus()
       // Ist der Wartungsmodus aufgehoben, übernimmt `RequireWartung` in App.tsx: der
       // nächste Render verlässt diese Seite automatisch Richtung „/" — kein
       // `window.location.reload()` nötig, und ein `setStatus` danach wäre ohnehin ein

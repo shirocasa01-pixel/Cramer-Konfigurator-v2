@@ -10,13 +10,18 @@ import type { Consultant } from '../types'
  *
  * Das Passwort steht bewusst NICHT in der Mappe: Klartext-Passwörter in einer Datei,
  * die per Mail und OneDrive herumgereicht wird, wären schlechter als der bisherige
- * Zustand. Für den Prototyp gilt deshalb weiterhin ein gemeinsames Demo-Passwort
- * (das war auch vorher schon für alle drei Konten dasselbe).
+ * Zustand.
  *
- * ACHTUNG: Nur zu Demonstrationszwecken. In Produktion durch echte Authentifizierung
- * (Backend / SSO) ersetzen – siehe README, Abschnitt „Sicherheitshinweis".
+ * EINHEITLICHES STANDARD-PASSWORT (09/2026): Jedes aktive Konto aus „40 Mitarbeiter" —
+ * Berater wie Administratoren — meldet sich mit `cramer2026` an, solange der
+ * Administrator in der Benutzerverwaltung kein eigenes Passwort vergeben hat. Der fest
+ * verankerte Hauptadmin (`data/seedAdmin.ts`) trägt denselben Wert als Hash.
+ *
+ * ACHTUNG: Ein allen bekanntes Passwort ist ein Start-Zustand, keine Absicherung. Vor dem
+ * echten Betrieb je Konto ein eigenes Passwort vergeben bzw. auf echte Authentifizierung
+ * (Backend / SSO) umstellen – siehe README, Abschnitt „Sicherheitshinweis".
  */
-export const PROTOTYP_PASSWORT = 'cramer2026'
+export const STANDARD_PASSWORT = 'cramer2026'
 
 /**
  * Funktion statt Konstante: Ein in der Verwaltung gesperrter Berater soll auch aus der
@@ -27,6 +32,6 @@ export function getConsultants(): Consultant[] {
     id: m.personalnr,
     name: m.name,
     email: m.email,
-    password: PROTOTYP_PASSWORT,
+    password: STANDARD_PASSWORT,
   }))
 }

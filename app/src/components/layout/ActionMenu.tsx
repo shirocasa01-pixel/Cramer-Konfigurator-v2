@@ -19,7 +19,7 @@ import styles from './ActionMenu.module.css'
  * Rückfrage an diesem Menü.
  */
 export function ActionMenu() {
-  const { draft, setzeKonfigurationZurueck, trashedDrafts, cloudSaving } = useDraft()
+  const { draft, setzeKonfigurationZurueck, eigeneTrashedDrafts, cloudSaving } = useDraft()
   const { isAdmin } = useAuth()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -86,7 +86,10 @@ export function ActionMenu() {
             }}
           >
             Papierkorb
-            {trashedDrafts.length > 0 ? <span className={styles.zaehler}>{trashedDrafts.length}</span> : null}
+            {/* Nur die selbst verworfenen Entwürfe — nie die Gesamtzahl über alle Berater. */}
+            {eigeneTrashedDrafts.length > 0 ? (
+              <span className={styles.zaehler}>{eigeneTrashedDrafts.length}</span>
+            ) : null}
           </button>
           <button
             type="button"

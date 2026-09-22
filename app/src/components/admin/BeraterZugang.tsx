@@ -1,9 +1,9 @@
 import { useId } from 'react'
-import { PASSWORT_MINDESTLAENGE, pruefePasswortRegeln } from '../../lib/passwort.ts'
+import { pruefePasswortRegeln } from '../../lib/passwort.ts'
 import styles from './BeraterZugang.module.css'
 
 /**
- * ZUGANG EINES BERATERS — Passwort vergeben, ersetzen, entziehen.
+ * ZUGANG EINES BERATERS — eigenes Passwort vergeben, ersetzen oder löschen.
  *
  * Sitzt als Zusatzabschnitt im Berater-Editor, den nur der Administrator öffnet. Das
  * Passwort ist bewusst KEIN Feld des Stammsatzes: es wird nur geschrieben, nie gelesen.
@@ -11,15 +11,16 @@ import styles from './BeraterZugang.module.css'
  * ersetzen oder entziehen, mehr nicht. Ein Feld, das den alten Wert anzeigt, wäre die
  * bequemste Art, ein Passwort weiterzugeben.
  *
- * Freigeschaltet für den Konfigurator ist ein Berater, wenn drei Dinge zusammenkommen:
- * Status „aktiv", eine E-Mail und ein hinterlegtes Passwort. Fehlt eines, sagt der
- * Abschnitt es hier — nicht erst der Berater am Anmeldebildschirm.
+ * Freigeschaltet für den Konfigurator ist ein Berater mit Status „aktiv" und einer
+ * E-Mail. Ohne eigenes Passwort meldet er sich mit dem einheitlichen Standard-Passwort
+ * an. Fehlt etwas, sagt der Abschnitt es hier — nicht erst der Berater am
+ * Anmeldebildschirm.
  */
 
 export interface ZugangEntwurf {
   neuesPasswort: string
   wiederholung: string
-  /** true ⇒ beim Speichern wird der bestehende Zugang gelöscht. */
+  /** true ⇒ beim Speichern wird das eigene Passwort gelöscht (zurück auf Standard). */
   entziehen: boolean
 }
 
@@ -50,13 +51,12 @@ export interface BeraterZugangProps {
 export function BeraterZugang({ vorhanden, gesetztAm, status, email, wert, onChange }: BeraterZugangProps) {
   const id = useId()
   const aktiv = status === 'aktiv'
-  const freigeschaltet = vorhanden && aktiv && Boolean(email.trim()) && !wert.entziehen
+  const freigeschaltet = aktiv && Boolean(email.trim())
+  const eigenesPasswort = (vorhanden && !wert.entziehen) || Boolean(wert.neuesPasswort)
 
   const huerden: string[] = []
   if (!aktiv) huerden.push('Status steht auf „' + (status || 'unbekannt') + '"')
   if (!email.trim()) huerden.push('keine E-Mail hinterlegt')
-  if (!vorhanden && !wert.neuesPasswort) huerden.push('kein Passwort vergeben')
-  if (wert.entziehen) huerden.push('Zugang wird beim Speichern entzogen')
 
   return (
     <section className={styles.wurzel}>
@@ -70,8 +70,16 @@ export function BeraterZugang({ vorhanden, gesetztAm, status, email, wert, onCha
       <p className={styles.status}>
         {huerden.length === 0 ? (
           <>
-            Anmeldung mit <b>{email.trim()}</b> und dem hinterlegten Passwort
-            {gesetztAm ? <> · vergeben am {gesetztAm}</> : null}.
+            Anmeldung mit <b>{email.trim()}</b> und{' '}
+            {eigenesPasswort ? (
+              <>
+                dem eigenen Passwort
+                {gesetztAm && !wert.neuesPasswort ? <> · vergeben am {gesetztAm}</> : null}
+              </>
+            ) : (
+              'dem Standard-Passwort'
+            )}
+            .
           </>
         ) : (
           <>Noch offen: {huerden.join(' · ')}.</>
@@ -86,7 +94,7 @@ export function BeraterZugang({ vorhanden, gesetztAm, status, email, wert, onCha
             type="password"
             className={styles.input}
             autoComplete="new-password"
-            placeholder={vorhanden ? 'leer lassen = unverändert' : `mindestens ${PASSWORT_MINDESTLAENGE} Zeichen`}
+            placeholder={vorhanden ? 'leer lassen = unverändert' : 'leer lassen = Standard-Passwort'}
             value={wert.neuesPasswort}
             disabled={wert.entziehen}
             onChange={(e) => onChange({ ...wert, neuesPasswort: e.target.value })}
@@ -115,8 +123,8 @@ export function BeraterZugang({ vorhanden, gesetztAm, status, email, wert, onCha
             onChange={(e) => onChange({ ...wert, entziehen: e.target.checked, neuesPasswort: '', wiederholung: '' })}
           />
           <span>
-            Zugang entziehen — der Stammsatz bleibt erhalten, die Anmeldung ist danach nicht
-            mehr möglich.
+            Eigenes Passwort löschen — danach gilt wieder das Standard-Passwort. Sperren
+            lässt sich das Konto über den Status „gesperrt".
           </span>
         </label>
       ) : null}

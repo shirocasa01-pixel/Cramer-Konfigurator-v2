@@ -143,6 +143,7 @@ export function buildPdf(draft: Draft): jsPDF {
     const pg = sel?.priceGroup ? ` [${PRICE_GROUP_LABEL[sel.priceGroup]}]` : ''
     kv('d. Rückwand Außen (Sicht)', describeMaterialSelection(sel) + pg)
   }
+  if (draft.raumteiler) kv('Raumteiler', 'ja — Möbel steht frei im Raum')
 
   // --- Korpus Innen (Phase B): Rückwand innen / Lochreihe / Einlegeböden / Kleiderstange ---
   const ki = draft.korpusInnen

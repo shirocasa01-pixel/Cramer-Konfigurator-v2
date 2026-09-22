@@ -6,7 +6,8 @@
  *
  *     Cramer-Stammdaten.xlsx ──build──> stammdaten.generated.ts   (Grundstand)
  *                                              │
- *                                              ├── + Änderungen aus localStorage
+ *                                              ├── + Overrides aus Supabase (für alle gleich)
+ *                                              ├── + noch nicht gespeicherte Eingaben
  *                                              ▼
  *                                        stammdatenStore            (Arbeitsstand)
  *                                              │
@@ -23,6 +24,14 @@
  * Kein React: der Store ist einfaches Modul-State mit `subscribe()`, damit ihn auch die
  * Nicht-React-Schichten (Lookup, Kalkulation) lesen können. Die Anbindung an Komponenten
  * läuft über `useSyncExternalStore` in `useStammdaten()`.
+ *
+ * SUPABASE IST DIE QUELLE (09/2026). Der gespeicherte Stand („commitStand") ist der Stand
+ * der Tabelle `stammdaten_overrides` — eine Zeile je abweichendem Datensatz, für alle
+ * Geräte gleich. Was ein Administrator bearbeitet, aber noch nicht gespeichert hat, liegt
+ * als AUSSTEHENDE Änderung darüber. „Speichern" schreibt genau diese Datensätze nach
+ * Supabase — mit Versionsprüfung, damit ein zweiter Administrator nichts überschreibt,
+ * was er nicht gesehen hat (`supabaseSystem.ts`). Der localStorage ist nur noch Zwischen-
+ * speicher: für einen schnellen Start und für ungespeicherte Eingaben.
  */
 
 import {
@@ -48,11 +57,25 @@ import {
   pruefeOberflaeche,
   pruefePreiszeile,
 } from './stammdatenValidierung.ts'
+import {
+  ladeOverrides,
+  meldeSchreibfehler,
+  schreibeOverrides,
+  type OverrideAktion,
+  type OverrideZeile,
+} from './supabaseSystem.ts'
+import { isSupabaseConfigured } from './supabaseClient.ts'
 
 /** Bereich der Verwaltung, in dem eine Änderung sichtbar ist (= Reiter + Gitter). */
 export type AenderungsBereich = 'artikel' | 'preise' | 'oberflaechen' | 'berater' | 'filialen'
 
-const OVERLAY_KEY = 'cramer-planer.stammdaten.overlay.v2'
+/** Arbeitsstand inkl. ungespeicherter Eingaben (nur dieses Gerät). */
+const OVERLAY_KEY = 'cramer-planer.stammdaten.overlay.v3'
+/** Zwischenspeicher des zuletzt aus Supabase geladenen Stands — für einen schnellen Start. */
+const SERVER_CACHE_KEY = 'cramer-planer.stammdaten.server.v3'
+/** Die rein lokalen Stände vor der Supabase-Umstellung — werden einmalig übernommen. */
+const ALT_OVERLAY_KEY = 'cramer-planer.stammdaten.overlay.v2'
+const ALT_COMMIT_KEY = 'cramer-planer.stammdaten.commit.v2'
 
 /** Achsenwerte einer Preiszeile — fünf Spalten, wie im Preisblatt. */
 export type Achsenwerte = [string, string, string, string, string]
@@ -175,19 +198,16 @@ export interface Arbeitsstand {
   version: number
 }
 
-let overlay: StammdatenOverlay = ladeOverlay()
-let commitStand: StammdatenOverlay = ladeCommitStand()
-let stand: Arbeitsstand = baueStand(overlay, 1)
 const hoerer = new Set<() => void>()
 
-function ladeOverlay(): StammdatenOverlay {
+function ladeOverlayAus(schluessel: string): StammdatenOverlay | null {
   try {
-    const roh = localStorage.getItem(OVERLAY_KEY)
-    if (!roh) return leeresOverlay()
+    const roh = localStorage.getItem(schluessel)
+    if (!roh) return null
     return { ...leeresOverlay(), ...(JSON.parse(roh) as Partial<StammdatenOverlay>) }
   } catch {
     // Unlesbares Overlay darf die Anwendung nicht blockieren – Grundstand genügt.
-    return leeresOverlay()
+    return null
   }
 }
 
@@ -195,43 +215,196 @@ function speichereOverlay() {
   try {
     localStorage.setItem(OVERLAY_KEY, JSON.stringify(overlay))
   } catch {
-    /* best-effort im Prototyp */
+    /* best-effort */
   }
 }
+
+// ---------------------------------------------------------------------------
+// Overlay ⇄ Zeilen der Tabelle `stammdaten_overrides`
+// ---------------------------------------------------------------------------
+
+/** Eine Zeile ohne Versionsangaben — so, wie sie aus dem Overlay entsteht. */
+interface Zeile {
+  bereich: string
+  schluessel: string
+  aktion: OverrideAktion
+  daten: unknown
+}
+type ZeilenKarte = Map<string, Zeile>
+
+type Liste = Array<Record<string, unknown>>
+
+/** Die sechs Datenbereiche mit ihren Overlay-Feldern — überall dasselbe Muster. */
+const BEREICHE: Array<{
+  bereich: string
+  geaendert: keyof StammdatenOverlay
+  neu: keyof StammdatenOverlay
+  geloescht: keyof StammdatenOverlay
+  schluessel: (eintrag: never) => string
+}> = [
+  { bereich: 'artikel', geaendert: 'geaenderteArtikel', neu: 'neueArtikel', geloescht: 'geloeschteArtikel', schluessel: (a: Artikel) => a.artikelnummer },
+  { bereich: 'preise', geaendert: 'geaendertePreise', neu: 'neuePreise', geloescht: 'geloeschtePreise', schluessel: (p: Preiszeile) => preisSchluessel(p) },
+  { bereich: 'mitarbeiter', geaendert: 'geaenderteMitarbeiter', neu: 'neueMitarbeiter', geloescht: 'geloeschteMitarbeiter', schluessel: (m: Mitarbeiter) => m.personalnr },
+  { bereich: 'filialen', geaendert: 'geaenderteFilialen', neu: 'neueFilialen', geloescht: 'geloeschteFilialen', schluessel: (f: Filiale) => f.filialnr },
+  { bereich: 'kategorien', geaendert: 'geaenderteKategorien', neu: 'neueKategorien', geloescht: 'geloeschteKategorien', schluessel: (k: Oberflaechenkategorie) => k.id },
+  { bereich: 'oberflaechen', geaendert: 'geaenderteOberflaechen', neu: 'neueOberflaechen', geloescht: 'geloeschteOberflaechen', schluessel: (o: Oberflaeche) => oberflaecheSchluessel(o) },
+]
+
+const kartenSchluessel = (bereich: string, schluessel: string) => `${bereich}\u0000${schluessel}`
+
+function overlayZuZeilen(ov: StammdatenOverlay): ZeilenKarte {
+  const karte: ZeilenKarte = new Map()
+  const setze = (z: Zeile) => karte.set(kartenSchluessel(z.bereich, z.schluessel), z)
+  for (const b of BEREICHE) {
+    const geaendert = ov[b.geaendert] as unknown as Record<string, unknown>
+    for (const [schluessel, patch] of Object.entries(geaendert)) {
+      setze({ bereich: b.bereich, schluessel, aktion: 'geaendert', daten: patch })
+    }
+    for (const eintrag of ov[b.neu] as unknown as Liste) {
+      setze({ bereich: b.bereich, schluessel: (b.schluessel as (e: unknown) => string)(eintrag), aktion: 'neu', daten: eintrag })
+    }
+    for (const schluessel of ov[b.geloescht] as unknown as string[]) {
+      setze({ bereich: b.bereich, schluessel, aktion: 'geloescht', daten: null })
+    }
+  }
+  if (ov.importProbleme?.length) {
+    setze({ bereich: 'meta', schluessel: 'importProbleme', aktion: 'wert', daten: ov.importProbleme })
+  }
+  return karte
+}
+
+function zeilenZuOverlay(zeilen: Iterable<Zeile>): StammdatenOverlay {
+  const ov = leeresOverlay()
+  const nachBereich = new Map(BEREICHE.map((b) => [b.bereich, b]))
+  for (const z of zeilen) {
+    if (z.bereich === 'meta') {
+      if (z.schluessel === 'importProbleme' && Array.isArray(z.daten)) ov.importProbleme = z.daten as ImportProblem[]
+      continue
+    }
+    const b = nachBereich.get(z.bereich)
+    if (!b) continue
+    if (z.aktion === 'geaendert') {
+      ;(ov[b.geaendert] as unknown as Record<string, unknown>)[z.schluessel] = z.daten ?? {}
+    } else if (z.aktion === 'neu' && z.daten) {
+      ;(ov[b.neu] as unknown as Liste).push(z.daten as Record<string, unknown>)
+    } else if (z.aktion === 'geloescht') {
+      ;(ov[b.geloescht] as unknown as string[]).push(z.schluessel)
+    }
+  }
+  return ov
+}
+
+/**
+ * JSON mit sortierten Schlüsseln. Postgres speichert `jsonb` in eigener Schlüssel-
+ * reihenfolge zurück; ein schlichtes `JSON.stringify` hielte deshalb jeden geladenen
+ * Datensatz für geändert.
+ */
+function kanonisch(wert: unknown): string {
+  if (wert === undefined) return 'null'
+  if (wert === null || typeof wert !== 'object') return JSON.stringify(wert)
+  if (Array.isArray(wert)) return `[${wert.map(kanonisch).join(',')}]`
+  const obj = wert as Record<string, unknown>
+  return `{${Object.keys(obj)
+    .filter((k) => obj[k] !== undefined)
+    .sort()
+    .map((k) => `${JSON.stringify(k)}:${kanonisch(obj[k])}`)
+    .join(',')}}`
+}
+
+const zeilenGleich = (a: Zeile | undefined, b: Zeile | undefined) =>
+  kanonisch(a ? [a.aktion, a.daten] : null) === kanonisch(b ? [b.aktion, b.daten] : null)
+
+/**
+ * Die ausstehenden Änderungen als Zeilen: Schlüssel → neuer Inhalt, oder `null` für
+ * „in Supabase entfernen" (= zurück auf den Excel-Grundstand).
+ */
+function ausstehendeZeilen(filter?: (bereich: string, schluessel: string) => boolean): Map<string, Zeile | null> {
+  const lokal = overlayZuZeilen(overlay)
+  const gespeichert = overlayZuZeilen(commitStand)
+  const offen = new Map<string, Zeile | null>()
+  for (const k of new Set([...lokal.keys(), ...gespeichert.keys()])) {
+    const neu = lokal.get(k)
+    const alt = gespeichert.get(k)
+    if (zeilenGleich(neu, alt)) continue
+    const ref = neu ?? alt!
+    if (filter && !filter(ref.bereich, ref.schluessel)) continue
+    offen.set(k, neu ?? null)
+  }
+  return offen
+}
+
+// ---------------------------------------------------------------------------
+// Start: Zwischenspeicher lesen, alte lokale Stände übernehmen
+// ---------------------------------------------------------------------------
+
+/** Version jeder Zeile, wie sie zuletzt in Supabase stand — Grundlage der Konfliktprüfung. */
+let serverVersionen = new Map<string, number>()
+
+interface ServerCache {
+  zeilen: OverrideZeile[]
+}
+
+function ladeServerCache(): ServerCache | null {
+  try {
+    const roh = localStorage.getItem(SERVER_CACHE_KEY)
+    if (!roh) return null
+    const geparst = JSON.parse(roh) as ServerCache
+    return Array.isArray(geparst?.zeilen) ? geparst : null
+  } catch {
+    return null
+  }
+}
+
+function speichereServerCache(zeilen: OverrideZeile[]) {
+  try {
+    localStorage.setItem(SERVER_CACHE_KEY, JSON.stringify({ zeilen }))
+  } catch {
+    /* best-effort */
+  }
+}
+
+/*
+  ERSTER START NACH DER UMSTELLUNG: Gibt es noch keinen Supabase-Zwischenspeicher, aber
+  ein altes, rein lokales Overlay, wird dieses als AUSSTEHEND übernommen (gespeicherter
+  Stand = leer). Der Administrator sieht seine bisherigen Änderungen dann als
+  „x Änderungen ausstehend" und bringt sie mit einem Klick auf „Speichern" nach Supabase
+  — statt dass sie beim ersten Abgleich stillschweigend verschwinden.
+*/
+function startStand(): { overlay: StammdatenOverlay; commit: StammdatenOverlay } {
+  const cache = ladeServerCache()
+  if (cache) {
+    serverVersionen = new Map(cache.zeilen.map((z) => [kartenSchluessel(z.bereich, z.schluessel), z.version]))
+    const commit = zeilenZuOverlay(cache.zeilen)
+    return { overlay: ladeOverlayAus(OVERLAY_KEY) ?? klon(commit), commit }
+  }
+  const alt = ladeOverlayAus(OVERLAY_KEY) ?? ladeOverlayAus(ALT_OVERLAY_KEY)
+  try {
+    localStorage.removeItem(ALT_COMMIT_KEY)
+  } catch {
+    /* best-effort */
+  }
+  return { overlay: alt ?? leeresOverlay(), commit: leeresOverlay() }
+}
+
+function klon<T>(wert: T): T {
+  return JSON.parse(JSON.stringify(wert)) as T
+}
+
+const anfang = startStand()
+let overlay: StammdatenOverlay = anfang.overlay
+let commitStand: StammdatenOverlay = anfang.commit
+let stand: Arbeitsstand = baueStand(overlay, 1)
 
 // ---------------------------------------------------------------------------
 // Bearbeitungsstand vs. gespeicherter Stand
 // ---------------------------------------------------------------------------
 
-/**
- * Der zuletzt über „Speichern" bestätigte Stand.
- *
- * Warum zwei Ebenen? Ein Editor schreibt seine Änderung sofort in den Arbeitsstand —
- * sonst wäre sie beim Reiterwechsel weg und ein Browser-Neustart verlöre die halbe
- * Sitzung. Verbindlich wird sie aber erst mit dem übergeordneten „Speichern" im Kopf.
- * Dazwischen liegen die AUSSTEHENDEN Änderungen: Was der Bearbeiter gesammelt, aber noch
- * nicht freigegeben hat. Ohne diese Unterscheidung hieße jede Zwischeneingabe „gespeichert",
- * und die Rückfrage im Kopf hätte nichts, worauf sie sich bezieht.
- */
-const COMMIT_KEY = 'cramer-planer.stammdaten.commit.v2'
-
-function ladeCommitStand(): StammdatenOverlay {
-  try {
-    const roh = localStorage.getItem(COMMIT_KEY)
-    if (!roh) return leeresOverlay()
-    return { ...leeresOverlay(), ...(JSON.parse(roh) as Partial<StammdatenOverlay>) }
-  } catch {
-    return leeresOverlay()
-  }
-}
-
-function speichereCommitStand() {
-  try {
-    localStorage.setItem(COMMIT_KEY, JSON.stringify(commitStand))
-  } catch {
-    /* best-effort im Prototyp */
-  }
-}
+/*
+  Warum zwei Ebenen (gespeichert / ausstehend)? Ein Editor schreibt seine Änderung sofort
+  in den Arbeitsstand — sonst wäre sie beim Reiterwechsel weg und ein Browser-Neustart
+  verlöre die halbe Sitzung. Verbindlich — und damit für alle Geräte sichtbar — wird sie
+  erst mit dem übergeordneten „Speichern" im Kopf.
+*/
 
 /** Grundstand + Änderungen + Neuzugänge − Löschungen, für einen Datenbereich. */
 function mische<T>(
@@ -352,14 +525,26 @@ function aenderungsSchluessel(a: Aenderung): string {
  * „Speichern"-Knopf im Kopf.
  */
 export function listeAenderungen(): Aenderung[] {
+  // Felder sortiert vergleichen: Aus Supabase kommen die Patches in der Schlüssel-
+  // reihenfolge von Postgres zurück, und dieselbe Änderung wäre sonst „ausstehend".
+  const felderText = (a: Aenderung) => [...a.felder].sort().join('|')
   const aktuell = baueAenderungen(overlay)
-  const gespeichert = new Map(
-    baueAenderungen(commitStand).map((a) => [aenderungsSchluessel(a), a.felder.join('|')]),
-  )
-  return aktuell.map((a) => ({
+  const gespeichertListe = baueAenderungen(commitStand)
+  const gespeichert = new Map(gespeichertListe.map((a) => [aenderungsSchluessel(a), felderText(a)]))
+  const liste: Aenderung[] = aktuell.map((a) => ({
     ...a,
-    ausstehend: gespeichert.get(aenderungsSchluessel(a)) !== a.felder.join('|'),
+    ausstehend: gespeichert.get(aenderungsSchluessel(a)) !== felderText(a),
   }))
+
+  // Gespeicherte Abweichungen, die im Arbeitsstand fehlen, werden mit dem nächsten
+  // Speichern in Supabase entfernt — der Datensatz fällt auf den Stand der Excel-Mappe
+  // zurück. Auch das ist eine ausstehende Änderung und muss in Zahl und Liste stehen.
+  const aktuellSchluessel = new Set(aktuell.map((a) => `${a.bereich}|${a.zeilenId}`))
+  for (const a of gespeichertListe) {
+    if (aktuellSchluessel.has(`${a.bereich}|${a.zeilenId}`)) continue
+    liste.push({ ...a, felder: ['zurück auf den Stand der Excel-Mappe'], ausstehend: true })
+  }
+  return liste
 }
 
 /** Noch nicht bestätigte Änderungen — die Zahl im Kopf („3 Änderungen ausstehend"). */
@@ -367,21 +552,122 @@ export function zaehleAusstehendeAenderungen(): number {
   return listeAenderungen().filter((a) => a.ausstehend).length
 }
 
+export interface SpeicherErgebnis {
+  /** In Supabase geschriebene Datensätze. */
+  gespeichert: number
+  /** Datensätze, die inzwischen ein anderer Administrator gespeichert hat — nicht überschrieben. */
+  konflikte: Array<{ bereich: string; schluessel: string; von: string | null }>
+}
+
 /**
- * Übernimmt ALLE gesammelten Änderungen als gespeicherten Stand — global über alle Reiter.
+ * Schreibt die ausstehenden Änderungen nach Supabase — global über alle Reiter, oder mit
+ * `filter` nur ausgewählte Datensätze (die Benutzerverwaltung speichert jedes Konto
+ * sofort, unabhängig von offenen Preisänderungen).
  *
- * Der Arbeitsstand selbst ändert sich dabei nicht: Er ist längst wirksam, damit beim
- * Reiterwechsel oder Neuladen nichts verloren geht. Bestätigt wird, dass er so gelten soll.
+ * Danach wird der Serverstand neu geladen: Er ist der gespeicherte Stand, und er enthält
+ * auch, was andere Administratoren inzwischen gespeichert haben.
  */
-export function speichereAlleAenderungen(): number {
-  const anzahl = zaehleAusstehendeAenderungen()
-  commitStand = JSON.parse(JSON.stringify(overlay)) as StammdatenOverlay
-  speichereCommitStand()
+export async function speichereAlleAenderungen(
+  filter?: (bereich: string, schluessel: string) => boolean,
+): Promise<SpeicherErgebnis> {
+  const offen = ausstehendeZeilen(filter)
+  if (offen.size === 0) return { gespeichert: 0, konflikte: [] }
+
+  if (!isSupabaseConfigured) {
+    // Ohne Supabase (lokale Entwicklung ohne .env.local) bleibt es beim Gerät.
+    commitStand = klon(overlay)
+    stand = baueStand(overlay, stand.version + 1)
+    for (const h of hoerer) h()
+    return { gespeichert: offen.size, konflikte: [] }
+  }
+
+  const ergebnis = await schreibeOverrides(
+    [...offen].map(([k, neu]) => {
+      const [bereich, schluessel] = k.split('\u0000')
+      return {
+        bereich,
+        schluessel,
+        neu: neu ? { aktion: neu.aktion, daten: neu.daten } : null,
+        basisVersion: serverVersionen.get(k),
+      }
+    }),
+  )
+  await ladeStammdatenVomServer()
+  return { gespeichert: ergebnis.geschrieben, konflikte: ergebnis.konflikte }
+}
+
+/**
+ * Speichert einen einzelnen Datensatz sofort — für Konten, die ohne den Umweg über den
+ * Speichern-Knopf der Stammdatenverwaltung auf allen Geräten ankommen sollen.
+ * Fehler landen in der Statusanzeige im Kopf.
+ */
+export function speichereDatensatzSofort(bereich: AenderungsBereich | 'mitarbeiter', schluessel: string): Promise<void> {
+  const db = bereich === 'berater' ? 'mitarbeiter' : bereich
+  return speichereAlleAenderungen((b, s) => b === db && s === schluessel).then(
+    (e) => {
+      if (e.konflikte.length > 0) {
+        meldeSchreibfehler(
+          `Datensatz ${schluessel}`,
+          new Error(`inzwischen von ${e.konflikte[0].von ?? 'einem anderen Administrator'} geändert — Stand neu geladen, bitte erneut speichern`),
+        )
+      }
+    },
+    (error) => meldeSchreibfehler(`Datensatz ${schluessel}`, error),
+  )
+}
+
+/**
+ * Lädt den gespeicherten Stand aus Supabase und legt die ausstehenden Eingaben dieses
+ * Geräts wieder darüber. Liefert true, wenn sich dabei etwas geändert hat.
+ */
+export async function ladeStammdatenVomServer(): Promise<boolean> {
+  const zeilen = await ladeOverrides()
+  return uebernehmeServerStand(zeilen)
+}
+
+/** Legt einen Serverstand zugrunde (exportiert für `npm run sync:test`). */
+export function uebernehmeServerStand(zeilen: OverrideZeile[]): boolean {
+  const offen = ausstehendeZeilen()
+  const vorher = kanonisch([overlay, commitStand])
+
+  serverVersionen = new Map(zeilen.map((z) => [kartenSchluessel(z.bereich, z.schluessel), z.version]))
+  const server: ZeilenKarte = new Map(
+    zeilen.map((z) => [kartenSchluessel(z.bereich, z.schluessel), { bereich: z.bereich, schluessel: z.schluessel, aktion: z.aktion, daten: z.daten }]),
+  )
+  commitStand = zeilenZuOverlay(server.values())
+
+  const arbeit = new Map(server)
+  for (const [k, neu] of offen) {
+    if (neu) arbeit.set(k, neu)
+    else arbeit.delete(k)
+  }
+  overlay = zeilenZuOverlay(arbeit.values())
+
+  speichereServerCache(zeilen)
   speichereOverlay()
-  // Version hochzaehlen, damit der Kopf die neue Ausstehend-Zahl sofort zeigt.
+  try {
+    localStorage.removeItem(ALT_OVERLAY_KEY)
+  } catch {
+    /* best-effort */
+  }
+
+  if (kanonisch([overlay, commitStand]) === vorher) return false
   stand = baueStand(overlay, stand.version + 1)
   for (const h of hoerer) h()
-  return anzahl
+  return true
+}
+
+/**
+ * Verwirft alle NICHT gespeicherten Eingaben dieses Geräts — der Arbeitsstand ist danach
+ * wieder genau der Supabase-Stand. Wird auch beim Anmelden eines Beraters aufgerufen:
+ * Ein Verkaufsgerät soll nie mit Preisen rechnen, die nur dort liegen.
+ */
+export function verwerfeAusstehendeAenderungen(): void {
+  if (ausstehendeZeilen().size === 0) return
+  overlay = klon(commitStand)
+  stand = baueStand(overlay, stand.version + 1)
+  speichereOverlay()
+  for (const h of hoerer) h()
 }
 
 /**
@@ -892,12 +1178,13 @@ export function uebernehmeImport(daten: {
   return { uebernommen, neu, geaendert, bereiche }
 }
 
-/** Verwirft alle Änderungen und stellt den generierten Grundstand her. */
+/**
+ * Setzt den Arbeitsstand auf den generierten Grundstand zurück.
+ *
+ * Seit der Supabase-Umstellung ist das eine AUSSTEHENDE Änderung wie jede andere: Erst
+ * „Speichern" entfernt die Overrides in Supabase — und damit auf allen Geräten.
+ */
 export function setzeAllesZurueck(): void {
-  // Auch der gespeicherte Stand faellt zurueck – sonst blieben Aenderungen als
-  // "bereits gespeichert" markiert, die es gar nicht mehr gibt.
-  commitStand = leeresOverlay()
-  speichereCommitStand()
   anwenden((ov) => Object.assign(ov, leeresOverlay()))
 }
 

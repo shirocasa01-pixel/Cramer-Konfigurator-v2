@@ -4,11 +4,11 @@
  *
  * Ein Berater ist eine Zeile in der Mappe, keine Code-Änderung (siehe
  * `src/data/consultants.ts`): `getConsultants()` liest alle Mitarbeiter mit Rolle
- * `berater` und Status `aktiv` und gibt ihnen das gemeinsame Prototyp-Passwort.
+ * `berater` und Status `aktiv` und gibt ihnen das einheitliche Standard-Passwort.
  *
- * Das Passwort steht bewusst NICHT hier und nicht in der Mappe — es gilt das
- * gemeinsame Demo-Passwort aus `PROTOTYP_PASSWORT`, solange der Administrator in der
- * Berateransicht kein eigenes vergeben hat (`src/lib/zugangStore.ts`).
+ * Das Passwort steht bewusst NICHT hier und nicht in der Mappe — es gilt
+ * `STANDARD_PASSWORT`, solange der Administrator kein eigenes vergeben hat
+ * (`src/lib/zugangStore.ts`).
  *
  * IDEMPOTENT: Existiert die Personalnummer bereits, passiert nichts.
  *

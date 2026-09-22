@@ -10,7 +10,7 @@ import {
 } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import type { Draft } from '../types'
-import { generateEntwurfsnummer } from '../lib/id'
+import { freieEntwurfsnummer } from '../lib/id'
 import {
   deleteProject,
   getAllProjects,
@@ -19,6 +19,7 @@ import {
   saveProject,
 } from '../lib/supabaseProjects'
 import { friereBeimSpeichernEin, ohneSnapshot } from '../lib/pricingSnapshot'
+import { aktualisiereSystem } from '../lib/systemSync'
 import { useAuth } from './AuthContext'
 import { useToast } from './ToastContext'
 
@@ -74,6 +75,18 @@ function hatInhalt(draft: Draft): boolean {
       draft.artikelnummer?.trim() ||
       draft.productGroupId,
   )
+}
+
+/**
+ * GEHÖRT DIESER ENTWURF DEM ANGEMELDETEN PROFIL?
+ *
+ * Eigentümer ist der Berater am Entwurf — dieselbe ID, die `saveProject` als
+ * `created_by_user_id` schreibt. Im Dashboard sind Entwürfe gemeinsam SICHTBAR; löschen,
+ * wiederherstellen und endgültig entfernen darf aber nur, wem der Entwurf gehört. Wer
+ * einen fremden Entwurf weiterbearbeiten will, dupliziert ihn: Die Kopie gehört dann ihm.
+ */
+export function gehoertNutzer(entwurf: Pick<Draft, 'consultant'>, userId: string | undefined): boolean {
+  return Boolean(userId) && entwurf.consultant?.id === userId
 }
 
 interface DraftContextValue {
@@ -136,20 +149,30 @@ interface DraftContextValue {
   loadDraft: (id: string) => Promise<boolean>
   /** Löscht einen Entwurf in Supabase. Referenz-Entwürfe sind nicht löschbar. */
   deleteDraft: (id: string) => Promise<boolean>
-  /** Entwürfe im Papierkorb (`deletedAt` gesetzt), neueste zuerst. */
+  /** Entwürfe im Papierkorb (`deletedAt` gesetzt), neueste zuerst — ALLE Berater. */
   trashedDrafts: Draft[]
-  /** Verschiebt einen Entwurf in den Papierkorb (Soft-Delete). */
+  /**
+   * Nur die verworfenen Entwürfe des angemeldeten Profils. Das ist die Zahl am Menüpunkt
+   * „Papierkorb": Eine Gesamtzahl über alle Berater geht einen einzelnen Berater nichts an.
+   */
+  eigeneTrashedDrafts: Draft[]
+  /** Verschiebt einen EIGENEN Entwurf in den Papierkorb (Soft-Delete). */
   trashDraft: (id: string) => Promise<boolean>
-  /** Holt einen Entwurf aus dem Papierkorb zurück. */
+  /** Holt einen Entwurf aus dem Papierkorb zurück (Berater: nur eigene). */
   restoreDraft: (id: string) => Promise<boolean>
-  /** Leert den Papierkorb endgültig; liefert die Zahl der gelöschten Entwürfe. */
-  emptyTrash: () => Promise<number>
+  /**
+   * Löscht die genannten Entwürfe aus dem Papierkorb endgültig; liefert die Zahl der
+   * gelöschten. Ein Berater trifft dabei nur eigene Entwürfe — fremde IDs werden
+   * übergangen, auch wenn sie übergeben werden.
+   */
+  emptyTrash: (ids: string[]) => Promise<number>
   /** Speichert den laufenden Entwurf und verlässt ihn (Rückkehr zur Übersicht). */
   leaveDraft: () => Promise<boolean>
   /**
    * Dupliziert einen Entwurf als neue Variante (Schritt 1): neue Entwurfsnummer,
-   * `variantOf` gesetzt, Auftrags-/Artikelnummer & Abschluss geleert. Setzt die Kopie
-   * als aktuellen Entwurf, legt sie in Supabase an und gibt sie zurück.
+   * `variantOf` gesetzt, Auftrags-/Artikelnummer & Abschluss geleert. Die Kopie gehört
+   * dem ANGEMELDETEN Profil, nicht dem Ersteller des Originals. Setzt sie als aktuellen
+   * Entwurf, legt sie in Supabase an und gibt sie zurück.
    */
   duplicateDraft: (id: string) => Promise<Draft | null>
 }
@@ -171,7 +194,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   const [draftsLoading, setDraftsLoading] = useState(false)
   const [draftsError, setDraftsError] = useState<string | null>(null)
   const [cloudSaving, setCloudSaving] = useState(false)
-  const { user } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { showToast } = useToast()
   const navigate = useNavigate()
   const location = useLocation()
@@ -393,9 +416,17 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     [remoteDrafts],
   )
 
+  const eigeneTrashedDrafts = useMemo(
+    () => trashedDrafts.filter((item) => gehoertNutzer(item, user?.id)),
+    [trashedDrafts, user?.id],
+  )
+
+  /** Alle Entwurfsnummern, die in Supabase schon vergeben sind — auch im Papierkorb. */
+  const belegteNummern = useMemo(() => new Set(remoteDrafts.map((item) => item.id)), [remoteDrafts])
+
   const startNewDraft = useCallback<DraftContextValue['startNewDraft']>((consultant) => {
     setDraft({
-      id: generateEntwurfsnummer(consultant),
+      id: freieEntwurfsnummer(consultant, belegteNummern),
       createdAt: new Date().toISOString(),
       // Nur id und name – die Filiale gehört an den Entwurf, nicht in den Berater-Datensatz.
       consultant: { id: consultant.id, name: consultant.name },
@@ -404,7 +435,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       // Vorbelegung aus den Stammdaten – im Formular frei änderbar.
       branchId: consultant.branchId ?? '',
     })
-  }, [])
+  }, [belegteNummern])
 
   const updateDraft = useCallback<DraftContextValue['updateDraft']>((patch) => {
     setDraft((prev) => (prev ? { ...prev, ...patch } : prev))
@@ -482,6 +513,10 @@ export function DraftProvider({ children }: { children: ReactNode }) {
 
   const finalizeDraft = useCallback<DraftContextValue['finalizeDraft']>(async () => {
     if (!draft) return false
+    // Vor dem Einfrieren den neuesten Preisstand aus Supabase holen: Der Snapshot soll
+    // die Preise enthalten, die JETZT gelten — auch wenn ein Administrator sie eben erst
+    // auf einem anderen Gerät geändert hat.
+    await aktualisiereSystem()
     // Hier wird der Preisstand eingefroren — und zwar VOR dem Setzen des lokalen
     // Zustands. Täte man das erst in `saveProject`, trüge die Datenbank den
     // Snapshot und der lokale Entwurf nicht; beim nächsten Rendern zeigte der
@@ -516,6 +551,14 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     async (id) => {
       const quelle = remoteDrafts.find((item) => item.id === id) ?? (draft?.id === id ? draft : undefined)
       if (!quelle) return false
+      // Zweite Absicherung hinter dem ausgeblendeten Knopf im Dashboard.
+      if (!gehoertNutzer(quelle, user?.id)) {
+        showToast(
+          `Entwurf ${id} gehört ${quelle.consultant?.name ?? 'einem anderen Berater'} — nur der Ersteller kann ihn löschen.`,
+          'error',
+        )
+        return false
+      }
       const verworfen: Draft = { ...quelle, deletedAt: new Date().toISOString() }
       const ok = await pushToCloud(verworfen, { still: true })
       if (!ok) return false
@@ -524,7 +567,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       showToast(`Entwurf ${id} in den Papierkorb verschoben.`)
       return true
     },
-    [remoteDrafts, draft, pushToCloud, showToast],
+    [remoteDrafts, draft, pushToCloud, showToast, user?.id],
   )
 
   /** Holt einen Entwurf aus dem Papierkorb zurück in die Übersicht. */
@@ -532,12 +575,13 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     async (id) => {
       const quelle = remoteDrafts.find((item) => item.id === id)
       if (!quelle) return false
+      if (!isAdmin && !gehoertNutzer(quelle, user?.id)) return false
       const { deletedAt: _verworfen, ...wiederhergestellt } = quelle
       const ok = await pushToCloud(wiederhergestellt as Draft, { still: true })
       if (ok) showToast(`Entwurf ${id} wiederhergestellt.`)
       return ok
     },
-    [remoteDrafts, pushToCloud, showToast],
+    [remoteDrafts, pushToCloud, showToast, isAdmin, user?.id],
   )
 
   /**
@@ -545,8 +589,14 @@ export function DraftProvider({ children }: { children: ReactNode }) {
    * Fehlgeschlagene Einträge bleiben stehen, statt die Schleife abzubrechen; der Bericht
    * nennt die Zahl, damit niemand glaubt, es sei alles weg.
    */
-  const emptyTrash = useCallback<DraftContextValue['emptyTrash']>(async () => {
-    const verworfene = remoteDrafts.filter((item) => item.deletedAt)
+  const emptyTrash = useCallback<DraftContextValue['emptyTrash']>(async (ids) => {
+    // Vorher leerte diese Funktion den GESAMTEN Papierkorb — auch dann, wenn ein Berater
+    // auf seiner Seite nur die eigenen Entwürfe sah. Jetzt nur, was ausdrücklich genannt
+    // ist und dem Aufrufer gehört (der Administrator darf alle).
+    const gewuenscht = new Set(ids)
+    const verworfene = remoteDrafts.filter(
+      (item) => item.deletedAt && gewuenscht.has(item.id) && (isAdmin || gehoertNutzer(item, user?.id)),
+    )
     let geloescht = 0
     for (const eintrag of verworfene) {
       try {
@@ -559,7 +609,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
     }
     if (geloescht > 0) showToast(`Papierkorb geleert — ${geloescht} Entwurf/Entwürfe endgültig entfernt.`)
     return geloescht
-  }, [remoteDrafts, showToast])
+  }, [remoteDrafts, showToast, isAdmin, user?.id])
 
   /**
    * „Entwurf verlassen": sichert den Stand und kehrt zur Übersicht zurück.
@@ -605,9 +655,14 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       if (!source) return null
       // Tiefe Kopie – alle Draft-Daten sind JSON-serialisierbar (Supabase-/Export-tauglich).
       const clone = JSON.parse(JSON.stringify(source)) as Draft
+      // Die Kopie gehört dem, der dupliziert — auch wenn das Original von einem Kollegen
+      // stammt. Damit steht sie sofort in SEINEM Dashboard, trägt seine Initialen in der
+      // Entwurfsnummer und wird beim Speichern unter seiner ID abgelegt.
+      const inhaber = user ? { id: user.id, name: user.name } : source.consultant
       const copy: Draft = {
         ...clone,
-        id: generateEntwurfsnummer(source.consultant),
+        id: freieEntwurfsnummer(inhaber, belegteNummern),
+        consultant: inhaber,
         createdAt: new Date().toISOString(),
         variantOf: source.id,
         orderNumber: '', // neue Nummern werden separat/nachträglich vergeben
@@ -624,7 +679,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       await pushToCloud(offeneKopie, { still: true })
       return offeneKopie
     },
-    [savedDrafts, pushToCloud],
+    [savedDrafts, pushToCloud, user, belegteNummern],
   )
 
   const value = useMemo<DraftContextValue>(
@@ -649,6 +704,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       loadDraft,
       deleteDraft,
       trashedDrafts,
+      eigeneTrashedDrafts,
       trashDraft,
       restoreDraft,
       emptyTrash,
@@ -676,6 +732,7 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       loadDraft,
       deleteDraft,
       trashedDrafts,
+      eigeneTrashedDrafts,
       trashDraft,
       restoreDraft,
       emptyTrash,

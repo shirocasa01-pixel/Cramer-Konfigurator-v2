@@ -75,7 +75,8 @@ function vorschauEntwurf(): Partial<Draft> {
         },
       ],
     },
-    pricingOptions: { montage: false, lieferungRegional: false },
+    // Wie jeder neue Entwurf: Montage und Lieferung sind standardmäßig angehakt.
+    pricingOptions: { montage: true, lieferungRegional: true },
   } as Partial<Draft>
 }
 

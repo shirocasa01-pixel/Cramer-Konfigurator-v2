@@ -8,9 +8,9 @@ export const appConfig = {
    * Wartungs-Overlay. Global umschaltbar über die Env-Variable `VITE_MAINTENANCE_MODE`
    * (z. B. in Vercel) oder hier hart auf `true`, danach neu deployen.
    *
-   * Der Toggle im Admin-Dashboard ist ein zusätzlicher, gerätelokaler Schnellschalter
-   * (Prototyp – für echtes globales Umschalten ohne Redeploy wäre ein Backend/Edge-Config
-   * nötig). Effektiv aktiv = dieser Schalter ODER der Admin-Toggle.
+   * Der Toggle im Admin-Dashboard ist ein zusätzlicher Schalter, der in Supabase liegt
+   * (`system_daten` → `einstellungen`) und damit ohne Redeploy auf allen Geräten gilt.
+   * Effektiv aktiv = dieser Schalter ODER der Admin-Toggle.
    */
   isMaintenanceMode: import.meta.env.VITE_MAINTENANCE_MODE === 'true',
 

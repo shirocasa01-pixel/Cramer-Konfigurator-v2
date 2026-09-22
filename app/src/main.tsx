@@ -7,6 +7,11 @@ import { DraftProvider } from './context/DraftContext'
 import { ToastProvider } from './context/ToastContext'
 import './styles/tokens.css'
 import './styles/global.css'
+import { starteSystemSync } from './lib/systemSync'
+
+// Stammdaten, Konten und Einstellungen kommen aus Supabase — der Abgleich beginnt,
+// bevor irgendetwas angezeigt wird (siehe SystemLadeSchirm in App.tsx).
+starteSystemSync()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

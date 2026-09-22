@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { ActionMenu } from './ActionMenu'
 import { EditorLeiste } from './EditorLeiste'
 import { VersionsWaechter } from './Mitteilungen'
+import { SyncFehlerLeiste, SystemAktualisierenKnopf } from './SystemSync'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
 import { setzeEditorModus, useEditorModus } from '../../lib/editorModus'
@@ -179,6 +180,9 @@ export function AppShell({ children, footer }: AppShellProps) {
             </button>
           ) : null}
 
+          {/* Frischer Stand aus Supabase — für Administratoren, die parallel arbeiten. */}
+          {isAdmin ? <SystemAktualisierenKnopf /> : null}
+
           {user ? (
             <div className={styles.account}>
               <span className={styles.accountLabel}>{user.role === 'admin' ? 'Administrator' : 'Berater'}</span>
@@ -202,6 +206,7 @@ export function AppShell({ children, footer }: AppShellProps) {
         </div>
       </header>
 
+      {isAdmin ? <SyncFehlerLeiste /> : null}
       <EditorLeiste />
 
       <main className={styles.main}>{children}</main>

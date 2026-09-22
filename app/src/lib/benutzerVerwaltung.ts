@@ -17,6 +17,10 @@
  *   ZUGANG      `zugangStore.ts` — der Passwort-Hash. Gehört NICHT in die Mappe, die
  *               per Mail herumgeht (siehe die Begründung dort).
  *   PAPIERKORB  `benutzerPapierkorb.ts` — Löschzeitpunkt und 30-Tage-Frist.
+ *
+ * Alle drei liegen seit 09/2026 in Supabase. Konten werden SOFORT gespeichert — ohne den
+ * Umweg über den Speichern-Knopf der Stammdatenverwaltung —, damit ein auf Gerät A
+ * angelegter Berater auf Gerät B nach dem nächsten Abgleich da ist.
  */
 
 import {
@@ -24,6 +28,7 @@ import {
   getMitarbeiterListe,
   legeMitarbeiterAn,
   loescheMitarbeiter,
+  speichereDatensatzSofort,
 } from './stammdatenStore.ts'
 import { entferneZugang, hatZugang } from './zugangStore.ts'
 import {
@@ -53,7 +58,7 @@ export const HAUPTADMIN_SPERRE =
   'sich der letzte Administrator selbst aussperren.'
 
 export interface Benutzer extends Mitarbeiter {
-  /** true ⇒ ein Passwort ist hinterlegt, die Anmeldung ist möglich. */
+  /** true ⇒ ein EIGENES Passwort ist hinterlegt; sonst gilt das Standard-Passwort. */
   zugang: boolean
   /** true ⇒ das geschützte Hauptadmin-Konto. */
   hauptadmin: boolean
@@ -66,20 +71,18 @@ function istHauptadminKonto(email: string): boolean {
 }
 
 /**
- * WIE SICH DIESER BENUTZER ANMELDET — im Klartext, weil es vier Wege gibt.
+ * WIE SICH DIESER BENUTZER ANMELDET — im Klartext.
  *
- * Ein schlichtes „Passwort hinterlegt: ja/nein" wäre hier eine falsche Auskunft. Der
- * Hauptadmin kommt über den fest im Bundle verankerten Zugang herein, ganz ohne Eintrag
- * im Zugangs-Speicher; ein Berater ohne eigenes Passwort kommt über das gemeinsame
- * Demo-Passwort des Prototyps herein (`data/consultants.ts`). Nur bei einem
- * Administrator OHNE eigenen Zugang stimmt „Anmeldung nicht möglich" wirklich.
+ * Der Hauptadmin kommt über den fest im Bundle verankerten Zugang herein. Alle anderen
+ * aktiven Konten melden sich mit dem einheitlichen Standard-Passwort an
+ * (`data/consultants.ts`), solange kein eigenes vergeben ist. Gesperrt ist ein Konto nur
+ * über seinen Status.
  */
 export function beschreibeAnmeldung(b: Benutzer): string {
-  if (b.hauptadmin) return 'Hauptadmin — fest hinterlegter Zugang'
+  if (b.hauptadmin) return 'Hauptadmin — Standard-Passwort'
   if (b.status !== 'aktiv') return `Status „${b.status}" — Anmeldung gesperrt`
   if (b.zugang) return 'eigenes Passwort hinterlegt'
-  if (b.rolle === 'berater') return 'noch kein eigenes Passwort — es gilt das Demo-Passwort'
-  return 'kein Passwort — Anmeldung nicht möglich'
+  return 'Standard-Passwort'
 }
 
 function anreichern(m: Mitarbeiter): Benutzer {
@@ -184,7 +187,9 @@ export function legeBenutzerAn(
   if (fehler) return { fehler }
   const personalnr = neu.personalnr?.trim() || naechstePersonalnummer()
   const problem = legeMitarbeiterAn({ ...neu, personalnr })
-  return problem ? { fehler: problem } : { personalnr }
+  if (problem) return { fehler: problem }
+  void speichereDatensatzSofort('mitarbeiter', personalnr)
+  return { personalnr }
 }
 
 export function aendereBenutzer(
@@ -209,6 +214,7 @@ export function aendereBenutzer(
   }
 
   aendereMitarbeiter(personalnr, patch)
+  void speichereDatensatzSofort('mitarbeiter', personalnr)
   return null
 }
 
@@ -218,6 +224,7 @@ export function setzeRolle(personalnr: string, rolle: 'admin' | 'berater'): stri
   if (!benutzer) return 'Dieser Mitarbeiter existiert nicht (mehr).'
   if (istHauptadminKonto(benutzer.email) && rolle !== 'admin') return HAUPTADMIN_SPERRE
   aendereMitarbeiter(personalnr, { rolle })
+  void speichereDatensatzSofort('mitarbeiter', personalnr)
   return null
 }
 
@@ -239,6 +246,7 @@ export function inPapierkorbLegen(personalnr: string): string | null {
   // Gesperrt, nicht gelöscht: `getBerater()` filtert auf „aktiv", damit verschwindet das
   // Konto sofort aus Anmeldung und Auswahllisten — bleibt aber wiederherstellbar.
   aendereMitarbeiter(personalnr, { status: 'gesperrt' })
+  void speichereDatensatzSofort('mitarbeiter', personalnr)
   return null
 }
 
@@ -247,6 +255,7 @@ export function ausPapierkorbWiederherstellen(personalnr: string): string | null
   if (!eintrag) return 'Dieses Konto liegt nicht im Papierkorb.'
   aendereMitarbeiter(personalnr, { status: eintrag.vorherigerStatus || 'aktiv' })
   ausPapierkorbNehmen(personalnr)
+  void speichereDatensatzSofort('mitarbeiter', personalnr)
   return null
 }
 
@@ -261,9 +270,10 @@ export function ausPapierkorbWiederherstellen(personalnr: string): string | null
 export function endgueltigLoeschen(personalnr: string): string | null {
   const benutzer = getMitarbeiterListe().find((m) => m.personalnr === personalnr)
   if (benutzer && istHauptadminKonto(benutzer.email)) return HAUPTADMIN_SPERRE
-  entferneZugang(personalnr)
+  void entferneZugang(personalnr)
   loescheMitarbeiter(personalnr)
   ausPapierkorbNehmen(personalnr)
+  void speichereDatensatzSofort('mitarbeiter', personalnr)
   return null
 }
 

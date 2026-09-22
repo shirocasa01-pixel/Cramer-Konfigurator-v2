@@ -20,10 +20,12 @@ npm run dev
 `http://localhost:5173` (dank `host: true` auch vom iPad/Smartphone im WLAN).
 `npm run dev` erzeugt vorher automatisch das Stammdaten-Modul (siehe unten).
 
-### Demo-Zugang
-Die Berater kommen aus `Cramer-Stammdaten.xlsx`, Blatt „40 Mitarbeiter" (Rolle `berater`,
-Status `aktiv`). Passwort für alle: `cramer2026` (`PROTOTYP_PASSWORT` in
-`src/data/consultants.ts` – bewusst nicht in der Mappe, siehe Kommentar dort).
+### Zugang
+Berater und Administratoren kommen aus `Cramer-Stammdaten.xlsx`, Blatt „40 Mitarbeiter"
+(Status `aktiv`). Einheitliches Standard-Passwort für alle, auch für `admin@cramer.de`:
+`cramer2026` (`STANDARD_PASSWORT` in `src/data/consultants.ts` – bewusst nicht in der
+Mappe, siehe Kommentar dort). Ein eigenes Passwort je Konto lässt sich in der
+Benutzerverwaltung vergeben; es ersetzt dann das Standard-Passwort.
 
 ## Stammdaten (Single Source of Truth)
 
@@ -118,6 +120,28 @@ Preis-Engine `lib/pricing.ts` auf `data/priceList.json` (nur noch für `formatEu
 in Verwendung; die Kalkulation läuft über `lib/kalkulation.ts` gegen das Excel-Preisblatt).
 Griffe und Filialen kommen inzwischen aus der Mappe.
 
+## Supabase: Systemdaten für alle Geräte
+
+Alle Admin- und Systemdaten liegen in Supabase, damit mehrere Administratoren gleichzeitig
+und geräteübergreifend arbeiten können. **Einmalig einrichten:** `supabase/system-sync.sql`
+im Supabase-Dashboard unter *SQL Editor* ausführen (idempotent).
+
+| Tabelle | Inhalt |
+|---|---|
+| `stammdaten_overrides` | Abweichungen vom Excel-Grundstand, eine Zeile je Datensatz (Artikel, Preise, Mitarbeiter/Rollen, Filialen, Oberflächen) |
+| `system_daten` | Konfigurator-Schema (veröffentlicht + Entwurf), Versionen, Konten-Papierkorb, Einstellungen (Wartungsmodus, E-Mail-Regel) |
+| `benutzer_zugaenge` | eigene Passwörter (Hash) — nur über Funktionen erreichbar, nicht lesbar |
+
+- **Laden:** beim Start (Ladebildschirm), per Realtime bei jeder Änderung, beim Zurückkehren
+  ins Fenster, vor dem Abschluss eines Auftrags und per „System aktualisieren 🔄" im Kopf.
+- **Speichern:** Stammdaten mit „Speichern" in der Stammdatenverwaltung, Konten sofort.
+  Jede Zeile trägt eine Version; hat ein anderer Administrator denselben Datensatz
+  inzwischen gespeichert, wird nicht überschrieben, sondern ein Konflikt gemeldet.
+- **Umstellung:** Früher nur lokal gespeicherte Stammdaten-Änderungen erscheinen einmalig als
+  „ausstehend" und werden mit „Speichern" übernommen; lokales Schema, Versionen, Papierkorb und
+  Einstellungen lädt der erste Administrator-Login hoch, sofern in Supabase noch nichts steht.
+- Prüfung der Abgleich-Logik: `npm run sync:test`.
+
 ## ⚠️ Prototyp-Grenzen (für Produktion zu ersetzen)
 - **Scan-Bridge (`vite.config.ts`)**: In-Memory-Relay im Dev-Server. Produktiv → echtes Backend /
   WebSocket / Storage-Endpoint.
@@ -127,4 +151,7 @@ Griffe und Filialen kommen inzwischen aus der Mappe.
 - **Entwurfsnummer-Sequenz**: geräteweiter `localStorage`-Zähler. Produktiv → serverseitig vergeben.
 - **„An AV senden“**: erzeugt das PDF + öffnet eine `mailto:`-Vorlage (PDF anhängen). Produktiv →
   echter Mail-/Schnittstellen-Versand.
-- **Auth**: Berater aus den Stammdaten, gemeinsames Klartext-Passwort (`src/data/consultants.ts`). Produktiv → Backend / SSO.
+- **Auth**: Konten und Passwörter liegen in Supabase, die Anmeldung wird aber im Browser
+  entschieden, und der ANON-Key darf Stammdaten, Einstellungen und Passwörter schreiben
+  (siehe Kopf von `supabase/system-sync.sql`). Produktiv → Supabase Auth mit serverseitiger
+  Rollenprüfung (RLS je Rolle).

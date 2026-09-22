@@ -36,3 +36,25 @@ export function generateEntwurfsnummer(
 ): string {
   return `${brand.draftIdPrefix}-${date.getFullYear()}-${initialsFrom(consultant.name)}-${nextSequence()}`
 }
+
+/**
+ * Wie `generateEntwurfsnummer`, aber garantiert frei gegenüber `belegt`.
+ *
+ * Der Zähler oben ist GERÄTELOKAL. Ein zweiter Rechner (oder ein frischer Browser)
+ * beginnt wieder bei 0001 und würde Nummern vergeben, die in Supabase längst stehen —
+ * und weil `saveProject` per Upsert über die Entwurfsnummer schreibt, überschriebe der
+ * neue Entwurf dann einen fremden. Deshalb wird gegen alle bekannten Nummern geprüft
+ * und so lange weitergezählt, bis eine freie gefunden ist.
+ */
+export function freieEntwurfsnummer(
+  consultant: { name: string },
+  belegt: ReadonlySet<string>,
+  date: Date = new Date(),
+): string {
+  for (let versuch = 0; versuch < 10000; versuch++) {
+    const id = generateEntwurfsnummer(consultant, date)
+    if (!belegt.has(id)) return id
+  }
+  // Praktisch unerreichbar; eine eindeutige Nummer ist dann wichtiger als eine hübsche.
+  return `${brand.draftIdPrefix}-${date.getFullYear()}-${initialsFrom(consultant.name)}-${Date.now()}`
+}

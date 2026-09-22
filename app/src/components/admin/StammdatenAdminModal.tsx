@@ -23,6 +23,7 @@ import {
   idVorschlag,
   getImportProbleme,
   pruefeImportMarke,
+  speichereDatensatzSofort,
   listeAenderungen,
   speichereAlleAenderungen,
   type AenderungsBereich,
@@ -47,6 +48,7 @@ import { useStammdaten } from '../../lib/useStammdaten.ts'
 import { entferneZugang, getZugang, hatZugang, setzeZugang } from '../../lib/zugangStore.ts'
 import { ArtikelDetailModal } from './ArtikelDetailModal'
 import { BeraterZugang, LEERER_ZUGANG, pruefeZugangEntwurf, type ZugangEntwurf } from './BeraterZugang'
+import { SystemAktualisierenKnopf } from '../layout/SystemSync'
 import { DataGrid, SpaltenMenue, useSpaltenLayout, type SpaltenDef, type ZeilenAktion } from './DataGrid'
 import { AenderungenModal } from './AenderungenModal.tsx'
 import { DatensatzModal, type FeldDef } from './DatensatzModal'
@@ -377,9 +379,9 @@ interface BeraterZeile {
  */
 function zugangText(m: Mitarbeiter): string {
   if (m.status !== 'aktiv') return '🔒 gesperrt'
-  if (!hatZugang(m.personalnr)) return '— kein Passwort'
   if (!m.email.trim()) return '⚠ ohne E-Mail'
-  return '✓ freigeschaltet'
+  if (hatZugang(m.personalnr)) return '✓ eigenes Passwort'
+  return '✓ Standard-Passwort'
 }
 
 const BERATER_SPALTEN: SpaltenDef<BeraterZeile>[] = [
@@ -428,6 +430,42 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
   const [aenderungenOffen, setAenderungenOffen] = useState(false)
   /** Zweite Stufe des uebergeordneten Speicherns im Kopf. */
   const [speichernBestaetigt, setSpeichernBestaetigt] = useState(false)
+  const [speichertGerade, setSpeichertGerade] = useState(false)
+
+  /**
+   * „Speichern" schreibt nach Supabase — erst danach gilt die Änderung auf allen Geräten.
+   * Konflikte (ein anderer Administrator hat denselben Datensatz inzwischen gespeichert)
+   * werden benannt, nicht überschrieben: Der fremde Stand ist nach dem Speichern bereits
+   * geladen, die eigene Änderung steht weiter als ausstehend da.
+   */
+  async function speichernNachSupabase() {
+    setSpeichertGerade(true)
+    try {
+      const { gespeichert, konflikte } = await speichereAlleAenderungen()
+      if (konflikte.length > 0) {
+        setMeldung({
+          art: 'fehler',
+          text:
+            `${gespeichert} Änderung(en) gespeichert. ${konflikte.length} Datensatz/Datensätze hat inzwischen ` +
+            `ein anderer Administrator geändert (${konflikte
+              .slice(0, 5)
+              .map((k) => `${k.schluessel}${k.von ? ` von ${k.von}` : ''}`)
+              .join(', ')}${konflikte.length > 5 ? ' …' : ''}) — nicht überschrieben. Der aktuelle Stand ist geladen; ` +
+            'Ihre Änderung steht weiter als ausstehend da und kann bewusst erneut gespeichert werden.',
+        })
+      } else {
+        setMeldung({
+          art: 'info',
+          text: `${gespeichert} Änderung(en) in Supabase gespeichert — sie gelten jetzt auf allen Geräten.`,
+        })
+      }
+    } catch (error) {
+      setMeldung({ art: 'fehler', text: `Nicht gespeichert — Supabase meldet: ${(error as Error).message}` })
+    } finally {
+      setSpeichertGerade(false)
+      setSpeichernBestaetigt(false)
+    }
+  }
   /** Gruene Erfolgsmeldung des letzten Imports (bis der Benutzer sie ausblendet). */
   const [importErfolg, setImportErfolg] = useState<string | null>(null)
   /** Sprungziel im Gitter; `lauf` zählt hoch, damit derselbe Klick erneut wirkt. */
@@ -778,6 +816,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               e.target.value = ''
             }}
           />
+          <SystemAktualisierenKnopf />
           <button type="button" className={styles.topbarButton} onClick={() => dateiRef.current?.click()}>
             Excel importieren
           </button>
@@ -789,7 +828,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               type="button"
               className={styles.topbarButton}
               onClick={() => {
-                if (window.confirm(`Alle ${aenderungen} Änderung(en) verwerfen und den Stand aus Cramer-Stammdaten.xlsx wiederherstellen?`)) {
+                if (window.confirm(`Alle ${aenderungen} Änderung(en) auf den Stand aus Cramer-Stammdaten.xlsx zurücksetzen? Wirksam für alle Geräte erst mit „Speichern".`)) {
                   setzeAllesZurueck()
                   setMeldung(null)
                 }
@@ -813,17 +852,19 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
                   setSpeichernBestaetigt(true)
                   return
                 }
-                const anzahl = speichereAlleAenderungen()
-                setSpeichernBestaetigt(false)
-                setMeldung({
-                  art: 'info',
-                  text: `${anzahl} Änderung(en) gespeichert — sie gelten jetzt im Konfigurator und in der Kalkulation.`,
-                })
+                void speichernNachSupabase()
               }}
-              onBlur={() => setSpeichernBestaetigt(false)}
-              title="Alle gesammelten Änderungen aller Reiter verbindlich übernehmen"
+              onBlur={() => {
+                if (!speichertGerade) setSpeichernBestaetigt(false)
+              }}
+              disabled={speichertGerade}
+              title="Alle gesammelten Änderungen aller Reiter nach Supabase schreiben — für alle Geräte"
             >
-              {speichernBestaetigt ? 'Wirklich speichern?' : `Speichern (${ausstehend})`}
+              {speichertGerade
+                ? 'Speichert …'
+                : speichernBestaetigt
+                  ? 'Wirklich speichern?'
+                  : `Speichern (${ausstehend})`}
             </button>
           ) : null}
 
@@ -1213,9 +1254,18 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               aendereMitarbeiter(entwurf.personalnr, entwurf)
             }
 
-            if (zugang.entziehen) entferneZugang(entwurf.personalnr)
-            else if (zugang.neuesPasswort) await setzeZugang(entwurf.personalnr, zugang.neuesPasswort)
             pruefeImportMarke('berater', entwurf.personalnr)
+            // Konten gelten sofort auf allen Geräten — nicht erst nach „Speichern" im Kopf.
+            void speichereDatensatzSofort('mitarbeiter', entwurf.personalnr)
+
+            if (zugang.entziehen) void entferneZugang(entwurf.personalnr)
+            else if (zugang.neuesPasswort) {
+              try {
+                await setzeZugang(entwurf.personalnr, zugang.neuesPasswort)
+              } catch (error) {
+                return `Stammsatz gespeichert, Passwort aber nicht — Supabase meldet: ${(error as Error).message}`
+              }
+            }
             return null
           }}
           onClose={() => setBeraterEditor(null)}

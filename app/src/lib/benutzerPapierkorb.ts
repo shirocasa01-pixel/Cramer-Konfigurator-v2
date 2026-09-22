@@ -22,7 +22,17 @@
 /** Aufbewahrungsfrist, nach der ein Konto von selbst verschwindet. */
 export const AUFBEWAHRUNG_TAGE = 30
 
-const PAPIERKORB_KEY = 'cramer-planer.benutzer.papierkorb.v1'
+/*
+  SUPABASE IST DIE QUELLE (09/2026): Der Papierkorb liegt als Dokument
+  `benutzer_papierkorb` in `system_daten`. Jede Änderung wird auf dem aktuellen
+  Serverstand ausgeführt (`aendereDokument`) — zwei Administratoren, die gleichzeitig je
+  ein Konto löschen, verlieren keinen der beiden Einträge. Der localStorage ist nur
+  Zwischenspeicher für einen schnellen Start.
+*/
+import { aendereDokument, meldeSchreibfehler } from './supabaseSystem.ts'
+
+export const PAPIERKORB_DOKUMENT = 'benutzer_papierkorb'
+const PAPIERKORB_KEY = 'cramer-planer.benutzer.papierkorb.cache.v2'
 
 export interface PapierkorbEintrag {
   /** ISO-Zeitpunkt der Verschiebung in den Papierkorb. */
@@ -56,9 +66,29 @@ function sichern() {
   try {
     localStorage.setItem(PAPIERKORB_KEY, JSON.stringify(karte))
   } catch {
-    /* best-effort im Prototyp */
+    /* best-effort */
   }
   hoerer.forEach((h) => h())
+}
+
+/** Übernimmt den Serverstand — von `systemSync.ts` aufgerufen. */
+export function uebernehmePapierkorbVomServer(wert: unknown): void {
+  const neu = wert && typeof wert === 'object' ? (wert as Karte) : {}
+  if (JSON.stringify(neu) === JSON.stringify(karte)) return
+  karte = neu
+  sichern()
+}
+
+/** Wendet eine Änderung lokal sofort an und auf dem aktuellen Serverstand in Supabase. */
+function aendere(aenderung: (k: Karte) => Karte, was: string) {
+  karte = aenderung(karte)
+  sichern()
+  aendereDokument<Karte>(PAPIERKORB_DOKUMENT, (server) => aenderung(server ?? {})).then(
+    (serverStand) => {
+      if (serverStand) uebernehmePapierkorbVomServer(serverStand)
+    },
+    (error) => meldeSchreibfehler(was, error),
+  )
 }
 
 export function subscribeBenutzerPapierkorb(h: () => void): () => void {
@@ -106,20 +136,20 @@ export function legeInPapierkorb(
   personalnr: string,
   daten: Omit<PapierkorbEintrag, 'geloeschtAm'>,
 ): void {
-  karte = { ...karte, [personalnr]: { ...daten, geloeschtAm: new Date().toISOString() } }
-  sichern()
+  const eintrag = { ...daten, geloeschtAm: new Date().toISOString() }
+  aendere((k) => ({ ...k, [personalnr]: eintrag }), `Papierkorb (${personalnr})`)
 }
 
 /** Nimmt einen Eintrag heraus — sowohl beim Wiederherstellen als auch beim endgültigen Löschen. */
 export function ausPapierkorbNehmen(personalnr: string): void {
   if (!karte[personalnr]) return
-  const { [personalnr]: _weg, ...rest } = karte
-  karte = rest
-  sichern()
+  aendere((k) => {
+    const { [personalnr]: _weg, ...rest } = k
+    return rest
+  }, `Papierkorb (${personalnr})`)
 }
 
 /** Leert den gesamten Papierkorb — Teil der Vorführ-Bereinigung. */
 export function leerePapierkorb(): void {
-  karte = {}
-  sichern()
+  aendere(() => ({}), 'Papierkorb')
 }

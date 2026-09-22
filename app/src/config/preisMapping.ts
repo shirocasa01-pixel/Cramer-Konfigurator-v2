@@ -423,13 +423,12 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
  *    des Verkäufers haben wir ja im Abschluss die Unterteilung von kalkuliertem Preis und
  *    der Eingabe des Angebotspreises."
  *
- * Die betroffenen Artikel (Raumteiler, Sichtrückwand, wandhängende Kastenmöbel, Überhöhe)
- * bleiben im Stamm — mit Preislogik AUF_ANFRAGE und dem Prozentsatz in der Bemerkung.
- * Sie erscheinen damit weiterhin als Position, tragen aber keinen automatisch
- * aufgeschlagenen Betrag mehr.
+ * Die betroffenen Artikel (wandhängende Kastenmöbel, Überhöhe) bleiben im Stamm — mit
+ * Preislogik AUF_ANFRAGE und dem Prozentsatz in der Bemerkung.
  *
- * Montage- und Lieferzuschlag sind davon NICHT betroffen: Das sind ausdrücklich
- * Service-Aufschläge, ihre Sätze stehen in „50 Meta" und werden weiter gerechnet.
+ * Ausgenommen sind Montage, Lieferung regional, Raumteiler (+5 %) und Sichtrückwand
+ * (+10 %): Ihre Sätze stehen in „50 Meta", und `baueZuschlaege()` in lib/kalkulation.ts
+ * rechnet sie auf den Möbelpreis.
  */
 
 /**

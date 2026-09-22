@@ -122,7 +122,16 @@ function ladeMeta(rows) {
     else if (/^[a-z][A-Za-z0-9]*$/.test(key)) scalars[key] = value
   }
 
-  for (const key of ['validity', 'currency', 'vatRate', 'montageSurchargePct', 'lieferungRegionalPct', 'rasterMm']) {
+  for (const key of [
+    'validity',
+    'currency',
+    'vatRate',
+    'montageSurchargePct',
+    'lieferungRegionalPct',
+    'raumteilerZuschlagPct',
+    'sichtrueckwandZuschlagPct',
+    'rasterMm',
+  ]) {
     if (scalars[key] === undefined) warn(`„${SHEETS.meta}": Schlüssel "${key}" fehlt.`)
   }
   return { scalars, preisgruppen, korpusOffsetMm }
@@ -649,6 +658,8 @@ function erzeugeModul(xl, md, anleitung, meta, mig) {
     `  mwstHinweis: ${s(sc.vatNote)},`,
     `  montageZuschlagPct: ${num(sc.montageSurchargePct) ?? 0},`,
     `  lieferungRegionalPct: ${num(sc.lieferungRegionalPct) ?? 0},`,
+    `  raumteilerZuschlagPct: ${num(sc.raumteilerZuschlagPct) ?? 0},`,
+    `  sichtrueckwandZuschlagPct: ${num(sc.sichtrueckwandZuschlagPct) ?? 0},`,
     `  rasterMm: ${num(sc.rasterMm) ?? 0},`,
     `  frontOffsetMm: ${num(sc.frontOffsetMm) ?? 0},`,
     `  quelle: ${s(sc.source)},`,

@@ -102,7 +102,7 @@ export default function TrashPage() {
   async function handleEmpty() {
     setLaeuft('__alle__')
     try {
-      await emptyTrash()
+      await emptyTrash(eigeneEntwuerfe.map((e) => e.id))
       setLeerenOffen(false)
     } finally {
       setLaeuft(null)

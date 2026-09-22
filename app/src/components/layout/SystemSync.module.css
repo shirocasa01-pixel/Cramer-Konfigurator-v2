@@ -1,0 +1,82 @@
+.knopf {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+.knopf:hover:not(:disabled) {
+  border-color: var(--color-ink-muted);
+}
+
+.knopf:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
+.punkt,
+.punktLive,
+.punktFehler {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  background: var(--color-ink-muted);
+}
+
+.punktLive {
+  background: var(--color-success);
+}
+
+.punktFehler {
+  background: var(--color-danger);
+}
+
+.leiste {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-5);
+  background: rgba(178, 59, 59, 0.07);
+  border-bottom: 1px solid rgba(178, 59, 59, 0.25);
+  color: var(--color-danger);
+  font-size: 0.86rem;
+  line-height: 1.45;
+}
+
+.leiste > span {
+  flex: 1;
+}
+
+.leisteZu {
+  flex-shrink: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.ladeSchirm {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-5);
+  background: var(--color-canvas);
+}
+
+.ladeText {
+  font-size: 0.9rem;
+  color: var(--color-ink-muted);
+}

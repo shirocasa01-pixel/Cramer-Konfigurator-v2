@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { type Schwere } from '../../lib/kalkulation'
+import { SERVICE_SAETZE, preisOptionen, prozentText, type Schwere } from '../../lib/kalkulation'
 import { aufgeloestePreise } from '../../lib/pricingSnapshot'
 import { formatEuro } from '../../lib/pricing'
 import { useStammdaten } from '../../lib/useStammdaten'
@@ -40,7 +40,19 @@ export interface KalkulationsPanelProps {
   draft: Draft
   /** Übernimmt die berechnete Summe in das manuelle VK-Feld. */
   onSummeUebernehmen?: (gesamt: number) => void
+  /**
+   * Schaltet Montage / Lieferung regional. Ohne diesen Callback (oder bei einem
+   * abgeschlossenen Auftrag) sind die Checkboxen nur Anzeige.
+   */
+  onPreisOptionenAendern?: (optionen: { montage: boolean; lieferungRegional: boolean }) => void
 }
+
+type ServiceSchluessel = 'montage' | 'lieferungRegional'
+
+const SERVICE_ZEILEN: { schluessel: ServiceSchluessel; art: 'montage' | 'lieferung'; name: string }[] = [
+  { schluessel: 'montage', art: 'montage', name: 'Montagekosten' },
+  { schluessel: 'lieferungRegional', art: 'lieferung', name: 'Lieferung regional' },
+]
 
 /** Artikel-Kontext einer Position: Nummer, Kurzzeichen, Teileart, Produktgruppe. */
 function ArtikelKontext({ position }: { position: PricingSnapshotPosition }) {
@@ -154,7 +166,7 @@ function Betragsspalten({ position }: { position: PricingSnapshotPosition }) {
   )
 }
 
-export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPanelProps) {
+export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAendern }: KalkulationsPanelProps) {
   // Zwei Eingänge: der Entwurf UND der Stammdaten-Stand. Ohne die Version im
   // Abhängigkeits-Array bliebe eine Preisänderung aus der Verwaltung so lange
   // unsichtbar, bis der Entwurf zufällig neu gesetzt wird.
@@ -165,6 +177,31 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPan
   const stand = useStammdaten()
   const ergebnis = useMemo(() => aufgeloestePreise(draft), [draft, stand.version])
   const eingefroren = ergebnis.herkunft === 'snapshot'
+  const optionen = preisOptionen(draft)
+
+  /*
+    MONTAGE UND LIEFERUNG ALS CHECKBOXEN direkt unter dem Möbelpreis. Eine abgewählte
+    Zeile bleibt stehen — durchgestrichen, mit dem Betrag, den sie kosten würde —, damit
+    der Berater sieht, was er gerade herausgenommen hat.
+
+    Ein eingefrorener Auftrag zeigt seine Zuschläge so, wie sie gespeichert wurden; ältere
+    Snapshots kennen `zuschlagArt` noch nicht und laufen deshalb durch die schlichte Liste.
+  */
+  const serviceZeilen = eingefroren
+    ? []
+    : SERVICE_ZEILEN.map((z) => {
+        const position = ergebnis.zuschlaege.find((p) => p.zuschlagArt === z.art)
+        const satz = SERVICE_SAETZE[z.schluessel]
+        return {
+          ...z,
+          aktiv: optionen[z.schluessel],
+          label: `${z.name} (+${prozentText(satz)} % auf den Möbelpreis)`,
+          betrag: position?.gesamt ?? Math.round(ergebnis.moebelpreis * satz * 100) / 100,
+        }
+      })
+  const weitereZuschlaege = eingefroren
+    ? ergebnis.zuschlaege
+    : ergebnis.zuschlaege.filter((z) => z.zuschlagArt !== 'montage' && z.zuschlagArt !== 'lieferung')
 
   const gruppiert = useMemo(() => {
     const map = new Map<string, PricingSnapshotPosition[]>()
@@ -247,7 +284,26 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen }: KalkulationsPan
                 <td colSpan={3}>Möbelpreis</td>
                 <td className={styles.tdNum}>{formatEuro(ergebnis.moebelpreis)}</td>
               </tr>
-              {ergebnis.zuschlaege.map((z) => (
+              {serviceZeilen.map((z) => (
+                <tr key={z.art} className={z.aktiv ? undefined : styles.zuschlagAus}>
+                  <td colSpan={3}>
+                    <label className={styles.zuschlagCheck}>
+                      <input
+                        type="checkbox"
+                        checked={z.aktiv}
+                        disabled={!onPreisOptionenAendern}
+                        onChange={(event) =>
+                          onPreisOptionenAendern?.({ ...optionen, [z.schluessel]: event.target.checked })
+                        }
+                      />
+                      <span>{z.label}</span>
+                      {z.aktiv ? null : <span className={styles.posDetail}> · nicht berechnet</span>}
+                    </label>
+                  </td>
+                  <td className={styles.tdNum}>{formatEuro(z.betrag)}</td>
+                </tr>
+              ))}
+              {weitereZuschlaege.map((z) => (
                 <tr key={z.id}>
                   <td colSpan={3}>
                     {z.label}

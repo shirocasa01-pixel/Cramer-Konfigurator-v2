@@ -332,3 +332,28 @@
   justify-items: end;
   font-variant-numeric: tabular-nums;
 }
+
+/* Montage / Lieferung: abwählbare Zuschläge direkt unter dem Möbelpreis. */
+.zuschlagCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.zuschlagCheck input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.zuschlagCheck input:disabled {
+  cursor: default;
+}
+
+.zuschlagAus .tdNum {
+  text-decoration: line-through;
+  opacity: 0.55;
+}

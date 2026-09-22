@@ -36,7 +36,7 @@ export interface UserSettings {
    */
   enforceCramerEmail: boolean
   /**
-   * Wartungsmodus-Schnellschalter (Admin-Dashboard, gerätelokal). Effektiv aktiv,
+   * Wartungsmodus-Schalter (Admin-Dashboard, in Supabase — gilt für alle Geräte). Effektiv aktiv,
    * wenn dieser Wert ODER `appConfig.isMaintenanceMode` (global) true ist.
    */
   maintenanceMode: boolean
@@ -557,6 +557,9 @@ export interface AusstattungAuswahl {
 /** Woher eine Preisposition stammt — entscheidend für die Transparenz zum Berater. */
 export type PositionsHerkunft = 'gewaehlt' | 'abgeleitet' | 'zuschlag'
 
+/** Welcher prozentuale Aufschlag eine Zuschlags-Position ist (alle auf den Möbelpreis). */
+export type ZuschlagArt = 'montage' | 'lieferung' | 'raumteiler' | 'sichtrueckwand'
+
 /** „auf-anfrage" ⇒ es gab keine Preiszeile; der Betrag wurde NIE geschätzt. */
 export type PositionsStatus = 'berechnet' | 'auf-anfrage'
 
@@ -600,6 +603,8 @@ export interface PricingSnapshotPosition {
   gesamt: number | null
   status: PositionsStatus
   hinweis?: string
+  /** Nur bei Zuschlägen; fehlt in Snapshots, die vor Einführung des Felds entstanden. */
+  zuschlagArt?: ZuschlagArt
   /**
    * Teilpositionen, wenn sich der Betrag aus mehreren Bezugsgrößen zusammensetzt —
    * etwa einem Grundpreis und einem Preis je Quadratmeter. Fehlt das Feld oder enthält
@@ -731,6 +736,11 @@ export interface Draft {
    * (Auswahl liegt in `korpus['rueckwandAussen']`). false/undefined ⇒ keine Sicht-Rückwand.
    */
   sichtRueckwandAussen?: boolean
+  /**
+   * „Raumteiler" — das Möbel steht frei im Raum. Löst den Raumteiler-Aufschlag auf den
+   * Möbelpreis aus (Artikel ZUS-001, Satz in „50 Meta"). false/undefined ⇒ an der Wand.
+   */
+  raumteiler?: boolean
   /** Phase B: Innenausbau des Korpus (Rückwand innen / Lochreihe / Einlegeböden / Kleiderstange). */
   korpusInnen?: KorpusInnen
   /**
@@ -787,7 +797,11 @@ export interface Draft {
   deletedAt?: string
 
   // --- Phase 8 (Preis-Transparenz) ---
-  /** Optionale Aufschläge für die Preis-Kalkulation (Montage +10%, Lieferung regional +3%). */
+  /**
+   * Service-Aufschläge auf den Möbelpreis (Montage +10 %, Lieferung regional +3 %).
+   * Fehlt das Feld oder ein Schalter, gilt er als AN — siehe `preisOptionen()` in
+   * lib/kalkulation.ts. Abgewählt wird im Abschluss per Checkbox.
+   */
   pricingOptions?: {
     montage: boolean
     lieferungRegional: boolean

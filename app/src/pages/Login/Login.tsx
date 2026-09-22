@@ -93,11 +93,6 @@ export default function LoginPage() {
             {submitting ? 'Anmelden …' : 'Anmelden'}
           </Button>
         </form>
-
-        <footer className={styles.demo}>
-          <span className={styles.demoTag}>Demo</span>
-          <span>anna.berger@cramer.de · Passwort: cramer2026</span>
-        </footer>
       </main>
 
       {/*

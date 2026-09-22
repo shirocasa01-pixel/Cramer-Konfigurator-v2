@@ -144,15 +144,29 @@ export function BenutzerVerwaltung() {
     if (entwurf.neu) {
       const ergebnis = legeBenutzerAn({ ...stamm, personalnr: entwurf.personalnr }, weitereKonten)
       if ('fehler' in ergebnis) return setFehler(ergebnis.fehler)
-      if (entwurf.passwort) await setzeZugang(ergebnis.personalnr, entwurf.passwort)
+      if (entwurf.passwort && !(await passwortSetzen(ergebnis.personalnr, entwurf.passwort))) {
+        setEntwurf({ ...entwurf, neu: false, personalnr: ergebnis.personalnr })
+        return
+      }
       showToast(`${stamm.name} angelegt (${ergebnis.personalnr}).`)
     } else {
       const problem = aendereBenutzer(entwurf.personalnr, stamm, weitereKonten)
       if (problem) return setFehler(problem)
-      if (entwurf.passwort) await setzeZugang(entwurf.personalnr, entwurf.passwort)
+      if (entwurf.passwort && !(await passwortSetzen(entwurf.personalnr, entwurf.passwort))) return
       showToast(`${stamm.name} gespeichert.`)
     }
     setEntwurf(null)
+  }
+
+  /** Passwort in Supabase setzen; ein Fehler bleibt im Dialog stehen, statt zu verpuffen. */
+  async function passwortSetzen(personalnr: string, passwort: string): Promise<boolean> {
+    try {
+      await setzeZugang(personalnr, passwort)
+      return true
+    } catch (error) {
+      setFehler(`Konto gespeichert, Passwort aber nicht — Supabase meldet: ${(error as Error).message}`)
+      return false
+    }
   }
 
   function rolleUmschalten(b: Benutzer) {
@@ -324,9 +338,9 @@ export function BenutzerVerwaltung() {
               es liegt nur als Hash vor. Es lässt sich ersetzen, nicht nachlesen.
             */}
             <TextField
-              label={entwurf.neu ? 'Passwort' : 'Neues Passwort (leer = unverändert)'}
+              label={entwurf.neu ? 'Eigenes Passwort (optional)' : 'Neues Passwort (leer = unverändert)'}
               type="password"
-              hint={`Mindestens ${PASSWORT_MINDESTLAENGE} Zeichen. Ohne Passwort kann sich der Benutzer nicht anmelden.`}
+              hint={`Mindestens ${PASSWORT_MINDESTLAENGE} Zeichen. Leer gelassen gilt das Standard-Passwort.`}
               value={entwurf.passwort}
               onChange={(e) => setEntwurf({ ...entwurf, passwort: e.target.value })}
             />
@@ -341,10 +355,10 @@ export function BenutzerVerwaltung() {
                 className={styles.zugangWeg}
                 onClick={() => {
                   entferneZugang(entwurf.personalnr)
-                  showToast('Zugang entzogen — die Anmeldung ist damit gesperrt.')
+                  showToast('Eigenes Passwort gelöscht — es gilt wieder das Standard-Passwort.')
                 }}
               >
-                Zugang entziehen (Passwort löschen, Konto behalten)
+                Eigenes Passwort löschen (zurück auf Standard-Passwort)
               </button>
             ) : null}
             {fehler ? (

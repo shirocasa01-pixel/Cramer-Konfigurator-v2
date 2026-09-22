@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import { useEffect, type ReactNode } from 'react'
 import { useAuth } from './context/AuthContext'
 import { setzeEditorModus } from './lib/editorModus'
+import { SystemLadeSchirm } from './components/layout/SystemSync'
 import LoginPage from './pages/Login/Login'
 import WartungPage from './pages/Wartung/Wartung'
 import DashboardPage from './pages/Dashboard/Dashboard'
@@ -84,56 +85,58 @@ export default function App() {
   }, [isAdmin])
 
   return (
-    <Routes>
-      {/*
-        Die Anmeldemaske prüft NIE auf Wartung — das ist die ganze Korrektur dieser
-        Überarbeitung. Ist bereits jemand angemeldet, geht es rollen- und statusgerecht
-        weiter: Administrator immer zu `/admin`, Berater bei aktiver Wartung zu
-        `/wartung`, sonst zum Dashboard.
-      */}
-      <Route
-        path="/login"
-        element={
-          isAuthenticated ? (
-            <Navigate to={isAdmin ? '/admin' : maintenanceActive ? '/wartung' : '/'} replace />
-          ) : (
-            <LoginPage />
-          )
-        }
-      />
+    <SystemLadeSchirm>
+      <Routes>
+        {/*
+          Die Anmeldemaske prüft NIE auf Wartung — das ist die ganze Korrektur dieser
+          Überarbeitung. Ist bereits jemand angemeldet, geht es rollen- und statusgerecht
+          weiter: Administrator immer zu `/admin`, Berater bei aktiver Wartung zu
+          `/wartung`, sonst zum Dashboard.
+        */}
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to={isAdmin ? '/admin' : maintenanceActive ? '/wartung' : '/'} replace />
+            ) : (
+              <LoginPage />
+            )
+          }
+        />
 
-      <Route path="/wartung" element={<RequireWartung><WartungPage /></RequireWartung>} />
+        <Route path="/wartung" element={<RequireWartung><WartungPage /></RequireWartung>} />
 
-      {/* Öffentliche Mobile-Scan-Ansicht (per QR geöffnet, ohne Login) */}
-      <Route path="/scan/:draftId" element={<MobileScanPage />} />
+        {/* Öffentliche Mobile-Scan-Ansicht (per QR geöffnet, ohne Login) */}
+        <Route path="/scan/:draftId" element={<MobileScanPage />} />
 
 
-      {/* Phase 10 – Admin-Onboarding (öffentlich: Aktivierung & Einrichtung) */}
-      <Route path="/admin/activate" element={<RootActivatePage />} />
-      <Route path="/admin/setup" element={<RootSetupPage />} />
-      {/* Phase 10 – Admin-Dashboard (nur Administrator) */}
-      <Route path="/admin" element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
+        {/* Phase 10 – Admin-Onboarding (öffentlich: Aktivierung & Einrichtung) */}
+        <Route path="/admin/activate" element={<RootActivatePage />} />
+        <Route path="/admin/setup" element={<RootSetupPage />} />
+        {/* Phase 10 – Admin-Dashboard (nur Administrator) */}
+        <Route path="/admin" element={<RequireAdmin><AdminDashboardPage /></RequireAdmin>} />
 
-      {/* Phase 6 – Dashboard (Startseite) */}
-      <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
-      {/* Phase 2 – Neuen Entwurf anlegen */}
-      <Route path="/papierkorb" element={<RequireAuth><TrashPage /></RequireAuth>} />
+        {/* Phase 6 – Dashboard (Startseite) */}
+        <Route path="/" element={<RequireAuth><DashboardPage /></RequireAuth>} />
+        {/* Phase 2 – Neuen Entwurf anlegen */}
+        <Route path="/papierkorb" element={<RequireAuth><TrashPage /></RequireAuth>} />
 
-      <Route path="/new" element={<RequireAuth><NewDraftPage /></RequireAuth>} />
-      {/* Phase 3 – Produktgruppen- & Serien-Auswahl */}
-      <Route path="/products" element={<RequireAuth><ProductSelectionPage /></RequireAuth>} />
-      {/* Schritt 4 – Material (Route bleibt /korpus) */}
-      <Route path="/korpus" element={<RequireAuth><KorpusPage /></RequireAuth>} />
-      {/* Phase 4.5 – Maße & Segmente */}
-      <Route path="/dimensions" element={<RequireAuth><DimensionsPage /></RequireAuth>} />
-      {/* Schritt 6 (Refugium) – Ausstattung-Vorauswahl */}
-      <Route path="/ausstattung" element={<RequireAuth><AusstattungPage /></RequireAuth>} />
-      {/* Phase 5 – Fronten & Abschlüsse */}
-      <Route path="/fronts" element={<RequireAuth><FrontsPage /></RequireAuth>} />
-      {/* Phase 6 – Zusammenfassung & Abschluss */}
-      <Route path="/summary" element={<RequireAuth><SummaryPage /></RequireAuth>} />
+        <Route path="/new" element={<RequireAuth><NewDraftPage /></RequireAuth>} />
+        {/* Phase 3 – Produktgruppen- & Serien-Auswahl */}
+        <Route path="/products" element={<RequireAuth><ProductSelectionPage /></RequireAuth>} />
+        {/* Schritt 4 – Material (Route bleibt /korpus) */}
+        <Route path="/korpus" element={<RequireAuth><KorpusPage /></RequireAuth>} />
+        {/* Phase 4.5 – Maße & Segmente */}
+        <Route path="/dimensions" element={<RequireAuth><DimensionsPage /></RequireAuth>} />
+        {/* Schritt 6 (Refugium) – Ausstattung-Vorauswahl */}
+        <Route path="/ausstattung" element={<RequireAuth><AusstattungPage /></RequireAuth>} />
+        {/* Phase 5 – Fronten & Abschlüsse */}
+        <Route path="/fronts" element={<RequireAuth><FrontsPage /></RequireAuth>} />
+        {/* Phase 6 – Zusammenfassung & Abschluss */}
+        <Route path="/summary" element={<RequireAuth><SummaryPage /></RequireAuth>} />
 
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </SystemLadeSchirm>
   )
 }

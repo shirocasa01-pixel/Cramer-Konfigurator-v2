@@ -181,6 +181,7 @@ export default function SummaryPage() {
               pg={draft.korpus?.rueckwandAussen?.priceGroup}
             />
           ) : null}
+          {draft.raumteiler ? <Row k="Raumteiler" v="ja — Möbel steht frei im Raum" /> : null}
         </Block>
 
         <KorpusInnenRecap korpusInnen={draft.korpusInnen} />
@@ -246,6 +247,7 @@ export default function SummaryPage() {
             // Leerzeichen, das sonst im AV-PDF als Kästchen landet.
             updateDraft({ vkPreis: formatDezimal(gesamt) })
           }
+          onPreisOptionenAendern={(pricingOptions) => updateDraft({ pricingOptions })}
         />
 
         {/*

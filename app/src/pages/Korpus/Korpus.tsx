@@ -342,6 +342,26 @@ export default function KorpusPage() {
           </section>
         ) : null}
 
+        {/*
+          Raumteiler — das Möbel steht frei im Raum. Gilt für jede Serie und löst den
+          Raumteiler-Aufschlag auf den Möbelpreis aus (Satz in „50 Meta").
+        */}
+        <section className={styles.area} aria-label="Raumteiler">
+          <label className={styles.check}>
+            <input
+              type="checkbox"
+              className={styles.checkbox}
+              checked={Boolean(draft.raumteiler)}
+              onChange={(event) => updateDraft({ raumteiler: event.target.checked })}
+            />
+            <Beschriftung
+              abschnittId="material"
+              schluessel="raumteiler.checkbox"
+              standard="Raumteiler? (Möbel steht frei im Raum — Aufschlag auf den Möbelpreis)"
+            />
+          </label>
+        </section>
+
         {/* Abschlussset-Material – Position kommt aus dem Schritt „Maße". */}
         {abschlussAktiv ? (
           <section className={styles.area} aria-label="Abschlussset">
