@@ -357,3 +357,39 @@
   text-decoration: line-through;
   opacity: 0.55;
 }
+
+/* --- Zweistufige Summen (Preisarten-Überarbeitung 09/2026) --------------------- */
+
+/* Preisart der Position als ruhiges Etikett neben Artikelnummer und Kurzzeichen. */
+.preisart {
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  color: var(--color-ink-muted);
+  white-space: nowrap;
+}
+
+/* Unterzeilen der artikelbezogenen Aufschläge — eingerückt unter dem Möbelpreis. */
+.einzugRow td:first-child {
+  padding-left: 22px;
+  color: var(--color-ink-muted);
+}
+
+/* Gesamtmöbelpreis: Abschluss der Stufe 1. */
+.gesamtmoebelRow td {
+  border-top: 1px solid var(--color-ink);
+  font-weight: 700;
+  padding-top: 10px;
+}
+
+/* Beginn der Stufe 2 (Montage, Lieferung) — sichtbar abgesetzt vom Möbelpreis. */
+.stufeZwei td {
+  padding-top: 14px;
+}
+
+/* Im Summenblock trennen nur die Stufen-Linien — keine Haarlinie unter jedem Betrag. */
+.table tfoot .tdNum {
+  border-bottom: none;
+}

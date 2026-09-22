@@ -1,0 +1,2072 @@
+{
+ "laeufe": [
+  {
+   "entferntAm": "2026-09-22T21:41:47.514Z",
+   "zeilen": [
+    {
+     "bereich": "artikel",
+     "schluessel": "90-037-0001",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "AVPR",
+      "achsen": [],
+      "quelle": "S. 33",
+      "status": "entwurf",
+      "einheit": "Aufschlag in %",
+      "dropdown": "ZUSCHLAG",
+      "teileart": "KALKULATION",
+      "bemerkung": "Aufschlag 5 % — wird NICHT mehr automatisch kalkuliert. Der Konfigurator weist den Listenpreis aus; der Aufschlag wird im Abschluss über den Angebotspreis entschieden.",
+      "achsenText": "—",
+      "preislogik": "AUF_ANFRAGE",
+      "sortierung": 10,
+      "bezeichnung": "Raumteiler",
+      "kurzzeichen": "ZUS-001",
+      "oberflaeche": false,
+      "preiszellen": 1,
+      "bezeichnung2": "Ausstattung + Extras"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Raumteiler: Altstand „entwurf\" mit Preislogik AUF_ANFRAGE und der Bemerkung „wird NICHT mehr automatisch kalkuliert\". Widerspricht der Vorgabe (Raumteiler als Aufschlag) — der Aufschlag wäre sonst „auf Anfrage\". Satz 5 % steht jetzt im Artikel."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "90-037-0004",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "AVPR",
+      "achsen": [],
+      "quelle": "S. 33",
+      "status": "entwurf",
+      "einheit": "Aufschlag in %",
+      "dropdown": "ZUSCHLAG",
+      "teileart": "KALKULATION",
+      "bemerkung": "Aufschlag 10 % — wird NICHT mehr automatisch kalkuliert. Der Konfigurator weist den Listenpreis aus; der Aufschlag wird im Abschluss über den Angebotspreis entschieden.",
+      "achsenText": "—",
+      "preislogik": "AUF_ANFRAGE",
+      "sortierung": 40,
+      "bezeichnung": "Sichtrueckwand",
+      "kurzzeichen": "ZUS-004",
+      "oberflaeche": false,
+      "preiszellen": 1,
+      "bezeichnung2": "Ausstattung + Extras"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Sichtrückwand: derselbe Altstand wie der Raumteiler (entwurf, AUF_ANFRAGE, veraltete Bemerkung). Satz 10 % steht jetzt im Artikel."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "10-004-0001",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "APOS",
+      "achsen": [
+       "BREITE"
+      ],
+      "quelle": "S. 12",
+      "status": "aktiv",
+      "einheit": "Stück",
+      "dropdown": "ABDECKPLATTE",
+      "teileart": "KORPUS",
+      "bemerkung": "Unvollstaendig lesbar - nur PG1 Wert eindeutig zuordenbar, siehe Unklar-Liste",
+      "achsenText": "BREITE",
+      "preislogik": "MATRIX_AUF",
+      "sortierung": 10,
+      "bezeichnung": "Abdeckplatte",
+      "kurzzeichen": "ABP-001",
+      "oberflaeche": true,
+      "preiszellen": 4,
+      "bezeichnung2": "Abdeckplatten"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Abdeckplatte: einzige Abweichung ist der gestrichene Code MATRIX_AUF — sonst identisch mit der Mappe."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "20-009-0001",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "AVPROS",
+      "achsen": [
+       "BREITE",
+       "HOEHE",
+       "TIEFE",
+       "LINIE_PG"
+      ],
+      "quelle": "S. 11",
+      "status": "aktiv",
+      "einheit": "Stück",
+      "dropdown": "SCHUBLADE",
+      "teileart": "FRONT",
+      "bemerkung": "",
+      "achsenText": "BREITE × HOEHE × TIEFE × LINIE_PG",
+      "preislogik": "MATRIX",
+      "sortierung": 10,
+      "bezeichnung": "Schublade",
+      "kurzzeichen": "SCB-001",
+      "oberflaeche": true,
+      "preiszellen": 311,
+      "bezeichnung2": "Schubladen"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Schublade: identisch mit der Mappe bis auf den früheren Code MATRIX — ändert nichts, würde aber künftige Pflege in der Mappe verdecken."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "40-017-0018",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "R",
+      "achsen": [],
+      "quelle": "S. 26",
+      "status": "gesperrt",
+      "einheit": "Stück",
+      "dropdown": "CONTAINER",
+      "teileart": "INNENAUSSTATTUNG",
+      "bemerkung": "Aufpreis in die Ausführungs-Achse von 40-40-20-0019 aufgelöst (Deckplatte Decoboard / Rauchglas grau). Damit steht je Ausführung ein vollständiger Preis statt eines Zuschlags.",
+      "achsenText": "—",
+      "preislogik": "AUF_ANFRAGE",
+      "sortierung": 180,
+      "bezeichnung": "Aufpreis Container Deckplatte Rauchglasfuellung",
+      "kurzzeichen": "CON-018",
+      "oberflaeche": false,
+      "preiszellen": 3,
+      "bezeichnung2": "Refugium Ausstattung"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Aufpreis Rauchglas: identisch mit der Mappe (dort ebenfalls gesperrt) — ohne Wirkung."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#100|50 cm | 50er|191,2 cm | 15R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 100,
+      "preis": 365,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-83"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#101|50 cm | 50er|191,2 cm | 15R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 101,
+      "preis": 309,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-84"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#102|50 cm | 50er|191,2 cm | 15R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 102,
+      "preis": 443,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-85"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#103|50 cm | 50er|191,2 cm | 15R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 103,
+      "preis": 420,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-86"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#104|50 cm | 50er|191,2 cm | 15R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 104,
+      "preis": 546,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-87"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#105|50 cm | 50er|191,2 cm | 15R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 105,
+      "preis": 628,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-88"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#106|50 cm | 50er|191,2 cm | 15R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 106,
+      "preis": 589,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-89"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#107|60 cm | 60er|191,2 cm | 15R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 107,
+      "preis": 242,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-90"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#108|60 cm | 60er|191,2 cm | 15R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 108,
+      "preis": 287,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-91"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#109|60 cm | 60er|191,2 cm | 15R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 109,
+      "preis": 332,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-92"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#110|60 cm | 60er|191,2 cm | 15R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 110,
+      "preis": 411,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-93"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#111|60 cm | 60er|191,2 cm | 15R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 111,
+      "preis": 349,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-94"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#112|60 cm | 60er|191,2 cm | 15R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 112,
+      "preis": 499,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-95"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#113|60 cm | 60er|191,2 cm | 15R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 113,
+      "preis": 473,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-96"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#114|60 cm | 60er|191,2 cm | 15R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 114,
+      "preis": 616,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-97"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#115|60 cm | 60er|191,2 cm | 15R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 115,
+      "preis": 709,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-98"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#116|60 cm | 60er|191,2 cm | 15R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "191,2 cm | 15R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 116,
+      "preis": 663,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-99"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#117|50 cm | 50er|230,1 cm | 18R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 117,
+      "preis": 260,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-100"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#118|50 cm | 50er|230,1 cm | 18R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 118,
+      "preis": 309,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-101"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#119|50 cm | 50er|230,1 cm | 18R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 119,
+      "preis": 359,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-102"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#120|50 cm | 50er|230,1 cm | 18R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 120,
+      "preis": 443,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-103"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#121|50 cm | 50er|230,1 cm | 18R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 121,
+      "preis": 375,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-104"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#122|50 cm | 50er|230,1 cm | 18R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 122,
+      "preis": 537,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-105"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#123|50 cm | 50er|230,1 cm | 18R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 123,
+      "preis": 509,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-106"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#124|50 cm | 50er|230,1 cm | 18R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 124,
+      "preis": 661,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-107"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#125|50 cm | 50er|230,1 cm | 18R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 125,
+      "preis": 763,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-108"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#126|50 cm | 50er|230,1 cm | 18R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "230,1 cm | 18R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 126,
+      "preis": 711,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-109"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#127|60 cm | 60er|230,1 cm | 18R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 127,
+      "preis": 293,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-110"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#128|60 cm | 60er|230,1 cm | 18R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 128,
+      "preis": 348,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-111"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#129|60 cm | 60er|230,1 cm | 18R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 129,
+      "preis": 402,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-112"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#130|60 cm | 60er|230,1 cm | 18R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 130,
+      "preis": 498,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-113"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#131|60 cm | 60er|230,1 cm | 18R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 131,
+      "preis": 423,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-114"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#132|60 cm | 60er|230,1 cm | 18R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 132,
+      "preis": 604,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-115"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#133|60 cm | 60er|230,1 cm | 18R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 133,
+      "preis": 573,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-116"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#134|60 cm | 60er|230,1 cm | 18R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 134,
+      "preis": 746,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-117"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#135|60 cm | 60er|230,1 cm | 18R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 135,
+      "preis": 860,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-118"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#136|60 cm | 60er|230,1 cm | 18R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "230,1 cm | 18R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 136,
+      "preis": 803,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-119"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#57|50 cm | 50er|102,1 cm | 8R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 57,
+      "preis": 138,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-40"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#58|50 cm | 50er|102,1 cm | 8R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 58,
+      "preis": 165,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-41"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#59|50 cm | 50er|102,1 cm | 8R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 59,
+      "preis": 189,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-42"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#60|50 cm | 50er|102,1 cm | 8R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 60,
+      "preis": 237,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-43"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#61|50 cm | 50er|102,1 cm | 8R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 61,
+      "preis": 200,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-44"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#62|50 cm | 50er|102,1 cm | 8R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 62,
+      "preis": 288,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-45"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#63|50 cm | 50er|102,1 cm | 8R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 63,
+      "preis": 273,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-46"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#64|50 cm | 50er|102,1 cm | 8R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 64,
+      "preis": 356,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-47"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#65|50 cm | 50er|102,1 cm | 8R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 65,
+      "preis": 437,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-48"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#66|50 cm | 50er|102,1 cm | 8R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "102,1 cm | 8R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 66,
+      "preis": 383,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-49"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#67|60 cm | 60er|102,1 cm | 8R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 67,
+      "preis": 155,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-50"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#68|60 cm | 60er|102,1 cm | 8R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 68,
+      "preis": 185,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-51"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#69|60 cm | 60er|102,1 cm | 8R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 69,
+      "preis": 213,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-52"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#70|60 cm | 60er|102,1 cm | 8R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 70,
+      "preis": 264,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-53"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#71|60 cm | 60er|102,1 cm | 8R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 71,
+      "preis": 225,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-54"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#72|60 cm | 60er|102,1 cm | 8R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 72,
+      "preis": 321,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-55"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#73|60 cm | 60er|102,1 cm | 8R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 73,
+      "preis": 304,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-56"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#74|60 cm | 60er|102,1 cm | 8R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 74,
+      "preis": 396,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-57"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#75|60 cm | 60er|102,1 cm | 8R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 75,
+      "preis": 487,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-58"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#76|60 cm | 60er|102,1 cm | 8R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "102,1 cm | 8R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 76,
+      "preis": 427,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-59"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#77|50 cm | 50er|114,9 cm | 9R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 77,
+      "preis": 153,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-60"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#78|50 cm | 50er|114,9 cm | 9R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 78,
+      "preis": 182,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-61"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#79|50 cm | 50er|114,9 cm | 9R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 79,
+      "preis": 209,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-62"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#80|50 cm | 50er|114,9 cm | 9R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 80,
+      "preis": 261,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-63"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#81|50 cm | 50er|114,9 cm | 9R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 81,
+      "preis": 222,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-64"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#82|50 cm | 50er|114,9 cm | 9R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 82,
+      "preis": 317,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-65"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#83|50 cm | 50er|114,9 cm | 9R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 83,
+      "preis": 301,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-66"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#84|50 cm | 50er|114,9 cm | 9R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 84,
+      "preis": 392,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-67"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#85|50 cm | 50er|114,9 cm | 9R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 85,
+      "preis": 449,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-68"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#86|50 cm | 50er|114,9 cm | 9R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "114,9 cm | 9R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 86,
+      "preis": 421,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-69"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#87|60 cm | 60er|114,9 cm | 9R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 87,
+      "preis": 171,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-70"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#88|60 cm | 60er|114,9 cm | 9R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 88,
+      "preis": 204,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-71"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#89|60 cm | 60er|114,9 cm | 9R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 89,
+      "preis": 236,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-72"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#90|60 cm | 60er|114,9 cm | 9R|Glatt4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "Glatt4",
+       "",
+       ""
+      ],
+      "ref": 90,
+      "preis": 291,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-73"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#91|60 cm | 60er|114,9 cm | 9R|CurvePG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "CurvePG1",
+       "",
+       ""
+      ],
+      "ref": 91,
+      "preis": 248,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-74"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#92|60 cm | 60er|114,9 cm | 9R|CurvePG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "CurvePG2-4",
+       "",
+       ""
+      ],
+      "ref": 92,
+      "preis": 354,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-75"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#93|60 cm | 60er|114,9 cm | 9R|107PG1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "107PG1",
+       "",
+       ""
+      ],
+      "ref": 93,
+      "preis": 335,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-76"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#94|60 cm | 60er|114,9 cm | 9R|107PG2-4||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "107PG2-4",
+       "",
+       ""
+      ],
+      "ref": 94,
+      "preis": 437,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-77"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#95|60 cm | 60er|114,9 cm | 9R|Line||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "Line",
+       "",
+       ""
+      ],
+      "ref": 95,
+      "preis": 502,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-78"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#96|60 cm | 60er|114,9 cm | 9R|GlossyLess||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "60 cm | 60er",
+       "114,9 cm | 9R",
+       "GlossyLess",
+       "",
+       ""
+      ],
+      "ref": 96,
+      "preis": 470,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-79"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#97|50 cm | 50er|191,2 cm | 15R|Glatt1||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "Glatt1",
+       "",
+       ""
+      ],
+      "ref": 97,
+      "preis": 215,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-80"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#98|50 cm | 50er|191,2 cm | 15R|Glatt2||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "Glatt2",
+       "",
+       ""
+      ],
+      "ref": 98,
+      "preis": 255,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-81"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "20-006-0001#99|50 cm | 50er|191,2 cm | 15R|Glatt3||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "50 cm | 50er",
+       "191,2 cm | 15R",
+       "Glatt3",
+       "",
+       ""
+      ],
+      "ref": 99,
+      "preis": 296,
+      "seite": "7",
+      "status": "fixed",
+      "artikel": "20-006-0001",
+      "_localId": "zeile-82"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Drehtür: doppelte Preiszeile (gleicher Betrag wie die Mappenzeile derselben Rasterstufe)."
+    }
+   ]
+  }
+ ],
+ "zweck": "Preisarten-Überarbeitung 09/2026: Supabase-Overrides entfernt, die den neuen Regeln widersprechen oder nichts mehr ändern. Wiederherstellen: Zeilen unverändert in stammdaten_overrides einfügen."
+}

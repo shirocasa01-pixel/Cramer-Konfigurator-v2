@@ -25,9 +25,10 @@ import {
   type Preiszeile,
 } from '../data/stammdaten.generated.ts'
 import type { Oberflaeche, Oberflaechenkategorie } from '../types/index.ts'
+import { istAlterCode, pruefePreisart } from './preisarten.ts'
 
-/** Artikelnummer-Muster laut ARTIKELNUMMER-LOGIK.md: TT-PP-GG-NNNN. */
-const ARTIKELNUMMER = /^\d{2}-\d{2}-\d{2}-\d{4}$/
+/** Artikelnummer-Muster laut ARTIKELNUMMER-LOGIK.md: TT-DDD-NNNN. */
+const ARTIKELNUMMER = /^\d{2}-\d{3}-\d{4}$/
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const PLZ = /^\d{4,5}$/
 const PREISGRUPPEN = ['', 'PG1', 'PG2', 'PG3', 'PG4']
@@ -56,12 +57,18 @@ export function pruefeArtikel(a: Artikel): string[] {
   const probleme: string[] = []
   if (leer(a.artikelnummer)) probleme.push('Artikelnummer fehlt.')
   else if (!ARTIKELNUMMER.test(a.artikelnummer.trim())) {
-    probleme.push(`Artikelnummer „${a.artikelnummer}" folgt nicht dem Muster TT-PP-GG-NNNN.`)
+    probleme.push(`Artikelnummer „${a.artikelnummer}" folgt nicht dem Muster TT-DDD-NNNN.`)
   }
   if (leer(a.bezeichnung)) probleme.push('Bezeichnung fehlt.')
   pruefeAuswahl(a.teileart, teilearten.map((t) => t.code), 'Teileart', probleme)
   pruefeAuswahl(a.dropdown, dropdowns.map((d) => d.code), 'Dropdown', probleme)
-  pruefeAuswahl(a.preislogik, preislogiken.map((p) => p.code), 'Preislogik', probleme)
+  // Frühere Codes (MATRIX aus alten Exporten) sind kein Fehler: Die Kalkulation leitet die
+  // Preisart aus den Preiszeilen ab, der Artikeldialog übernimmt sie beim nächsten Speichern.
+  if (leer(a.preislogik) || !istAlterCode(a.preislogik)) {
+    pruefeAuswahl(a.preislogik, preislogiken.map((p) => p.code), 'Preisart', probleme)
+  }
+  // Ein Aufschlag braucht keine Preiszeilen, aber Satz, Einheit und Preisbasis.
+  if (a.preislogik === 'AUFSCHLAG') probleme.push(...pruefePreisart(a, []))
   pruefeAuswahl(a.status, ARTIKEL_STATUS, 'Status', probleme)
   if (leer(a.modus)) probleme.push('Modus fehlt — ohne ihn ist der Artikel für keine Serie freigegeben.')
   return probleme

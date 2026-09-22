@@ -436,26 +436,52 @@ export function rasterAusVariante(variante: string | undefined): number | undefi
 }
 
 // ---------------------------------------------------------------------------
-// Prozentuale Zuschläge — ersatzlos entfallen
+// Aufschläge — welches Häkchen welchen Aufschlag-Artikel auslöst
 // ---------------------------------------------------------------------------
 
 /*
- * Die Preislogiken PROZENT_ARTIKEL, PROZENT_MOEBEL und PROZENT_AUFTRAG sind mit der
- * Reform gestrichen:
+ * Satz, Einheit und Preisbasis eines Aufschlags stehen im ARTIKEL (Preisart „Aufschlag",
+ * Artikelverwaltung) — hier steht nur, welches Häkchen im Entwurf ihn auslöst.
  *
- *   „Prozent Artikel, Prozent Möbel, Prozent Auftragssumme … bitte ganz streichen. Das
- *    kann am Ende, wenn der Endpreis vom Konfigurator steht, vom Verkäufer entschieden
- *    werden. Der Konfigurator soll den Katalog-/Listenpreis [zeigen]. Für die Flexibilität
- *    des Verkäufers haben wir ja im Abschluss die Unterteilung von kalkuliertem Preis und
- *    der Eingabe des Angebotspreises."
- *
- * Die betroffenen Artikel (wandhängende Kastenmöbel, Überhöhe) bleiben im Stamm — mit
- * Preislogik AUF_ANFRAGE und dem Prozentsatz in der Bemerkung.
- *
- * Ausgenommen sind Montage, Lieferung regional, Raumteiler (+5 %) und Sichtrückwand
- * (+10 %): Ihre Sätze stehen in „50 Meta", und `baueZuschlaege()` in lib/kalkulation.ts
- * rechnet sie auf den Möbelpreis.
+ * Mit der Stammdaten-Reform gestrichen bleiben die übrigen Prozent-Artikel (wandhängende
+ * Kastenmöbel 15 %, Überhöhe 20 %): „Prozent Artikel, Prozent Möbel, Prozent Auftragssumme
+ * … bitte ganz streichen. Das kann am Ende … vom Verkäufer entschieden werden." Sie stehen
+ * mit Preisart „Auf Anfrage" im Stamm. Die Überhöhe steckt ohnehin schon in den 21-Raster-
+ * Preiszeilen (18 R × 1,20) — ein Aufschlag darauf wäre doppelt gerechnet.
  */
+
+/**
+ * ARTIKELBEZOGENE AUFSCHLÄGE — Stufe 1 der Kalkulation.
+ *
+ * Sie rechnen auf den Möbelpreis (Summe aller Artikelpositionen) und GEHÖREN ZUM MÖBEL:
+ * Möbelpreis + artikelbezogene Aufschläge = Gesamtmöbelpreis.
+ */
+export const artikelAufschlaege: ReadonlyArray<{
+  art: 'raumteiler' | 'sichtrueckwand'
+  artikel: string
+  /** Häkchen im Entwurf, das den Aufschlag auslöst. */
+  ausloeser: 'raumteiler' | 'sichtRueckwandAussen'
+}> = [
+  { art: 'raumteiler', artikel: '90-037-0001', ausloeser: 'raumteiler' },
+  { art: 'sichtrueckwand', artikel: '90-037-0004', ausloeser: 'sichtRueckwandAussen' },
+]
+
+/**
+ * NACHGELAGERTE ZUSCHLÄGE — Stufe 2 der Kalkulation (Preisliste 06.2026).
+ *
+ * Montage (Art. 21033) und Lieferung regional (Art. 21032) rechnen auf den
+ * GESAMTMÖBELPREIS, jede für sich — nie aufeinander — und verändern den Möbelpreis nicht.
+ * Im Abschluss sind sie per Häkchen abwählbar (`Draft.pricingOptions`, Vorgabe: an).
+ */
+export const serviceZuschlaege: ReadonlyArray<{
+  art: 'montage' | 'lieferung'
+  artikel: string
+  /** Schalter in `Draft.pricingOptions`. */
+  option: 'montage' | 'lieferungRegional'
+}> = [
+  { art: 'montage', artikel: '90-039-0001', option: 'montage' },
+  { art: 'lieferung', artikel: '90-039-0002', option: 'lieferungRegional' },
+]
 
 /**
  * Ableitung der Preisgruppe aus Materialart und Farbsystem.

@@ -18,6 +18,8 @@
 
 import { herkunftFuer, getModul, type FeldHerkunft } from '../config/module.ts'
 import { dropdowns as alleDropdowns } from '../data/stammdaten.generated.ts'
+import { preisartTitel } from './preisartAnzeige.ts'
+import { preisartVon } from './preisLookup.ts'
 import {
   dropdownEintraege,
   getArtikel,
@@ -70,10 +72,9 @@ export interface InspektorBericht {
   preis: string[]
 }
 
-const PREISLOGIK_TEXT: Record<string, string> = {
-  MATRIX: 'Matrix-Lookup über die Preisachsen',
-  FESTPREIS: 'Festpreis, unabhängig von Achsen',
-  AUF_ANFRAGE: 'kein Preis hinterlegt — die Arbeitsvorbereitung klärt',
+/** Preisart im Klartext — Name aus „34 Preislogiken"; frühere Codes mit der abgeleiteten Preisart. */
+function preislogikText(a: Artikel): string {
+  return preisartTitel(preisartVon(a))
 }
 
 function findeDropdown(nr: string): Dropdown | undefined {
@@ -117,7 +118,7 @@ export function bericht(herkunft: FeldHerkunft, serieId: string | undefined): In
       nummer,
       bezeichnung: a?.bezeichnung || 'im Artikelstamm nicht gefunden',
       achsenText: a?.achsenText || '—',
-      preislogik: a ? (PREISLOGIK_TEXT[a.preislogik] ?? a.preislogik) : '—',
+      preislogik: a ? preislogikText(a) : '—',
       preiszeilen: preiseFuer(nummer).length,
       status: a?.status ?? 'unbekannt',
       freigabe: a ? freigabe(a, serieId) : 'nicht freigegeben',
@@ -195,7 +196,7 @@ export function berichtFuerDropdownCode(
       nummer: a.artikelnummer,
       bezeichnung: a.bezeichnung,
       achsenText: a.achsenText || '—',
-      preislogik: PREISLOGIK_TEXT[a.preislogik] ?? a.preislogik,
+      preislogik: preislogikText(a),
       preiszeilen: preiseFuer(a.artikelnummer).length,
       status: a.status,
       freigabe: freigabe(a, serieId),

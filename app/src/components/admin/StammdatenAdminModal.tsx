@@ -11,6 +11,9 @@ import {
 } from '../../data/stammdaten.generated.ts'
 import type { Oberflaeche, Oberflaechenkategorie, PreisgruppenFeld } from '../../types/index.ts'
 import { formatEuroOderLeer, formatGanzzahl } from '../../lib/format.ts'
+import { preisartTitel } from '../../lib/preisartAnzeige.ts'
+import { AUFSCHLAG_BASIS_KATALOG, aufschlagText, aufschlagVon } from '../../lib/preisarten.ts'
+import { preisartVon } from '../../lib/preisLookup.ts'
 import { PRICE_GROUP_LABEL } from '../../lib/materialFormat.ts'
 import { modusErlaubt } from '../../lib/modus.ts'
 import { exportiereXlsx, importiereXlsx } from '../../lib/stammdatenExport.ts'
@@ -102,6 +105,18 @@ const achsenBedeutung = (code: string) =>
 // Spaltendefinitionen
 // ---------------------------------------------------------------------------
 
+/**
+ * Preisart in der Tabelle: der Name aus „34 Preislogiken" — bei Aufschlägen mit Satz und
+ * Basis („Aufschlag · 10 % auf Gesamtmöbelpreis"), damit die Sätze ohne Öffnen lesbar sind.
+ * Frühere Codes (MATRIX aus Altständen) erscheinen mit der Preisart, nach der gerechnet wird.
+ */
+function preisartSpalte(a: Artikel): string {
+  const code = preisartVon(a)
+  const def = code === 'AUFSCHLAG' ? aufschlagVon(a) : null
+  if (def) return `${preisartTitel(code)} · ${aufschlagText(def)} auf ${AUFSCHLAG_BASIS_KATALOG[def.basis].titel}`
+  return preisartTitel(code)
+}
+
 const ARTIKEL_SPALTEN: SpaltenDef<Artikel>[] = [
   { id: 'artikelnummer', titel: 'Artikelnummer', breite: 132, mono: true, wert: (a) => a.artikelnummer },
   { id: 'kurzzeichen', titel: 'Kurzzeichen', breite: 96, mono: true, wert: (a) => a.kurzzeichen },
@@ -110,7 +125,7 @@ const ARTIKEL_SPALTEN: SpaltenDef<Artikel>[] = [
   { id: 'teileart', titel: 'Teileart', breite: 150, wert: (a) => a.teileart },
   { id: 'dropdown', titel: 'Dropdown', breite: 170, wert: (a) => a.dropdown },
   { id: 'modus', titel: 'Modus', breite: 96, mono: true, wert: (a) => a.modus },
-  { id: 'preislogik', titel: 'Preislogik', breite: 132, wert: (a) => a.preislogik },
+  { id: 'preislogik', titel: 'Preisart', breite: 250, wert: (a) => preisartSpalte(a) },
   { id: 'einheit', titel: 'Einheit', breite: 110, wert: (a) => a.einheit },
   { id: 'achsenText', titel: 'Achsen', breite: 195, wert: (a) => a.achsenText },
   { id: 'achse1', titel: 'Achse 1', breite: 108, standard: false, wert: (a) => a.achsen[0] ?? '' },
@@ -140,7 +155,7 @@ const PREIS_SPALTEN: SpaltenDef<PreisZeileMitKontext>[] = [
   { id: 'teileart', titel: 'Teileart', breite: 148, standard: false, wert: (r) => r.artikel?.teileart ?? '' },
   { id: 'dropdown', titel: 'Dropdown', breite: 158, standard: false, wert: (r) => r.artikel?.dropdown ?? '' },
   { id: 'modus', titel: 'Modus', breite: 92, mono: true, standard: false, wert: (r) => r.artikel?.modus ?? '' },
-  { id: 'preislogik', titel: 'Preislogik', breite: 130, standard: false, wert: (r) => r.artikel?.preislogik ?? '' },
+  { id: 'preislogik', titel: 'Preisart', breite: 170, standard: false, wert: (r) => (r.artikel ? preisartSpalte(r.artikel) : '') },
   { id: 'einheit', titel: 'Einheit', breite: 108, standard: false, wert: (r) => r.artikel?.einheit ?? '' },
   { id: 'achsen', titel: 'Achsen', breite: 185, standard: false, wert: (r) => r.artikel?.achsenText ?? '' },
   { id: 'a1', titel: 'A1', breite: 150, wert: (r) => r.zeile.a[0] },

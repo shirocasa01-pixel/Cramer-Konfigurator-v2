@@ -1,0 +1,231 @@
+/* Preisart-Editor der Artikelverwaltung — im Stil der Achsen-Box des Artikeldialogs. */
+
+.box {
+  padding: 14px 16px;
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  background: var(--color-surface-sunken);
+}
+
+.kopf {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.kopfHinweis {
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+/* --- Wahl der Preisart: sechs Karten, zwei bis drei je Zeile ------------------ */
+
+.wahl {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+  gap: 8px;
+}
+
+.option {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 12px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.option:hover {
+  border-color: var(--color-ink-muted);
+}
+
+.option:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 1px;
+}
+
+.optionAktiv,
+.optionAktiv:hover {
+  border-color: var(--color-accent);
+  box-shadow: inset 0 0 0 1px var(--color-accent);
+}
+
+.optionTitel {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.optionText {
+  font-size: 0.72rem;
+  line-height: 1.35;
+  color: var(--color-ink-muted);
+}
+
+.hinweis {
+  margin: 10px 0 0;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-ink-secondary);
+}
+
+.alt {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-focus) 14%, transparent);
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+/* --- Prüfung ------------------------------------------------------------------ */
+
+.ok {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--color-success);
+}
+
+.probleme {
+  margin: 0;
+  padding: 8px 12px 8px 28px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
+/* --- Felder (Aufschlag, Preisprobe) ------------------------------------------- */
+
+.aufschlagReihe,
+.probeReihe {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  align-items: flex-start;
+}
+
+.feld {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.feldBreit {
+  flex: 1 1 260px;
+}
+
+.label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+}
+
+.feldHinweis {
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--color-ink-muted);
+}
+
+.input,
+.einheit {
+  height: 34px;
+  padding: 0 10px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 8px;
+  background: var(--color-surface);
+  font: inherit;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+}
+
+.input:focus,
+.einheit:focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 0;
+}
+
+.wertMitEinheit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wertMitEinheit .input {
+  width: 96px;
+}
+
+.kurz {
+  width: 64px;
+}
+
+.einheitText {
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+/* --- Ergebnis der Preisprobe --------------------------------------------------- */
+
+.probeErgebnis {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.probeZeile {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) 1fr auto;
+  gap: 12px;
+  align-items: baseline;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-ink);
+}
+
+.aufschlagReihe + .probeZeile {
+  display: block;
+  margin-top: 10px;
+}
+
+.probeSumme {
+  margin-top: 4px;
+  padding-top: 5px;
+  border-top: 1px solid var(--color-line-strong);
+  font-weight: 600;
+}
+
+.rechnung {
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.betrag {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.probeOffen {
+  margin: 10px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-danger);
+}

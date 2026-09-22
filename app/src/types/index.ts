@@ -584,8 +584,15 @@ export interface AusstattungAuswahl {
 /** Woher eine Preisposition stammt — entscheidend für die Transparenz zum Berater. */
 export type PositionsHerkunft = 'gewaehlt' | 'abgeleitet' | 'zuschlag'
 
-/** Welcher prozentuale Aufschlag eine Zuschlags-Position ist (alle auf den Möbelpreis). */
+/** Welcher Aufschlag eine Zuschlags-Position ist. */
 export type ZuschlagArt = 'montage' | 'lieferung' | 'raumteiler' | 'sichtrueckwand'
+
+/**
+ * In welcher Stufe der Kalkulation ein Aufschlag steht:
+ *   `artikel`  artikelbezogen, auf den Möbelpreis — gehört zum Gesamtmöbelpreis
+ *   `service`  nachgelagert (Montage, Lieferung), auf den Gesamtmöbelpreis
+ */
+export type ZuschlagStufe = 'artikel' | 'service'
 
 /** „auf-anfrage" ⇒ es gab keine Preiszeile; der Betrag wurde NIE geschätzt. */
 export type PositionsStatus = 'berechnet' | 'auf-anfrage'
@@ -632,6 +639,12 @@ export interface PricingSnapshotPosition {
   hinweis?: string
   /** Nur bei Zuschlägen; fehlt in Snapshots, die vor Einführung des Felds entstanden. */
   zuschlagArt?: ZuschlagArt
+  /** Nur bei Zuschlägen; fehlt in Snapshots vor der zweistufigen Kalkulation (09/2026). */
+  zuschlagStufe?: ZuschlagStufe
+  /** Preisart des Artikels (FESTPREIS, MATRIX_STUFE, …) zum Einfrier-Zeitpunkt. */
+  preisart?: string
+  /** Artikelnummer der gedruckten Preisliste (z. B. 21033 Montage). */
+  preislistenNr?: string
   /**
    * Teilpositionen, wenn sich der Betrag aus mehreren Bezugsgrößen zusammensetzt —
    * etwa einem Grundpreis und einem Preis je Quadratmeter. Fehlt das Feld oder enthält
@@ -696,10 +709,17 @@ export interface PricingSnapshot {
   gueltigkeit: string
   waehrung: string
   positionen: PricingSnapshotPosition[]
+  /** Alle Aufschläge — artikelbezogene und nachgelagerte (`zuschlagStufe`). */
   zuschlaege: PricingSnapshotPosition[]
-  /** Summe der Bauteil-Positionen (ohne Zuschläge). */
+  /** Summe der Bauteil-Positionen (ohne Zuschläge) — „Artikel und Ausstattung". */
   moebelpreis: number
-  /** Möbelpreis + alle Zuschläge. */
+  /**
+   * Möbelpreis + artikelbezogene Aufschläge — die Basis von Montage und Lieferung.
+   * Fehlt in Snapshots vor der zweistufigen Kalkulation; dort lässt er sich aus den
+   * Zuschlägen zurückrechnen (`aufgeloestePreise`).
+   */
+  gesamtmoebelpreis?: number
+  /** Gesamtmöbelpreis + Montage + Lieferung. */
   gesamt: number
   offenePositionen: number
   /** false ⇒ beim Einfrieren waren Positionen offen; der Betrag stand unter Vorbehalt. */
@@ -832,7 +852,8 @@ export interface Draft {
 
   // --- Phase 8 (Preis-Transparenz) ---
   /**
-   * Service-Aufschläge auf den Möbelpreis (Montage +10 %, Lieferung regional +3 %).
+   * Nachgelagerte Zuschläge auf den GESAMTMÖBELPREIS (Montage, Lieferung regional — Sätze
+   * im jeweiligen Artikel der Artikelverwaltung, Vorgabe 10 % / 3 %).
    * Fehlt das Feld oder ein Schalter, gilt er als AN — siehe `preisOptionen()` in
    * lib/kalkulation.ts. Abgewählt wird im Abschluss per Checkbox.
    */

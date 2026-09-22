@@ -17,10 +17,10 @@
  * die Kopie nicht stillschweigend mit alten Preisen weiterläuft.
  */
 
-import { berechneEntwurf, type KalkMeldung } from './kalkulation.ts'
-import { parseVkPreis } from './pricing.ts'
+import { berechneEntwurf, type KalkMeldung, type ServiceAuswahl } from './kalkulation.ts'
+import { parseEingabeDe } from './format.ts'
 import { getStammdatenStand } from './stammdatenStore.ts'
-import type { Draft, PricingSnapshot, PricingSnapshotPosition } from '../types/index.ts'
+import type { Draft, PricingSnapshot, PricingSnapshotPosition, ZuschlagStufe } from '../types/index.ts'
 
 /** true ⇒ abgeschlossener Auftrag (nicht mehr neu rechnen). */
 export function istFinalisiert(draft: Draft): boolean {
@@ -45,12 +45,22 @@ export function erzeugePricingSnapshot(draft: Draft, frozenAt: string): PricingS
     positionen: ergebnis.positionen,
     zuschlaege: ergebnis.zuschlaege,
     moebelpreis: ergebnis.moebelpreis,
+    gesamtmoebelpreis: ergebnis.gesamtmoebelpreis,
     gesamt: ergebnis.gesamt,
     offenePositionen: ergebnis.offenePositionen,
     vollstaendig: ergebnis.vollstaendig,
     vkPreis: draft.vkPreis,
-    vkPreisNumerisch: parseVkPreis(draft.vkPreis),
+    vkPreisNumerisch: parseEingabeDe(draft.vkPreis),
   }
+}
+
+/**
+ * Stufe eines Zuschlags. Snapshots vor der zweistufigen Kalkulation (09/2026) tragen sie
+ * nicht — dort ergibt sie sich aus der Art: Montage und Lieferung sind nachgelagert.
+ */
+export function stufeVon(z: PricingSnapshotPosition): ZuschlagStufe {
+  if (z.zuschlagStufe) return z.zuschlagStufe
+  return z.zuschlagArt === 'montage' || z.zuschlagArt === 'lieferung' ? 'service' : 'artikel'
 }
 
 /**
@@ -105,8 +115,23 @@ export interface AufgeloestePreise {
    */
   snapshotFehlt: boolean
   positionen: PricingSnapshotPosition[]
+  /** Beide Stufen zusammen, wie im Snapshot. */
   zuschlaege: PricingSnapshotPosition[]
+  /** Stufe 1: artikelbezogene Aufschläge auf den Möbelpreis. */
+  artikelAufschlaege: PricingSnapshotPosition[]
+  /** Stufe 2: Montage und Lieferung — nur die berechneten. */
+  serviceZuschlaege: PricingSnapshotPosition[]
+  /**
+   * Stufe 2 mit Schalterstellung — nur live gerechnet. Ein eingefrorener Auftrag kennt
+   * abgewählte Zuschläge nicht mehr; die Liste ist dann leer.
+   */
+  serviceAuswahl: ServiceAuswahl[]
+  /** „Artikel und Ausstattung" — Summe der Positionen. */
   moebelpreis: number
+  summeArtikelAufschlaege: number
+  /** Möbelpreis + artikelbezogene Aufschläge. */
+  gesamtmoebelpreis: number
+  /** Gesamtmöbelpreis + Montage + Lieferung. */
   gesamt: number
   offenePositionen: number
   vollstaendig: boolean
@@ -130,13 +155,23 @@ export function aufgeloestePreise(draft: Draft): AufgeloestePreise {
   const finalisiert = istFinalisiert(draft)
 
   if (finalisiert && snapshot) {
+    const artikelAufschlaege = snapshot.zuschlaege.filter((z) => stufeVon(z) === 'artikel')
+    const summeArtikelAufschlaege =
+      Math.round(artikelAufschlaege.reduce((s, z) => s + (z.gesamt ?? 0), 0) * 100) / 100
     return {
       herkunft: 'snapshot',
       frozenAt: snapshot.frozenAt,
       snapshotFehlt: false,
       positionen: snapshot.positionen,
       zuschlaege: snapshot.zuschlaege,
+      artikelAufschlaege,
+      serviceZuschlaege: snapshot.zuschlaege.filter((z) => stufeVon(z) === 'service'),
+      serviceAuswahl: [],
       moebelpreis: snapshot.moebelpreis,
+      summeArtikelAufschlaege,
+      // Ältere Snapshots tragen die Zwischensumme nicht — sie ergibt sich aus den Zuschlägen.
+      gesamtmoebelpreis:
+        snapshot.gesamtmoebelpreis ?? Math.round((snapshot.moebelpreis + summeArtikelAufschlaege) * 100) / 100,
       gesamt: snapshot.gesamt,
       offenePositionen: snapshot.offenePositionen,
       vollstaendig: snapshot.vollstaendig,
@@ -152,7 +187,12 @@ export function aufgeloestePreise(draft: Draft): AufgeloestePreise {
     snapshotFehlt: finalisiert,
     positionen: ergebnis.positionen,
     zuschlaege: ergebnis.zuschlaege,
+    artikelAufschlaege: ergebnis.artikelAufschlaege,
+    serviceZuschlaege: ergebnis.serviceZuschlaege,
+    serviceAuswahl: ergebnis.serviceAuswahl,
     moebelpreis: ergebnis.moebelpreis,
+    summeArtikelAufschlaege: ergebnis.summeArtikelAufschlaege,
+    gesamtmoebelpreis: ergebnis.gesamtmoebelpreis,
     gesamt: ergebnis.gesamt,
     offenePositionen: ergebnis.offenePositionen,
     vollstaendig: ergebnis.vollstaendig,

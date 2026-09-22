@@ -144,7 +144,9 @@ export function Handbuch() {
               <tr><td className={styles.mono}>Teileart</td><td>Block 1 — der Hauptschritt im Konfigurator.</td></tr>
               <tr><td className={styles.mono}>Dropdown</td><td>Block 2 — <strong>die wichtigste Angabe</strong>. Sie entscheidet, in welchem Auswahlfeld der Artikel auftaucht.</td></tr>
               <tr><td className={styles.mono}>Modus</td><td>Für welche Serien freigegeben. GROSS = Standard, klein = Sonderanfertigung (Abschnitt 7).</td></tr>
-              <tr><td className={styles.mono}>Preislogik</td><td>Wie der Preis entsteht — es gibt nur noch drei Werte: Festpreis, Matrix, auf Anfrage (Abschnitt 7a).</td></tr>
+              <tr><td className={styles.mono}>Preisart</td><td>Wie der Preis entsteht — sechs Preisarten: Festpreis, Matrix – Stufenpreis, Matrix – Maßgenau, Festpreis + Matrix, Aufschlag, Auf Anfrage (Abschnitt 7a). Spalte „Preislogik" in der Mappe.</td></tr>
+              <tr><td className={styles.mono}>Aufschlag · Einheit · Basis</td><td>Nur bei Preisart Aufschlag: Satz bzw. Betrag, % oder €, und worauf er rechnet — Möbelpreis (artikelbezogen) oder Gesamtmöbelpreis (Montage, Lieferung).</td></tr>
+              <tr><td className={styles.mono}>Preislisten-Nr.</td><td>Artikelnummer der gedruckten Preisliste bzw. des ERP (z. B. 21033 Montage). Wird in Kalkulation und PDF mitgedruckt.</td></tr>
               <tr><td className={styles.mono}>Einheit</td><td>Stück, lfm, m², %. Bestimmt, womit die Menge multipliziert wird.</td></tr>
               <tr><td className={styles.mono}>Achsen · Achse 1–5</td><td>Was die Spalten A1–A5 der Preiszeilen bei <em>diesem</em> Artikel bedeuten (Abschnitt 8).</td></tr>
               <tr><td className={styles.mono}>Preiszellen</td><td>Wie viele Preiswerte laut Grundstand zu erwarten sind — Kontrollzahl gegen Lücken.</td></tr>
@@ -307,7 +309,7 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
               </tr>
               <tr>
                 <td><strong>Klassifikation &amp; Status</strong></td>
-                <td>Teileart, Dropdown, Preislogik, Status, Sortierung, Modus (Serien-Freigabe)</td>
+                <td>Teileart, Dropdown, Status, Sortierung, Modus (Serien-Freigabe) — die Preisart steht im Reiter „Preisart &amp; Preise"</td>
                 <td>
                   Hier entscheidet sich <strong>ob und wo</strong> der Artikel überhaupt erscheint.
                   Das <strong>Dropdown</strong> bestimmt das Auswahlfeld, der <strong>Modus</strong>{' '}
@@ -522,48 +524,61 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
 
         {/* ---------------------------------------------------------------- */}
         <section className={styles.abschnitt}>
-          <h3 className={styles.h2}>7a · Preislogik — es gibt nur noch drei</h3>
+          <h3 className={styles.h2}>7a · Preisarten — sechs klar getrennte Rechenweisen</h3>
           <p>
-            Früher stand jede Rechenart als eigene Preislogik im Stamm: Satzpreis, pro laufendem
-            Meter, pro Quadratmeter, Grundpreis plus Quadratmeter, drei Prozent-Varianten. Das sah
-            bequem aus, war aber ein Mischsystem — was ein Betrag bedeutete, stand halb in der
-            Preislogik und halb im Einheitentext („EUR/Stk zzgl. 525 EUR/m²"), und gerechnet wurde
-            davon nichts.
+            Jeder Artikel trägt genau eine Preisart. Sie steht im Artikeldialog oben im Reiter
+            „Preisart &amp; Preise"; darunter prüft die Verwaltung, ob die Preiszeilen zur Preisart
+            passen, und die <strong>Preisprobe</strong> rechnet ein eingegebenes Maß mit derselben
+            Engine wie die Kalkulation — noch vor dem Speichern.
           </p>
           <table className={styles.tabelle}>
             <thead>
               <tr>
-                <th>Preislogik</th>
-                <th>Bedeutung</th>
+                <th>Preisart</th>
+                <th>Funktionsweise</th>
               </tr>
             </thead>
             <tbody>
               {preislogiken.map((p) => (
                 <tr key={p.code}>
-                  <td className={styles.mono}>{p.code}</td>
+                  <td>{p.bezeichnung}</td>
                   <td>{p.bedeutung}</td>
                 </tr>
               ))}
             </tbody>
           </table>
           <p>
-            Alles andere ist jetzt eine <strong>Achse</strong>. Die Achse{' '}
-            <code className={styles.mono}>PREISART</code> sagt, worauf sich ein Betrag bezieht, und
-            die Maßachsen sagen, welches Maß die Menge liefert. Ein Artikel mit Grundpreis
-            <em> und</em> Quadratmeterpreis führt deshalb schlicht zwei Preiszeilen — und die
-            Kalkulation zeigt beide:
+            <strong>Stufenpreis und Maßgenau</strong> unterscheiden sich nur darin, wie ein Maß gelesen
+            wird. Beim Stufenpreis geht ein Zwischenmaß auf die nächste <em>hinterlegte</em> Stufe
+            (Korpus 55 cm → 60er-Zeile); über der größten Stufe ist es ein Sondermaß für die AV. Bei
+            Maßgenau zählt das tatsächliche Maß — Betrag je Einheit (Achse{' '}
+            <code className={styles.mono}>PREISART</code>: €/cm · €/m · €/m²) × Maß. Es wird weder
+            aufgerundet noch zwischen zwei Preiszeilen interpoliert.
+          </p>
+          <p>
+            <strong>Festpreis + Matrix</strong> führt zwei Preiszeilen — eine „Fixpreis" (Grundpreis) und
+            eine je Einheit (variabler Preis). Die Kalkulation zeigt beide Teile und ihre Summe:
           </p>
           <pre className={styles.schema}>
-            {`Wandpaneele                       Menge        Preis        Summe
-   PREISART = Fixpreis            1        ×   75,00 €
-   PREISART = €/m²             1,48 m²     ×  150,00 €     297,00 €`}
+            {`Wandsteckboden                    Menge        Preis        Summe
+   Grundpreis                      1        ×   75,00 €
+   variabler Preis              1,5 m       ×  180,00 €/m     345,00 €`}
           </pre>
           <p>
-            <strong>Prozentuale Zuschläge sind ersatzlos gestrichen.</strong> Der Konfigurator weist
-            den Listenpreis aus; ob und wie viel darauf kommt, entscheidet die Verkäuferin oder der
-            Verkäufer im Abschluss über den Angebotspreis — dort stehen kalkulierter Preis und
-            Angebotspreis ohnehin nebeneinander. Montage und regionale Lieferung bleiben davon
-            unberührt: Das sind Service-Aufschläge, ihre Sätze stehen in „50 Meta".
+            <strong>Aufschlag</strong> hat keine Preiszeilen, sondern einen Satz (%) bzw. Betrag (€) und
+            eine Preisbasis. Die Kalkulation rechnet in zwei Stufen: Erst ergeben alle Positionen
+            („Artikel und Ausstattung") plus die <em>artikelbezogenen</em> Aufschläge auf den
+            Möbelpreis — Raumteiler, Sichtrückwand — den <strong>Gesamtmöbelpreis</strong>. Erst danach
+            kommen Montage (Art. 90-039-0001, Preisliste 21033, Vorgabe 10 %) und Lieferung regional
+            (90-039-0002, Preisliste 21032, Vorgabe 3 %), jede für sich auf den Gesamtmöbelpreis — nie
+            aufeinander. Ihre Sätze ändert man im jeweiligen Artikel; sie gelten nach „Speichern" auf
+            allen Geräten.
+          </p>
+          <p>
+            Die übrigen Prozent-Artikel (wandhängende Kastenmöbel, Überhöhe) bleiben
+            „Auf Anfrage": Ob darauf etwas kommt, entscheidet die Verkäuferin oder der Verkäufer im
+            Abschluss über den Angebotspreis. Die Überhöhe steckt ohnehin schon in den
+            21-Raster-Preiszeilen.
           </p>
           <p>
             <strong>Aufpreis-Artikel sind aufgelöst.</strong> Wo früher ein eigener Artikel nur einen

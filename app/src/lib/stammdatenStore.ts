@@ -722,7 +722,11 @@ export function istOberflaecheGeaendert(schluessel: string): boolean {
 // Artikel
 // ---------------------------------------------------------------------------
 
-const NUMMERN_MUSTER = /^\d{2}-\d{2}-\d{2}-\d{4}$/
+/**
+ * Artikelnummer TT-DDD-NNNN (ARTIKELNUMMER-LOGIK.md). Bis 09/2026 prüfte der Store noch
+ * das alte Vier-Block-Schema — „Neuer Artikel" lehnte damit jede gültige Nummer ab.
+ */
+const NUMMERN_MUSTER = /^\d{2}-\d{3}-\d{4}$/
 
 /** Ändert Felder eines Artikels. Die Artikelnummer selbst bleibt unveränderlich. */
 export function aendereArtikel(artikelnummer: string, patch: Partial<Artikel>): void {
@@ -743,7 +747,7 @@ export function aendereArtikel(artikelnummer: string, patch: Partial<Artikel>): 
  */
 export function legeArtikelAn(neu: Artikel): string | null {
   if (!NUMMERN_MUSTER.test(neu.artikelnummer)) {
-    return 'Die Artikelnummer muss dem Muster TT-PP-GG-NNNN entsprechen (z. B. 30-30-05-0016).'
+    return 'Die Artikelnummer muss dem Muster TT-DDD-NNNN entsprechen (z. B. 90-039-0003).'
   }
   if (stand.artikel.some((a) => a.artikelnummer === neu.artikelnummer)) {
     return `Die Artikelnummer ${neu.artikelnummer} ist bereits vergeben.`
@@ -773,16 +777,17 @@ export function loescheArtikel(artikelnummer: string): void {
 }
 
 /**
- * Nächste freie Artikelnummer im selben Nummernkreis (`TT-PP-GG-` bleibt, `NNNN` zählt hoch).
+ * Nächste freie Artikelnummer im selben Nummernkreis (`TT-DDD-` bleibt, `NNNN` zählt hoch).
  * Das folgt der Systematik aus ARTIKELNUMMER-LOGIK.md: die laufende Nummer ist fortlaufend,
- * die Klassifikationsblöcke bleiben unangetastet.
+ * die Klassifikationsblöcke bleiben unangetastet. (Bis 09/2026 erwartete die Funktion noch
+ * vier Blöcke — „Duplizieren" meldete deshalb bei jedem Artikel „keine Nummer mehr frei".)
  */
 export function naechsteFreieNummer(vorlage: string): string {
   const teile = vorlage.split('-')
-  if (teile.length !== 4) return ''
-  const praefix = teile.slice(0, 3).join('-')
+  if (teile.length !== 3) return ''
+  const praefix = teile.slice(0, 2).join('-')
   const vergeben = new Set(stand.artikel.map((a) => a.artikelnummer))
-  for (let n = Number(teile[3]) + 1; n <= 9999; n++) {
+  for (let n = Number(teile[2]) + 1; n <= 9999; n++) {
     const kandidat = `${praefix}-${String(n).padStart(4, '0')}`
     if (!vergeben.has(kandidat)) return kandidat
   }

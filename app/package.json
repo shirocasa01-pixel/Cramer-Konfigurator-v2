@@ -31,7 +31,9 @@
     "praxis:test": "node scripts/check-praxistest.js",
     "sync:test": "node scripts/check-system-sync.js",
     "data:migrate-ue89": "node scripts/migrate-ueberarbeitung-8-9.js",
-    "ue89:test": "node scripts/check-ueberarbeitung-8-9.js"
+    "ue89:test": "node scripts/check-ueberarbeitung-8-9.js",
+    "data:migrate-preisarten": "node scripts/migrate-preisarten.js",
+    "preisart:test": "node scripts/check-preisarten.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

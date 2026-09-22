@@ -92,6 +92,12 @@ const ARTIKEL_SPALTEN: [string, (a: Artikel) => string][] = [
   ['Sortierung', (a) => String(a.sortierung ?? '')],
   ['Quelle', (a) => a.quelle],
   ['Bemerkung', (a) => a.bemerkung],
+  // Seit der Preisarten-Überarbeitung: Aufschlag (nur Preisart AUFSCHLAG) und die
+  // Artikelnummer der gedruckten Preisliste — dieselben Spalten wie in der Mappe.
+  ['Aufschlag', (a) => (a.aufschlag == null ? '' : String(a.aufschlag))],
+  ['Aufschlag-Einheit', (a) => a.aufschlagEinheit ?? ''],
+  ['Aufschlag-Basis', (a) => a.aufschlagBasis ?? ''],
+  ['Preislisten-Nr.', (a) => a.preislistenNr ?? ''],
 ]
 
 const PREIS_SPALTEN: [string, (p: Preiszeile, a: Artikel | undefined) => string][] = [
@@ -269,6 +275,10 @@ function leseArtikelBlatt(blatt: GelesenesBlatt, meldungen: string[]): Artikel[]
       sortierung: parseDezimal(z['Sortierung']),
       quelle: z['Quelle'] ?? '',
       bemerkung: z['Bemerkung'] ?? '',
+      aufschlag: parseDezimal(z['Aufschlag']),
+      aufschlagEinheit: (z['Aufschlag-Einheit'] ?? '').trim(),
+      aufschlagBasis: (z['Aufschlag-Basis'] ?? '').trim(),
+      preislistenNr: (z['Preislisten-Nr.'] ?? '').trim(),
     })
   }
   const doppelt = artikel.length - new Set(artikel.map((a) => a.artikelnummer)).size

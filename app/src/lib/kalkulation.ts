@@ -7,10 +7,13 @@
  *   2. ABLEITEN        Mittelseiten und Außenset ergänzen – der Berater wählt sie nie,
  *                      sie folgen aus dem Aufbau
  *   3. PRÜFEN          Plausibilität, Sondermaße, fehlende Angaben
- *   4. BEPREISEN       je Position ein Lookup über die Artikelnummer; kein Treffer ⇒
- *                      „auf Anfrage", niemals geraten
- *   5. MÖBELPREIS      Summe aller Bauteil-Positionen
- *   6. ZUSCHLÄGE       % auf den Möbelpreis: Montage, Lieferung, Raumteiler, Sichtrückwand
+ *   4. BEPREISEN       je Position ein Lookup über die Artikelnummer, gerechnet nach der
+ *                      Preisart des Artikels; kein Treffer ⇒ „auf Anfrage", niemals geraten
+ *   5. MÖBELPREIS      Summe aller Bauteil-Positionen („Artikel und Ausstattung") plus die
+ *                      ARTIKELBEZOGENEN Aufschläge (Raumteiler, Sichtrückwand) auf diesen
+ *                      Betrag  ⇒  GESAMTMÖBELPREIS
+ *   6. ZUSCHLÄGE       erst danach Montage und Lieferung, jede für sich auf den
+ *                      Gesamtmöbelpreis — nie aufeinander, der Möbelpreis bleibt unberührt
  *   7. ERGEBNIS        Positionen + Summen + Meldungen + Vollständigkeitsstatus
  *
  * Drei Prinzipien sind durchgehalten:
@@ -32,6 +35,7 @@
 import { equipmentAnzeigename, getEquipmentOption, type EquipmentOption } from '../config/equipment.ts'
 import {
   anzahlMittelseiten,
+  artikelAufschlaege,
   ausstattungLookups,
   containerLookups,
   containerRaster,
@@ -41,11 +45,12 @@ import {
   griffImFrontpreisEnthalten,
   liniePgAchsenwert,
   schubHoeheCm,
+  serviceZuschlaege,
   verblendungLookups,
   type BauteilLookup,
   type SerienRegel,
 } from '../config/preisMapping.ts'
-import { meta } from '../data/stammdaten.generated.ts'
+import { meta, type Artikel, type Preiszeile } from '../data/stammdaten.generated.ts'
 import { pruefeSpalte, segmentGeometrie } from './frontGeometrie.ts'
 import {
   formatLfm,
@@ -57,15 +62,26 @@ import {
   verblendungSeitenText,
 } from './korpusMass.ts'
 import {
+  artikelImDropdown,
   findePreis,
+  findePreisIn,
   getArtikelNr,
   hoeheFuerRasterEtikett,
+  preisartVon,
   verfuegbareRaster,
   verfuegbareTiefen,
   type AufgelloesteAchse,
   type MassRichtung,
 } from './preisLookup.ts'
 import { PREISARTEN, cmText, preisartEinheit, type Preisart } from './preisAchsen.ts'
+import {
+  AUFSCHLAG_BASIS_KATALOG,
+  aufschlagText,
+  aufschlagVon,
+  type AufschlagBasis,
+  type PreisartCode,
+} from './preisarten.ts'
+import { formatEuro } from './format.ts'
 import { NENNMASS_TOLERANZ_MM, hoeheFuerRaster, korpusOffsetMm, loeseRasterAuf } from './raster.ts'
 import type {
   Draft,
@@ -77,12 +93,13 @@ import type {
   PriceGroup,
   SegmentEquipmentItem,
   ZuschlagArt,
+  ZuschlagStufe,
 } from '../types/index.ts'
 
-// Beide Aufzählungen liegen zentral in `types/index.ts`, weil der Preis-Snapshot
+// Die Aufzählungen liegen zentral in `types/index.ts`, weil der Preis-Snapshot
 // (eingefrorene Aufträge) dieselben Werte trägt. Re-Export, damit bestehende
 // Importe aus diesem Modul unverändert weiterlaufen.
-export type { PositionsHerkunft, PositionsStatus, ZuschlagArt }
+export type { PositionsHerkunft, PositionsStatus, ZuschlagArt, ZuschlagStufe }
 
 // ---------------------------------------------------------------------------
 // Ergebnis-Typen
@@ -118,6 +135,12 @@ export interface KalkPosition {
   hinweis?: string
   /** Nur bei Zuschlägen: welcher Aufschlag — die Abschlussseite hängt ihre Checkboxen daran. */
   zuschlagArt?: ZuschlagArt
+  /** Nur bei Zuschlägen: artikelbezogen (Stufe 1) oder nachgelagert (Stufe 2). */
+  zuschlagStufe?: ZuschlagStufe
+  /** Preisart des Artikels, nach der gerechnet wurde (FESTPREIS, MATRIX_STUFE, …). */
+  preisart?: PreisartCode
+  /** Artikelnummer der gedruckten Preisliste (z. B. 21033 Montage). */
+  preislistenNr?: string
   /**
    * Teilpositionen, wenn der Betrag aus mehreren Bezugsgrößen entsteht (Grundpreis +
    * Preis je m² o. Ä.). Bei einer gewöhnlichen Stückposition enthält die Liste genau
@@ -148,12 +171,31 @@ export interface KalkMeldung {
   text: string
 }
 
+/** Ein nachgelagerter Zuschlag mit seinem Schalter — auch abgewählt, mit dem Betrag, den er kosten würde. */
+export interface ServiceAuswahl {
+  art: 'montage' | 'lieferung'
+  option: 'montage' | 'lieferungRegional'
+  aktiv: boolean
+  position: KalkPosition
+}
+
 export interface KalkErgebnis {
   positionen: KalkPosition[]
+  /** Stufe 1: artikelbezogene Aufschläge auf den Möbelpreis. */
+  artikelAufschlaege: KalkPosition[]
+  /** Stufe 2: nachgelagerte Zuschläge auf den Gesamtmöbelpreis — nur die angehakten. */
+  serviceZuschlaege: KalkPosition[]
+  /** Alle Stufe-2-Zuschläge mit Schalterstellung, für die Häkchen im Abschluss. */
+  serviceAuswahl: ServiceAuswahl[]
+  /** Beide Stufen zusammen — so steht es im Preis-Snapshot. */
   zuschlaege: KalkPosition[]
-  /** Summe der Bauteil-Positionen (ohne Zuschläge). */
+  /** Summe der Bauteil-Positionen („Artikel und Ausstattung"), ohne jeden Aufschlag. */
   moebelpreis: number
-  /** Möbelpreis + alle Zuschläge. */
+  /** Summe der artikelbezogenen Aufschläge. */
+  summeArtikelAufschlaege: number
+  /** Möbelpreis + artikelbezogene Aufschläge — die Basis von Montage und Lieferung. */
+  gesamtmoebelpreis: number
+  /** Gesamtmöbelpreis + Montage + Lieferung (soweit angehakt). */
   gesamt: number
   meldungen: KalkMeldung[]
   offenePositionen: number
@@ -329,6 +371,7 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     teileart: stamm?.teileart,
     dropdown: stamm?.dropdown,
     einheit: stamm?.einheit,
+    preisart: stamm ? preisartVon(stamm) : undefined,
     menge: eingabe.menge,
   }
 
@@ -349,6 +392,9 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     hinweise.push(`Sondermaß: bepreist mit der nächstgrößeren Stufe ${ergebnis.gewaehlteStufen.join(' · ')}.`)
   }
 
+  // „Festpreis + Matrix": beide Teile tragen ihren Namen, damit die Position zeigt, wie
+  // Grundpreis und variabler Preis zusammenkommen (75 € + 1,5 m × 180 €/m = 345 €).
+  const kombiniert = ergebnis.preisart === 'FEST_PLUS_MATRIX'
   const teile: KalkTeil[] = []
   for (const teil of ergebnis.teile) {
     const menge = mengeFuerPreisart(teil.preisart, eingabe, ergebnis.mengenachsen)
@@ -358,6 +404,7 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
       )
     }
     teile.push({
+      ...(kombiniert ? { bezeichnung: teil.preisart === PREISARTEN.FIX ? 'Grundpreis' : 'variabler Preis' } : {}),
       menge: menge.menge,
       mengeText: menge.text,
       preis: teil.preis,
@@ -370,6 +417,7 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
 
   return {
     ...gemeinsam,
+    preisart: ergebnis.preisart,
     achsen: ergebnis.achsen,
     seite: ergebnis.teile[0].seite,
     // Einzelpreis bleibt der Betrag der ERSTEN Teilposition; bei mehreren Bezugsgrößen
@@ -379,6 +427,74 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     status: 'berechnet',
     hinweis: hinweise.filter(Boolean).join(' ') || undefined,
     teile,
+  }
+}
+
+/** Eingaben der Preisprobe: Maße in cm, Merkmale als Achsenwert. */
+export interface ProbeEingabe {
+  breiteCm?: number
+  hoeheCm?: number
+  tiefeCm?: number
+  laengeCm?: number
+  pg?: string
+  liniePg?: string
+  menge?: number
+}
+
+export type ProbeErgebnis =
+  | { status: 'berechnet'; preisart: PreisartCode; teile: KalkTeil[]; gesamt: number; hinweis?: string }
+  | { status: 'auf-anfrage'; grund: string }
+
+/**
+ * PREISPROBE — ein Artikel samt Preiszeilen, durchgerechnet wie in der Kalkulation.
+ *
+ * Die Artikelverwaltung rechnet damit den ungespeicherten Formularstand: gleicher Lookup
+ * (`findePreisIn`), gleiche Mengenrechnung (`mengeFuerPreisart`), gleiche Rundung. Was die
+ * Probe zeigt, zeigt deshalb auch die Kalkulation — sobald gespeichert ist.
+ */
+export function bepreiseProbe(
+  artikel: Artikel,
+  zeilen: readonly Preiszeile[],
+  probe: ProbeEingabe,
+): ProbeErgebnis {
+  const ergebnis = findePreisIn(artikel, zeilen, probe)
+  if (ergebnis.status === 'auf-anfrage') return { status: 'auf-anfrage', grund: ergebnis.grund }
+  const eingabe: PositionsEingabe = {
+    lookup: { artikel: artikel.artikelnummer },
+    menge: probe.menge ?? 1,
+    bucket: 'innen',
+    herkunft: 'gewaehlt',
+    breiteCm: probe.breiteCm,
+    hoeheCm: probe.hoeheCm,
+    tiefeCm: probe.tiefeCm,
+    laengeCm: probe.laengeCm,
+  }
+  const teile: KalkTeil[] = []
+  for (const teil of ergebnis.teile) {
+    const menge = mengeFuerPreisart(teil.preisart, eingabe, ergebnis.mengenachsen)
+    if (!menge) return { status: 'auf-anfrage', grund: `Für die Bezugsgröße ${teil.preisart} fehlt das zugehörige Maß.` }
+    teile.push({
+      ...(ergebnis.preisart === 'FEST_PLUS_MATRIX'
+        ? { bezeichnung: teil.preisart === PREISARTEN.FIX ? 'Grundpreis' : 'variabler Preis' }
+        : {}),
+      menge: menge.menge,
+      mengeText: menge.text,
+      preis: teil.preis,
+      preisEinheit: preisartEinheit(teil.preisart),
+      gesamt: runde2(teil.preis * menge.menge),
+    })
+  }
+  return {
+    status: 'berechnet',
+    preisart: ergebnis.preisart,
+    teile,
+    gesamt: runde2(teile.reduce((s, t) => s + t.gesamt, 0)),
+    hinweis:
+      ergebnis.aufgerundet && ergebnis.gewaehlteStufen.length
+        ? `Auf die hinterlegte Stufe ${ergebnis.gewaehlteStufen.join(' · ')} gehoben.`
+        : ergebnis.gewaehlteStufen.length
+          ? `Stufe ${ergebnis.gewaehlteStufen.join(' · ')}.`
+          : undefined,
   }
 }
 
@@ -972,6 +1088,9 @@ function baueFrontPositionen(
               bucket: 'upgrade',
               herkunft: 'gewaehlt',
               segment,
+              // Die Grifflänge (Edge: € je laufendem Meter) erfasst der Entwurf nicht. Sie
+              // wird bewusst NICHT aus der Fronthöhe geraten — die Preisliste sagt „bei
+              // Drehtüren kürzbar". Ohne Länge bleibt die Position „auf Anfrage".
               hinweis: el.label ? `zu „${el.label}"` : undefined,
             }),
           )
@@ -987,33 +1106,22 @@ function baueFrontPositionen(
  * Griff-ID des Konfigurators → Artikelnummer.
  *
  * Der Katalog in `config/handles.ts` führt IDs wie `nr127`; der Stamm führt sie als
- * Artikel der Gruppe GRIFF. Die Zuordnung läuft über die Nummer im Namen, damit ein
+ * Artikel des Dropdowns GRIFF. Die Zuordnung läuft über die Nummer im Namen, damit ein
  * neuer Griff in der Mappe ohne Code-Änderung gefunden wird.
+ *
+ * Bis 09/2026 suchte diese Funktion noch im alten Vier-Block-Schema (`30-30-05-…`) und
+ * fand deshalb keinen einzigen Griff — der Edge-Griff (40 €/lfm) blieb unbemerkt ohne
+ * Preis. Seitdem über das Dropdown, unabhängig vom Nummernschema.
  */
 function griffArtikelnummer(griffId: string): string | undefined {
   const nummer = /^nr(\d+)$/i.exec(griffId)?.[1]
-  const stamm = griffArtikel()
+  const stamm = artikelImDropdown('GRIFF')
   if (nummer) {
     const treffer = stamm.find((a) => new RegExp(`\\bNr\\.\\s*${nummer}\\b`, 'i').test(a.bezeichnung))
     if (treffer) return treffer.artikelnummer
   }
   if (griffId === 'edge') return stamm.find((a) => /edge/i.test(a.bezeichnung))?.artikelnummer
   return undefined
-}
-
-let griffCache: ReturnType<typeof getArtikelNr>[] | null = null
-function griffArtikel() {
-  if (!griffCache) {
-    // Lazy, damit der Stamm nur einmal durchlaufen wird.
-    const alle: NonNullable<ReturnType<typeof getArtikelNr>>[] = []
-    for (let i = 1; i <= 99; i++) {
-      const nr = `30-30-05-${String(i).padStart(4, '0')}`
-      const a = getArtikelNr(nr)
-      if (a) alle.push(a)
-    }
-    griffCache = alle
-  }
-  return griffCache.filter((a): a is NonNullable<typeof a> => a != null)
 }
 
 // ---------------------------------------------------------------------------
@@ -1242,51 +1350,92 @@ function baueAusstattungsPositionen(
 }
 
 // ---------------------------------------------------------------------------
-// Stufe 6: Zuschläge
+// Stufe 5 + 6: Aufschläge und nachgelagerte Zuschläge
 // ---------------------------------------------------------------------------
 
 /**
- * ZUSCHLÄGE — vier prozentuale Aufschläge, alle auf den MÖBELPREIS.
+ * ZWEI STUFEN — in genau dieser Reihenfolge.
  *
- * Die Sätze stehen in „50 Meta" und nicht im Code:
+ *   Artikel und Ausstattung        Σ aller Positionen                    = Möbelpreis
+ *   + artikelbezogene Aufschläge   Raumteiler, Sichtrückwand — je auf den Möbelpreis
+ *   = GESAMTMÖBELPREIS
+ *   + Montage                      % auf den Gesamtmöbelpreis   ┐ unabhängig voneinander,
+ *   + Lieferung regional           % auf den Gesamtmöbelpreis   ┘ nie aufeinander
+ *   = Gesamtpreis inkl. Montage und Lieferung
  *
- *   • Montagekosten        +10 %  — Checkbox im Abschluss, standardmäßig an
- *   • Lieferung regional    +3 %  — Checkbox im Abschluss, standardmäßig an
- *   • Raumteiler            +5 %  — automatisch, sobald „Raumteiler" angehakt ist (ZUS-001)
- *   • Sichtrückwand        +10 %  — automatisch, sobald „Sicht-Rückwand" angehakt ist (ZUS-004)
+ * Satz (bzw. Betrag), Einheit und Preisbasis stehen im jeweiligen ARTIKEL (Preisart
+ * „Aufschlag") und sind in der Artikelverwaltung pflegbar; `config/preisMapping.ts` sagt
+ * nur, welches Häkchen welchen Artikel auslöst. Jeder Aufschlag rechnet auf GENAU EINE
+ * Basis und kommt genau einmal vor — nichts wird doppelt oder verzinst gerechnet.
  *
- * Raumteiler und Sichtrückwand waren mit der Stammdaten-Reform aus der Kalkulation
- * gestrichen worden; seit 09/2026 rechnet der Konfigurator sie wieder selbst. Die
- * übrigen früheren Prozent-Artikel (wandhängende Kastenmöbel, Überhöhe) bleiben
- * AUF_ANFRAGE und damit Sache des Angebotspreises.
- *
- * Basis ist bei allen vieren der Möbelpreis, nicht eine laufende Zwischensumme: Die
- * Aufschläge dürfen sich nicht gegenseitig verzinsen, und jeder Betrag muss sich im
- * Kundengespräch als „x % vom Möbel" nachrechnen lassen.
+ * Ein gesperrter, als Entwurf markierter oder unvollständig gepflegter Aufschlag-Artikel
+ * wird nicht geschätzt: Die Zeile steht „auf Anfrage" und nimmt der Kalkulation die
+ * Verbindlichkeit — wie jede andere Position ohne Preis.
  */
-function baueZuschlaege(draft: Draft, moebelpreis: number): KalkPosition[] {
-  const zuschlaege: KalkPosition[] = []
-  const opts = preisOptionen(draft)
-
-  if (opts.montage) {
-    zuschlaege.push(prozentZuschlag('montage', 'Montagekosten', meta.montageZuschlagPct, moebelpreis))
+function baueAufschlag(
+  artikelnummer: string,
+  art: ZuschlagArt,
+  stufe: ZuschlagStufe,
+  basisBetrag: number,
+  erwarteteBasis: AufschlagBasis,
+): KalkPosition {
+  const a = getArtikelNr(artikelnummer)
+  const basisTitel = AUFSCHLAG_BASIS_KATALOG[erwarteteBasis].titel
+  const gemeinsam = {
+    id: naechsteId(),
+    herkunft: 'zuschlag' as const,
+    bucket: 'upgrade' as const,
+    zuschlagArt: art,
+    zuschlagStufe: stufe,
+    artikelnummer,
+    kurzzeichen: a?.kurzzeichen,
+    teileart: a?.teileart,
+    dropdown: a?.dropdown,
+    einheit: a?.einheit,
+    preisart: a ? preisartVon(a) : undefined,
+    preislistenNr: a?.preislistenNr || undefined,
+    achsen: [],
+    menge: 1,
   }
-  if (opts.lieferungRegional) {
-    zuschlaege.push(prozentZuschlag('lieferung', 'Lieferung regional', meta.lieferungRegionalPct, moebelpreis))
-  }
+  const offen = (label: string, grund: string): KalkPosition => ({
+    ...gemeinsam,
+    label,
+    teile: [],
+    einzelpreis: null,
+    gesamt: null,
+    status: 'auf-anfrage',
+    hinweis: grund,
+  })
 
-  if (draft.raumteiler) {
-    zuschlaege.push(
-      prozentZuschlag('raumteiler', 'Raumteiler-Aufschlag', meta.raumteilerZuschlagPct, moebelpreis, 'automatisch'),
+  if (!a) return offen(artikelnummer, `Aufschlag-Artikel ${artikelnummer} steht nicht im Stamm.`)
+  if (a.status !== 'aktiv') return offen(a.bezeichnung, `Artikel ${a.artikelnummer} ist ${a.status} — kein Aufschlag berechnet.`)
+  if (gemeinsam.preisart !== 'AUFSCHLAG') {
+    return offen(a.bezeichnung, `Artikel ${a.artikelnummer} trägt nicht die Preisart „Aufschlag".`)
+  }
+  const def = aufschlagVon(a)
+  if (!def) return offen(a.bezeichnung, `Für ${a.artikelnummer} sind Satz, Einheit oder Preisbasis nicht vollständig gepflegt.`)
+  if (def.basis !== erwarteteBasis) {
+    return offen(
+      a.bezeichnung,
+      `Preisbasis „${AUFSCHLAG_BASIS_KATALOG[def.basis].titel}" passt nicht — dieser Aufschlag rechnet auf den ${basisTitel}.`,
     )
   }
-  if (draft.sichtRueckwandAussen) {
-    zuschlaege.push(
-      prozentZuschlag('sichtrueckwand', 'Sichtrückwand-Aufschlag', meta.sichtrueckwandZuschlagPct, moebelpreis, 'automatisch'),
-    )
-  }
 
-  return zuschlaege
+  const betrag = def.einheit === '%' ? runde2((basisBetrag * def.wert) / 100) : runde2(def.wert)
+  const satz = aufschlagText(def)
+  return {
+    ...gemeinsam,
+    // „Montage (10 %)" · „Raumteiler (5 %)" · „Beispiel (25,00 €)"
+    label: `${a.bezeichnung} (${satz})`,
+    teile: [{ menge: 1, mengeText: '1', preis: betrag, preisEinheit: '€', gesamt: betrag }],
+    einzelpreis: betrag,
+    gesamt: betrag,
+    status: 'berechnet',
+    hinweis:
+      def.einheit === '%'
+        ? `${satz} auf den ${basisTitel} ${formatEuro(basisBetrag)}`
+        : `Betrag ${satz}, einmal je Möbel (zum ${basisTitel})`,
+  }
 }
 
 /**
@@ -1301,40 +1450,12 @@ export function preisOptionen(draft: Draft): { montage: boolean; lieferungRegion
   }
 }
 
-/** Sätze der abwählbaren Service-Aufschläge — für die Anzeige abgewählter Zeilen. */
-export const SERVICE_SAETZE = {
-  montage: meta.montageZuschlagPct,
-  lieferungRegional: meta.lieferungRegionalPct,
-} as const
-
 /** Prozent lesbar: 0.1 → „10", 0.035 → „3,5". */
 export function prozentText(pct: number): string {
   return String(runde2(pct * 100)).replace('.', ',')
 }
 
-function prozentZuschlag(
-  art: ZuschlagArt,
-  name: string,
-  pct: number,
-  moebelpreis: number,
-  zusatz?: string,
-): KalkPosition {
-  const betrag = runde2(moebelpreis * pct)
-  return {
-    id: naechsteId(),
-    herkunft: 'zuschlag',
-    bucket: 'upgrade',
-    zuschlagArt: art,
-    label: `${name} (+${prozentText(pct)} %)`,
-    achsen: [],
-    teile: [{ menge: 1, mengeText: '1', preis: betrag, preisEinheit: '€', gesamt: betrag }],
-    menge: 1,
-    einzelpreis: betrag,
-    gesamt: betrag,
-    status: 'berechnet',
-    hinweis: ['Basis: Möbelpreis', zusatz].filter(Boolean).join(' · '),
-  }
-}
+const summe = (liste: KalkPosition[]) => runde2(liste.reduce((s, p) => s + (p.gesamt ?? 0), 0))
 
 // ---------------------------------------------------------------------------
 // Einstiegspunkt
@@ -1354,8 +1475,13 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
 
   const leer = (text: string): KalkErgebnis => ({
     positionen: [],
+    artikelAufschlaege: [],
+    serviceZuschlaege: [],
+    serviceAuswahl: [],
     zuschlaege: [],
     moebelpreis: 0,
+    summeArtikelAufschlaege: 0,
+    gesamtmoebelpreis: 0,
     gesamt: 0,
     meldungen: [{ schwere: 'fehler', text }],
     offenePositionen: 0,
@@ -1381,11 +1507,29 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
     ...baueAusstattungsPositionen(draft, kontext, meldungen),
   ]
 
-  const moebelpreis = runde2(positionen.reduce((summe, p) => summe + (p.gesamt ?? 0), 0))
-  const zuschlaege = baueZuschlaege(draft, moebelpreis)
-  const gesamt = runde2(moebelpreis + zuschlaege.reduce((summe, p) => summe + (p.gesamt ?? 0), 0))
+  // --- Stufe 1: Möbelpreis und artikelbezogene Aufschläge --------------------------
+  const moebelpreis = summe(positionen)
+  const artikelAufschlaegeListe = artikelAufschlaege
+    .filter((eintrag) => Boolean(draft[eintrag.ausloeser]))
+    .map((eintrag) => baueAufschlag(eintrag.artikel, eintrag.art, 'artikel', moebelpreis, 'MOEBELPREIS'))
+  const summeArtikelAufschlaege = summe(artikelAufschlaegeListe)
+  const gesamtmoebelpreis = runde2(moebelpreis + summeArtikelAufschlaege)
 
-  const offenePositionen = positionen.filter((p) => p.status !== 'berechnet').length
+  // --- Stufe 2: Montage und Lieferung auf den Gesamtmöbelpreis ---------------------
+  const optionen = preisOptionen(draft)
+  const serviceAuswahl: ServiceAuswahl[] = serviceZuschlaege.map((eintrag) => ({
+    art: eintrag.art,
+    option: eintrag.option,
+    aktiv: optionen[eintrag.option],
+    position: baueAufschlag(eintrag.artikel, eintrag.art, 'service', gesamtmoebelpreis, 'GESAMTMOEBELPREIS'),
+  }))
+  const serviceListe = serviceAuswahl.filter((s) => s.aktiv).map((s) => s.position)
+  const gesamt = runde2(gesamtmoebelpreis + summe(serviceListe))
+
+  const zuschlaege = [...artikelAufschlaegeListe, ...serviceListe]
+  const offenePositionen =
+    positionen.filter((p) => p.status !== 'berechnet').length +
+    zuschlaege.filter((p) => p.status !== 'berechnet').length
   const hatFehler = meldungen.some((m) => m.schwere === 'fehler')
 
   if (positionen.length === 0) {
@@ -1393,6 +1537,10 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
       schwere: 'warnung',
       text: 'Noch keine kalkulierbaren Positionen – Korpus-Grunddaten und Fronten erfassen.',
     })
+  }
+  const offeneZuschlaege = zuschlaege.filter((p) => p.status !== 'berechnet')
+  for (const z of offeneZuschlaege) {
+    meldungen.push({ schwere: 'warnung', text: `${z.label}: ${z.hinweis ?? 'kein Aufschlag berechnet'}` })
   }
   if (offenePositionen > 0) {
     meldungen.push({
@@ -1403,8 +1551,13 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
 
   return {
     positionen,
+    artikelAufschlaege: artikelAufschlaegeListe,
+    serviceZuschlaege: serviceListe,
+    serviceAuswahl,
     zuschlaege,
     moebelpreis,
+    summeArtikelAufschlaege,
+    gesamtmoebelpreis,
     gesamt,
     meldungen,
     offenePositionen,

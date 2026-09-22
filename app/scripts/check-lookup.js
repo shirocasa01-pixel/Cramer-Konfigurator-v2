@@ -56,9 +56,10 @@ const refugium = artikelFuerSerie('refugium')
 // (Aufpreis PG3)" und den Rauchglas-Aufpreis des Containers (−2). Die Varianten-Migration
 // hat danach jede Ausführungsvariante zu einem eigenen Artikel gemacht: Decoboard und
 // Rauchglas sind jetzt zehn Container-Artikel statt einer Achse (+10 für Refugium:
-// Conero A–F, Craft A–C, Basis-Container).
-ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 117)
-ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 42)
+// Conero A–F, Craft A–C, Basis-Container). Die Preisarten-Überarbeitung (09/2026) bringt
+// Montage und Lieferung regional als eigene Aufschlag-Artikel für alle Serien (+2).
+ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 119)
+ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 44)
 ok('kein Refugium-Artikel ohne "R" im Modus', refugium.every((a) => a.modus.toUpperCase().includes('R')))
 ok('Abdeckplatten sind für Refugium gesperrt', !refugium.some((a) => a.dropdown === 'ABDECKPLATTE'))
 ok('Abdeckplatten sind für Atrium frei', artikelFuerSerie('atrium').some((a) => a.dropdown === 'ABDECKPLATTE'))

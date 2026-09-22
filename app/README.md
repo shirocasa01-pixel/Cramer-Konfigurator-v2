@@ -46,6 +46,7 @@ npm run data:check          # nur Kreuzprüfung Excel ↔ Markdown ↔ Referenze
 npm run data:test           # Selbsttest der Modus-/Lookup-Logik gegen die echten Daten
 npm run kalk:test           # Kalkulation gegen die Sollwerte des Vorgänger-Tools
 npm run ue89:test           # Überarbeitung 8+9: Front-Geometrie, Mittelseite, Böden, Sonderfarben, Verblendung
+npm run preisart:test       # Preisarten, Aufschläge, Montage/Lieferung, Lookup-Audit, Snapshot/PDF-Gleichheit
 ```
 
 Einmalige Datenpflege-Läufe (alle idempotent, mit Backup):
@@ -54,7 +55,16 @@ npm run data:clean-modus    # Modus-Spalte auf Buchstaben-Notation
 npm run data:seed-filialen  # echte Filialanschriften in „41 Filialen"
 npm run data:fix-achsen     # belegte Achsenwert-Korrekturen in „20 Preise"
 npm run data:migrate-ue89   # Überarbeitung 8+9: Mittelseite/Einlegeboden mit Tiefe×PG, Kleiderstange 15 €, Drehtür 21 R
+npm run data:migrate-preisarten  # sechs Preisarten, Aufschlag-Spalten, Montage/Lieferung als Artikel
 ```
+
+**Preisarten.** Jeder Artikel trägt eine von sechs Preisarten (Spalte „Preislogik"):
+Festpreis · Matrix – Stufenpreis · Matrix – Maßgenau · Festpreis + Matrix · Aufschlag · Auf
+Anfrage (`src/lib/preisarten.ts`). Die Kalkulation rechnet zweistufig: Positionen +
+artikelbezogene Aufschläge (Raumteiler, Sichtrückwand) = Gesamtmöbelpreis; darauf Montage
+(90-039-0001, Preisliste 21033) und Lieferung (90-039-0002, 21032), jede für sich. Die Sätze
+stehen im jeweiligen Artikel, nicht mehr in „50 Meta". Dokumentation und Testergebnisse:
+`PREISARTEN-UEBERARBEITUNG.md`.
 
 **Serien-Freigabe („Modus").** Jeder Artikel trägt die Kürzel der Serien, für die er
 freigegeben ist – `A` Atrium · `V` Velare · `P` Publicum · `R` Refugium · `O` Porticus ·
@@ -143,6 +153,8 @@ im Supabase-Dashboard unter *SQL Editor* ausführen (idempotent).
   „ausstehend" und werden mit „Speichern" übernommen; lokales Schema, Versionen, Papierkorb und
   Einstellungen lädt der erste Administrator-Login hoch, sofern in Supabase noch nichts steht.
 - Prüfung der Abgleich-Logik: `npm run sync:test`.
+- Abgleich der Overrides mit den Preisarten: `node scripts/bereinige-overrides-preisarten.js`
+  (zeigt nur an; mit `--ausfuehren` werden widersprüchliche Altstände gesichert und entfernt).
 
 ## ⚠️ Prototyp-Grenzen (für Produktion zu ersetzen)
 - **Scan-Bridge (`vite.config.ts`)**: In-Memory-Relay im Dev-Server. Produktiv → echtes Backend /

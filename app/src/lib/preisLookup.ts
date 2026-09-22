@@ -22,6 +22,17 @@
  *    liefert er je Bezugsgröße eine Zeile — etwa einen Grundpreis und einen Preis je
  *    Quadratmeter. Beide zusammen ergeben die Position; in der Kalkulation erscheinen sie
  *    als Teilpositionen. Das ersetzt die frühere Preislogik GRUND_PLUS_QM.
+ *
+ * SEIT DER PREISARTEN-ÜBERARBEITUNG (09/2026) sagt die PREISART des Artikels, wie eine
+ * Maßachse mit hinterlegten Werten gelesen wird (`lib/preisarten.ts`):
+ *
+ *   Festpreis, Matrix – Stufenpreis   nächste HINTERLEGTE Stufe (wie bisher)
+ *   Matrix – Maßgenau,                genau dieser Wert — keine Stufenaufrundung und keine
+ *   Festpreis + Matrix                Interpolation zwischen Preiszeilen
+ *
+ * und welche Bezugsgrößen der Treffer führen muss (Maßgenau: nur je Einheit; Festpreis +
+ * Matrix: Grundpreis UND Preis je Einheit). Die bestehenden Artikel sind so eingeordnet,
+ * wie die Engine sie vorher schon rechnete — ihre Ergebnisse bleiben dieselben.
  * ─────────────────────────────────────────────────────────────────────────────
  *
  * Findet sich keine Zelle, kommt `auf-anfrage` zurück — nie ein geschätzter Preis.
@@ -37,6 +48,7 @@ import {
   type Preiszeile,
 } from '../data/stammdaten.generated.ts'
 import {
+  PREISARTEN,
   achsenwertPasst,
   parsePreisart,
   parseStufe,
@@ -45,6 +57,7 @@ import {
   type Preisart,
   type StufenWert,
 } from './preisAchsen.ts'
+import { PREISART_KATALOG, effektivePreisart, type PreisartCode } from './preisarten.ts'
 import { getStammdatenStand } from './stammdatenStore.ts'
 
 // ---------------------------------------------------------------------------
@@ -177,6 +190,8 @@ export type PreisErgebnis =
   | {
       status: 'gefunden'
       artikel: Artikel
+      /** Die Preisart, nach der gerechnet wurde (bei Altständen abgeleitet). */
+      preisart: PreisartCode
       /** Ein Eintrag je Bezugsgröße; bei Stückartikeln genau einer. */
       teile: PreisTeil[]
       achsen: AufgelloesteAchse[]
@@ -242,7 +257,7 @@ export function belegteAchsenwerte(artikelnummer: string, code: AchseCode): stri
 // ---------------------------------------------------------------------------
 
 /** Das verlangte Maß für eine Maßachse. */
-function massAnfrage(code: AchseCode, anfrage: PreisAnfrage): number | undefined {
+function massAnfrage(code: AchseCode, anfrage: Omit<PreisAnfrage, 'artikelnummer'>): number | undefined {
   switch (massRichtung(code)) {
     case 'breite':
       return anfrage.breiteCm
@@ -265,7 +280,7 @@ function massAnfrage(code: AchseCode, anfrage: PreisAnfrage): number | undefined
  * führt kein Artikel im Stamm diese Achse mehr — die Auswahl passiert über die
  * Artikelnummer, nicht über einen Achsenwert.
  */
-function merkmalAnfrage(code: AchseCode, anfrage: PreisAnfrage): string | undefined {
+function merkmalAnfrage(code: AchseCode, anfrage: Omit<PreisAnfrage, 'artikelnummer'>): string | undefined {
   switch (code) {
     case 'LINIE_PG':
       return anfrage.liniePg
@@ -288,21 +303,49 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
   if (!art) {
     return { status: 'auf-anfrage', grund: `Artikel ${anfrage.artikelnummer} steht nicht im Stamm.` }
   }
+  return findePreisIn(art, zeilenNachArtikel.get(art.artikelnummer) ?? [], anfrage)
+}
+
+/**
+ * Derselbe Lookup für einen Artikel samt Preiszeilen, die (noch) nicht im Arbeitsstand
+ * stehen — die Preisprobe der Artikelverwaltung rechnet damit den ungespeicherten
+ * Formularstand, mit genau denselben Regeln wie die Kalkulation.
+ */
+export function findePreisIn(
+  art: Artikel,
+  alleZeilen: readonly Preiszeile[],
+  anfrage: Omit<PreisAnfrage, 'artikelnummer'>,
+): PreisErgebnis {
   if (art.status !== 'aktiv') {
     return { status: 'auf-anfrage', artikel: art, grund: `Artikel ${art.artikelnummer} ist ${art.status}.` }
   }
 
-  let kandidaten = zeilenNachArtikel.get(art.artikelnummer) ?? []
-  if (kandidaten.length === 0) {
+  const preisart = effektivePreisart(art, alleZeilen)
+  if (preisart === 'AUF_ANFRAGE') {
     return {
       status: 'auf-anfrage',
       artikel: art,
-      grund:
-        art.preislogik === 'AUF_ANFRAGE'
-          ? 'Für diesen Artikel ist bewusst kein Preis hinterlegt (Preislogik AUF_ANFRAGE).'
-          : 'Für diesen Artikel ist keine Preiszeile hinterlegt.',
+      grund: 'Für diesen Artikel ist bewusst kein Preis hinterlegt (Preisart „Auf Anfrage").',
     }
   }
+  if (preisart === 'AUFSCHLAG') {
+    // Ein Aufschlag hat keinen eigenen Stückpreis — er entsteht in der Kalkulation aus
+    // seiner Preisbasis (`baueAufschlag` in lib/kalkulation.ts). Als Bauteil nachgeschlagen wäre er ein Fehler.
+    return {
+      status: 'auf-anfrage',
+      artikel: art,
+      grund: 'Der Artikel ist ein Aufschlag und wird auf seine Preisbasis gerechnet, nicht als Bauteil bepreist.',
+    }
+  }
+
+  let kandidaten = alleZeilen
+  if (kandidaten.length === 0) {
+    return { status: 'auf-anfrage', artikel: art, grund: 'Für diesen Artikel ist keine Preiszeile hinterlegt.' }
+  }
+
+  // Nur „Festpreis" und „Matrix – Stufenpreis" runden auf Stufen. „Maßgenau" und der
+  // variable Teil von „Festpreis + Matrix" rechnen mit dem Maß, wie es ist.
+  const stufenregel = preisart === 'FESTPREIS' || preisart === 'MATRIX_STUFE'
 
   // --- 1) Merkmalsachsen als harte Filter ------------------------------------------
   art.achsen.forEach((achse, index) => {
@@ -329,7 +372,7 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
     return { status: 'auf-anfrage', artikel: art, grund: gefragtText(art, anfrage) }
   }
 
-  // --- 2) Maßachsen: je Achse die nächstgrößere Stufe wählen -----------------------
+  // --- 2) Maßachsen: je Achse die Stufe (bzw. bei „Maßgenau" den Wert) wählen --------
   let aufgerundet = false
   const gewaehlteStufen: string[] = []
   const mengenachsen: MassRichtung[] = []
@@ -340,9 +383,6 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
     const richtung = massRichtung(achse)
     if (richtung) mengenachsen.push(richtung)
 
-    const gesucht = massAnfrage(achse, anfrage)
-    if (gesucht == null) continue
-
     const werte = new Map<string, StufenWert>()
     for (const zeile of kandidaten) {
       const roh = zeile.a[index]
@@ -350,6 +390,36 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
     }
     // Leere Spalte ⇒ die Achse benennt nur das Maß für die Menge und filtert nicht.
     if (werte.size === 0) continue
+
+    const gesucht = massAnfrage(achse, anfrage)
+    if (gesucht == null) {
+      // Wie bei den Merkmalsachsen: Führt die Spalte mehrere Stufen, darf ohne Maß nicht
+      // stillschweigend die erste gewinnen — das wäre ein geratener Preis.
+      if (werte.size > 1) {
+        return {
+          status: 'auf-anfrage',
+          artikel: art,
+          grund: `${achsenBedeutung(achse).split('—')[0].trim()}: Maß fehlt — der Artikel führt ${werte.size} Stufen.`,
+        }
+      }
+      continue
+    }
+
+    if (!stufenregel) {
+      // MASSGENAU: nur ein genau hinterlegter Wert zählt — keine Aufrundung, keine
+      // Interpolation zwischen zwei Preiszeilen.
+      const genau = [...werte.values()].find((w) => w.cm != null && Math.abs(w.cm - gesucht) < 0.05)
+      if (!genau) {
+        return {
+          status: 'auf-anfrage',
+          artikel: art,
+          grund: `${achsenBedeutung(achse).split('—')[0].trim()}: ${gesucht} cm ist nicht hinterlegt — bei „${PREISART_KATALOG[preisart].titel}" wird weder auf Stufen gerundet noch zwischen Preiszeilen interpoliert.`,
+        }
+      }
+      kandidaten = kandidaten.filter((z) => z.a[index] === genau.raw)
+      gewaehlteStufen.push(genau.raw)
+      continue
+    }
 
     const { treffer, aufgerundet: hoch } = waehleStufe([...werte.values()], gesucht)
     if (!treffer) {
@@ -405,10 +475,34 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
     }
   }
 
+  // --- 4) Passen die Bezugsgrößen zur Preisart? ------------------------------------
+  const mitFix = teile.some((t) => t.preisart === PREISARTEN.FIX)
+  const jeEinheit = teile.some((t) => t.preisart !== PREISARTEN.FIX)
+  const titel = PREISART_KATALOG[preisart].titel
+  const unpassend =
+    (preisart === 'FESTPREIS' || preisart === 'MATRIX_STUFE') && jeEinheit
+      ? `Die Preiszeile führt einen Betrag je Einheit — das passt nicht zu „${titel}".`
+      : preisart === 'MATRIX_MASS' && !jeEinheit
+        ? `„${titel}" braucht eine Preiszeile je Einheit (€/cm · €/m · €/m²).`
+        : preisart === 'MATRIX_MASS' && mitFix
+          ? `„${titel}" führt keinen Grundpreis — die Zeile „Fixpreis" gehört zu „Festpreis + Matrix".`
+          : preisart === 'FEST_PLUS_MATRIX' && !mitFix
+            ? `„${titel}": Grundpreis (Preiszeile „Fixpreis") fehlt.`
+            : preisart === 'FEST_PLUS_MATRIX' && !jeEinheit
+              ? `„${titel}": variabler Preis (Preiszeile je Einheit) fehlt.`
+              : null
+  if (unpassend) return { status: 'auf-anfrage', artikel: art, grund: unpassend }
+
+  // Grundpreis vor den variablen Teil — so liest sich die Position „75 € + 1,5 m × 180 €/m".
+  if (preisart === 'FEST_PLUS_MATRIX') {
+    teile.sort((a, b) => Number(b.preisart === PREISARTEN.FIX) - Number(a.preisart === PREISARTEN.FIX))
+  }
+
   const leit = teile[0].zeile
   return {
     status: 'gefunden',
     artikel: art,
+    preisart,
     teile,
     aufgerundet,
     gewaehlteStufen,
@@ -422,7 +516,7 @@ export function findePreis(anfrage: PreisAnfrage): PreisErgebnis {
   }
 }
 
-function gefragtText(art: Artikel, anfrage: PreisAnfrage): string {
+function gefragtText(art: Artikel, anfrage: Omit<PreisAnfrage, 'artikelnummer'>): string {
   const gefragt = art.achsen
     .map((a) => {
       const mass = massAnfrage(a, anfrage)
@@ -438,6 +532,21 @@ function gefragtText(art: Artikel, anfrage: PreisAnfrage): string {
 /** Artikel per Nummer — für Positionslisten, die den vollen Klartext zeigen. */
 export function getArtikelNr(artikelnummer: string): Artikel | undefined {
   return aktuelleIndizes().artikelNachNummer.get(artikelnummer)
+}
+
+/** Alle Artikel eines Dropdowns aus dem Arbeitsstand (z. B. GRIFF). */
+export function artikelImDropdown(dropdown: string): Artikel[] {
+  return [...aktuelleIndizes().artikelNachNummer.values()].filter((a) => a.dropdown === dropdown)
+}
+
+/** Die Preiszeilen eines Artikels aus dem Arbeitsstand. */
+export function preiszeilenVon(artikelnummer: string): readonly Preiszeile[] {
+  return aktuelleIndizes().zeilenNachArtikel.get(artikelnummer) ?? []
+}
+
+/** Die Preisart, nach der ein Artikel gerechnet wird — bei Altständen aus den Zeilen abgeleitet. */
+export function preisartVon(artikel: Artikel): PreisartCode {
+  return effektivePreisart(artikel, preiszeilenVon(artikel.artikelnummer))
 }
 
 /**

@@ -1,5 +1,7 @@
 import { useMemo } from 'react'
-import { SERVICE_SAETZE, preisOptionen, prozentText, type Schwere } from '../../lib/kalkulation'
+import { preisOptionen, type Schwere } from '../../lib/kalkulation'
+import { kalkulationsUebersicht, uebersichtBetrag } from '../../lib/kalkulationsUebersicht'
+import { preisartTitel } from '../../lib/preisartAnzeige'
 import { aufgeloestePreise } from '../../lib/pricingSnapshot'
 import { formatEuro } from '../../lib/pricing'
 import { useStammdaten } from '../../lib/useStammdaten'
@@ -47,14 +49,7 @@ export interface KalkulationsPanelProps {
   onPreisOptionenAendern?: (optionen: { montage: boolean; lieferungRegional: boolean }) => void
 }
 
-type ServiceSchluessel = 'montage' | 'lieferungRegional'
-
-const SERVICE_ZEILEN: { schluessel: ServiceSchluessel; art: 'montage' | 'lieferung'; name: string }[] = [
-  { schluessel: 'montage', art: 'montage', name: 'Montagekosten' },
-  { schluessel: 'lieferungRegional', art: 'lieferung', name: 'Lieferung regional' },
-]
-
-/** Artikel-Kontext einer Position: Nummer, Kurzzeichen, Teileart, Produktgruppe. */
+/** Artikel-Kontext einer Position: Nummer, Kurzzeichen, Teileart, Produktgruppe, Preisart. */
 function ArtikelKontext({ position }: { position: PricingSnapshotPosition }) {
   if (!position.artikelnummer) return null
   const klassifikation = [position.teileart, position.dropdown]
@@ -64,6 +59,7 @@ function ArtikelKontext({ position }: { position: PricingSnapshotPosition }) {
     <div className={styles.artikelZeile}>
       <span className={styles.artikelnummer}>{position.artikelnummer}</span>
       {position.kurzzeichen ? <span>{position.kurzzeichen}</span> : null}
+      {position.preisart ? <span className={styles.preisart}>{preisartTitel(position.preisart)}</span> : null}
       {klassifikation ? <span className={styles.klassifikation}>{klassifikation}</span> : null}
       {position.einheit ? <span className={styles.klassifikation}>{position.einheit}</span> : null}
       {position.seite ? <span className={styles.klassifikation}>Preisliste S. {position.seite}</span> : null}
@@ -188,28 +184,12 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAe
   const optionen = preisOptionen(draft)
 
   /*
-    MONTAGE UND LIEFERUNG ALS CHECKBOXEN direkt unter dem Möbelpreis. Eine abgewählte
-    Zeile bleibt stehen — durchgestrichen, mit dem Betrag, den sie kosten würde —, damit
-    der Berater sieht, was er gerade herausgenommen hat.
-
-    Ein eingefrorener Auftrag zeigt seine Zuschläge so, wie sie gespeichert wurden; ältere
-    Snapshots kennen `zuschlagArt` noch nicht und laufen deshalb durch die schlichte Liste.
+    ZWEI STUFEN im Fuß der Tabelle — dieselben Zeilen wie im AV-PDF (`kalkulationsUebersicht`):
+    erst der Möbelpreis mit den artikelbezogenen Aufschlägen bis zum Gesamtmöbelpreis, dann
+    Montage und Lieferung als Häkchen. Eine abgewählte Zeile bleibt stehen — durchgestrichen,
+    mit dem Betrag, den sie kosten würde —, damit der Berater sieht, was er herausgenommen hat.
   */
-  const serviceZeilen = eingefroren
-    ? []
-    : SERVICE_ZEILEN.map((z) => {
-        const position = ergebnis.zuschlaege.find((p) => p.zuschlagArt === z.art)
-        const satz = SERVICE_SAETZE[z.schluessel]
-        return {
-          ...z,
-          aktiv: optionen[z.schluessel],
-          label: `${z.name} (+${prozentText(satz)} % auf den Möbelpreis)`,
-          betrag: position?.gesamt ?? Math.round(ergebnis.moebelpreis * satz * 100) / 100,
-        }
-      })
-  const weitereZuschlaege = eingefroren
-    ? ergebnis.zuschlaege
-    : ergebnis.zuschlaege.filter((z) => z.zuschlagArt !== 'montage' && z.zuschlagArt !== 'lieferung')
+  const uebersicht = kalkulationsUebersicht(ergebnis)
 
   const gruppiert = useMemo(() => {
     const map = new Map<string, PricingSnapshotPosition[]>()
@@ -288,42 +268,48 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAe
               </tbody>
             ))}
             <tfoot>
-              <tr className={styles.subtotalRow}>
-                <td colSpan={3}>Möbelpreis</td>
-                <td className={styles.tdNum}>{formatEuro(ergebnis.moebelpreis)}</td>
-              </tr>
-              {serviceZeilen.map((z) => (
-                <tr key={z.art} className={z.aktiv ? undefined : styles.zuschlagAus}>
-                  <td colSpan={3}>
-                    <label className={styles.zuschlagCheck}>
-                      <input
-                        type="checkbox"
-                        checked={z.aktiv}
-                        disabled={!onPreisOptionenAendern}
-                        onChange={(event) =>
-                          onPreisOptionenAendern?.({ ...optionen, [z.schluessel]: event.target.checked })
-                        }
-                      />
-                      <span>{z.label}</span>
-                      {z.aktiv ? null : <span className={styles.posDetail}> · nicht berechnet</span>}
-                    </label>
-                  </td>
-                  <td className={styles.tdNum}>{formatEuro(z.betrag)}</td>
-                </tr>
-              ))}
-              {weitereZuschlaege.map((z) => (
-                <tr key={z.id}>
-                  <td colSpan={3}>
-                    {z.label}
-                    {z.hinweis ? <span className={styles.posDetail}> · {z.hinweis}</span> : null}
-                  </td>
-                  <td className={styles.tdNum}>{formatEuro(z.gesamt ?? 0)}</td>
-                </tr>
-              ))}
-              <tr className={styles.totalRow}>
-                <td colSpan={3}>Gesamt</td>
-                <td className={styles.tdNum}>{formatEuro(ergebnis.gesamt)}</td>
-              </tr>
+              {uebersicht.map((z, i) => {
+                const klasse = [
+                  z.art === 'moebel' ? styles.subtotalRow : '',
+                  z.art === 'gesamtmoebel' ? styles.gesamtmoebelRow : '',
+                  z.art === 'gesamt' ? styles.totalRow : '',
+                  z.art === 'service' && i > 0 && uebersicht[i - 1].art !== 'service' ? styles.stufeZwei : '',
+                  z.einzug ? styles.einzugRow : '',
+                  z.aktiv === false ? styles.zuschlagAus : '',
+                  z.betrag == null ? styles.rowOpen : '',
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                const detail = z.detail ? <span className={styles.posDetail}> · {z.detail}</span> : null
+                return (
+                  <tr key={`${z.art}-${i}`} className={klasse || undefined}>
+                    <td colSpan={3}>
+                      {z.art === 'service' && z.option ? (
+                        <label className={styles.zuschlagCheck}>
+                          <input
+                            type="checkbox"
+                            checked={z.aktiv !== false}
+                            disabled={!onPreisOptionenAendern || eingefroren}
+                            onChange={(event) =>
+                              onPreisOptionenAendern?.({ ...optionen, [z.option!]: event.target.checked })
+                            }
+                          />
+                          <span>{z.label}</span>
+                          {detail}
+                        </label>
+                      ) : (
+                        <>
+                          {z.label}
+                          {detail}
+                        </>
+                      )}
+                    </td>
+                    <td className={styles.tdNum}>
+                      {z.betrag == null ? <span className={styles.onRequest}>auf Anfrage</span> : uebersichtBetrag(z)}
+                    </td>
+                  </tr>
+                )
+              })}
             </tfoot>
           </table>
         </div>

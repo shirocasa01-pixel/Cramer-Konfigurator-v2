@@ -699,3 +699,20 @@ select.zellInput:-moz-focusring {
   font-size: 0.6875rem;
   color: var(--color-ink-muted);
 }
+
+/* Verweis-Knopf „Preisart → Reiter Preisart & Preise" im Reiter Klassifikation. */
+.verweis {
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Eingeklappte Preiszeilen eines Aufschlags (Herkunftsnachweis). */
+.herkunft summary {
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}
+
+.herkunft[open] summary {
+  margin-bottom: 12px;
+}

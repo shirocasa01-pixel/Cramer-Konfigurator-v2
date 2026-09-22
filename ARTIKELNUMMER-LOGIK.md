@@ -81,9 +81,9 @@ dazwischenschieben, ohne eine bestehende Nummer anzufassen.
 | 60 ABSCHLUSS | 028 Sockelplatte · 029 Fuß/Rolle |
 | 70 MOEBEL | 030 Porticus-Modell · 031 Supersonus-Modell · 032 Cavum-Modul · 033 Publicum-Regal |
 | 80 TISCH | 034 Tischplatte · 035 Untergestell · 036 Arcum-Einsatz |
-| 90 KALKULATION | 037 Zuschlag · 038 Verblendung |
+| 90 KALKULATION | 037 Zuschlag · 038 Verblendung · 039 Service (Montage, Lieferung) |
 
-Ein neues Auswahlfeld bekommt die nächste freie Nummer — **039**, unabhängig davon, zu welcher
+Ein neues Auswahlfeld bekommt die nächste freie Nummer — **040**, unabhängig davon, zu welcher
 Teileart es gehört. Die Nummer ist eine Identität, keine Sortierung.
 
 **Laufende Nummer — fortlaufend** (Block 3). Hier ist bewusst **kein** Abstand gelassen: die

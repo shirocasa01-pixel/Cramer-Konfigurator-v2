@@ -15,6 +15,8 @@ import {
 import { isFrontFieldVisible } from './frontsHelpers'
 import { describeAusstattungAuswahl, describeColumnEquipment } from './ausstattungFormat'
 import { formatVkPreis } from './pricing'
+import { aufgeloestePreise } from './pricingSnapshot'
+import { kalkulationsUebersicht, uebersichtBetrag, type UebersichtZeile } from './kalkulationsUebersicht'
 import { caPrefix, formatDimensions } from './massFormat'
 import { aussenmassOptionen, describeKorpusGrunddatenZeilen } from './korpusMass'
 import { felderFuer, getAbschnitt } from './schemaStore'
@@ -88,6 +90,38 @@ export function buildPdf(draft: Draft): jsPDF {
     doc.setTextColor(20, 22, 26)
     doc.text(amount, margin + contentW, y, { align: 'right' })
     y += bold ? 18 : 14
+  }
+
+  /**
+   * Eine Zeile der Kalkulationsübersicht — dieselben Zeilen wie im Abschluss.
+   * Unterzeilen sind eingerückt, Summen fett mit Linie; der Zusatz (Basis, Art.-Nr.)
+   * steht klein darunter, damit jeder Betrag auf dem Papier nachrechenbar ist.
+   */
+  function kalkZeile(zeile: UebersichtZeile) {
+    const einzug = zeile.einzug ? 18 : 6
+    const bold = Boolean(zeile.summe)
+    const detailLines = zeile.detail ? doc.splitTextToSize(zeile.detail, contentW - einzug - 110) : []
+    ensure((bold ? 24 : 14) + detailLines.length * 10)
+    if (bold) {
+      // Luft über der Linie — sonst liest sie sich als Unterstrich der Zeile davor.
+      y += 6
+      doc.setDrawColor(20, 22, 26)
+      doc.setLineWidth(zeile.art === 'gesamt' ? 1 : 0.6)
+      doc.line(margin + 6, y - 11, margin + contentW, y - 11)
+    }
+    font(bold ? 10 : 9, bold ? 'bold' : 'normal')
+    doc.setTextColor(zeile.aktiv === false ? 150 : 20, zeile.aktiv === false ? 150 : 22, zeile.aktiv === false ? 155 : 26)
+    doc.text(zeile.label, margin + einzug, y)
+    const betrag = zeile.aktiv === false ? 'entfällt' : uebersichtBetrag(zeile)
+    doc.text(betrag, margin + contentW, y, { align: 'right' })
+    y += bold ? 14 : 12
+    if (detailLines.length) {
+      font(7.5, 'normal')
+      doc.setTextColor(120, 120, 125)
+      doc.text(detailLines, margin + einzug, y - 2)
+      y += detailLines.length * 10
+    }
+    if (bold) y += 4
   }
 
 
@@ -239,6 +273,38 @@ export function buildPdf(draft: Draft): jsPDF {
     ensure(lines.length * 12)
     doc.text(lines, margin + 6, y)
     y += lines.length * 12
+  }
+
+  /*
+   * KALKULATION — zweistufig, wie im Abschluss: erst der Möbelpreis mit seinen
+   * artikelbezogenen Aufschlägen bis zum Gesamtmöbelpreis, dann Montage und Lieferung auf
+   * diesen Betrag. Ein abgeschlossener Auftrag druckt seinen eingefrorenen Preisstand.
+   */
+  const preise = aufgeloestePreise(draft)
+  if (preise.positionen.length > 0) {
+    section('Kalkulation')
+    font(8, 'normal')
+    doc.setTextColor(110, 110, 115)
+    doc.text(
+      preise.herkunft === 'snapshot' && preise.frozenAt
+        ? `Eingefrorener Preisstand vom ${new Date(preise.frozenAt).toLocaleDateString('de-DE')} · VK inkl. 19 % MwSt.`
+        : `Preisliste ${preise.gueltigkeit} · VK inkl. 19 % MwSt. · ${preise.positionen.length} Positionen`,
+      margin + 6,
+      y,
+    )
+    y += 14
+    for (const zeile of kalkulationsUebersicht(preise)) kalkZeile(zeile)
+    if (!preise.vollstaendig) {
+      font(8, 'normal')
+      doc.setTextColor(170, 90, 20)
+      ensure(12)
+      doc.text(
+        `${preise.offenePositionen} Position(en) ohne Preis — berechneter Betrag unter Vorbehalt, AV-Prüfung erforderlich.`,
+        margin + 6,
+        y,
+      )
+      y += 12
+    }
   }
 
   // --- Verkaufspreis (Phase A: manuell kalkuliert, verbindlicher Endpreis) ---

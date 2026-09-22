@@ -47,10 +47,13 @@ console.log(c.dim(`  ${artikel.length} Artikel · ${preise.length} Preiszeilen �
 
 // --- A ----------------------------------------------------------------------------
 console.log(c.bold('\nA — Preislogik'))
+// Seit der Preisarten-Überarbeitung (09/2026) sechs Preisarten statt drei Preislogiken —
+// die Rechenweise der Matrix ist jetzt benannt (scripts/migrate-preisarten.js).
 const erlaubteLogiken = new Set(preislogiken.map((p) => p.code))
+const SECHS = ['FESTPREIS', 'MATRIX_STUFE', 'MATRIX_MASS', 'FEST_PLUS_MATRIX', 'AUFSCHLAG', 'AUF_ANFRAGE']
 pruefe(
-  erlaubteLogiken.size === 3 && ['MATRIX', 'FESTPREIS', 'AUF_ANFRAGE'].every((x) => erlaubteLogiken.has(x)),
-  `Nur noch ${[...erlaubteLogiken].join(' · ')}`,
+  erlaubteLogiken.size === 6 && SECHS.every((x) => erlaubteLogiken.has(x)),
+  `Genau die sechs Preisarten: ${[...erlaubteLogiken].join(' · ')}`,
 )
 const fremdeLogik = artikel.filter((a) => !erlaubteLogiken.has(a.preislogik))
 pruefe(fremdeLogik.length === 0, 'Kein Artikel mit unbekannter Preislogik', fremdeLogik.map((a) => a.artikelnummer).slice(0, 5).join(', '))

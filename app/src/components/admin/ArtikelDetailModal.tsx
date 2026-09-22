@@ -2,7 +2,6 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   achsen as achsenKatalog,
   dropdowns,
-  preislogiken,
   serien,
   teilearten,
   type AchseCode,
@@ -11,6 +10,8 @@ import {
 } from '../../data/stammdaten.generated.ts'
 import { formatDezimal, parseEingabeDe } from '../../lib/format.ts'
 import { PREISARTEN, baueStufenwert, cmText, parseStufe } from '../../lib/preisAchsen.ts'
+import { preisartTitel } from '../../lib/preisartAnzeige.ts'
+import { effektivePreisart, istAlterCode, type PreisartCode } from '../../lib/preisarten.ts'
 import { parseModus } from '../../lib/modus.ts'
 import { useScrollSperre } from '../../lib/scrollSperre.ts'
 import {
@@ -23,6 +24,7 @@ import {
   type Achsenwerte,
 } from '../../lib/stammdatenStore.ts'
 import { OHNE_AUTOFILL, ZellenFeld } from './ZellenFeld.tsx'
+import { AufschlagFelder, PreisartPruefung, PreisartWahl, Preisprobe } from './PreisartEditor.tsx'
 import styles from './ArtikelDetailModal.module.css'
 
 /**
@@ -34,9 +36,10 @@ import styles from './ArtikelDetailModal.module.css'
  * Tastendruck sonst eine stille Datenänderung, die niemandem auffällt.
  *
  * Drei Bereiche:
- *   Allgemein               Nummer, Bezeichnungen 1–4, Einheit, Beschreibung, Quelle
+ *   Allgemein               Nummer, Bezeichnungen, Einheit, Preislisten-Nr., Quelle
  *   Klassifikation & Status Teileart, Dropdown, Modus, Status, Sortierung
- *   Preise & Achsen         Achsen A1–A5 des Artikels und alle seine Preiszellen
+ *   Preisart & Preise       Preisart (sechs Arten), Aufschlag, Achsen A1–A5, Preiszellen,
+ *                           Prüfung und Preisprobe
  *
  * Alle 22 Felder des Blattes „10 Artikel" sind vertreten — die Artikelnummer als
  * einziges nur beim Anlegen beschreibbar: sie ist Identität und wird laut
@@ -95,7 +98,7 @@ type Bereich = 'allgemein' | 'klassifikation' | 'preise'
 const BEREICHE: { id: Bereich; titel: string }[] = [
   { id: 'allgemein', titel: 'Allgemein' },
   { id: 'klassifikation', titel: 'Klassifikation & Status' },
-  { id: 'preise', titel: 'Preise & Achsen' },
+  { id: 'preise', titel: 'Preisart & Preise' },
 ]
 
 /** Leerer Artikel für den Anlegemodus. */
@@ -118,6 +121,10 @@ function leererArtikel(): Artikel {
     sortierung: null,
     quelle: 'in der Anwendung angelegt',
     bemerkung: '',
+    aufschlag: null,
+    aufschlagEinheit: '',
+    aufschlagBasis: '',
+    preislistenNr: '',
   } as Artikel
 }
 
@@ -131,7 +138,17 @@ export function ArtikelDetailModal({
   useScrollSperre(true)
   const anlegen = artikel === null
   const [bereich, setBereich] = useState<Bereich>(startBereich)
-  const [form, setForm] = useState<Artikel>(() => ({ ...(artikel ?? leererArtikel()) }))
+  /*
+    Ein Artikel mit einer FRÜHEREN Preislogik (MATRIX aus einem Supabase-Altstand) wird mit
+    der Preisart geöffnet, nach der die Kalkulation ihn ohnehin rechnet. Der Dialog sagt das
+    ausdrücklich; mit „Speichern" wird der neue Code übernommen.
+  */
+  const altCode = artikel && istAlterCode(artikel.preislogik) ? artikel.preislogik : undefined
+  const [form, setForm] = useState<Artikel>(() => {
+    const basis = { ...(artikel ?? leererArtikel()) }
+    if (altCode) basis.preislogik = effektivePreisart(basis, preiszeilen) as Artikel['preislogik']
+    return basis
+  })
   const [zeilen, setZeilen] = useState<ZeilenEintrag[]>(() =>
     preiszeilen.map((z, i) => ({ ...z, a: [...z.a] as Achsenwerte, _localId: `zeile-${i}` })),
   )
@@ -319,7 +336,7 @@ export function ArtikelDetailModal({
                   className={[styles.input, styles.mono].join(' ')}
                   value={form.artikelnummer}
                   readOnly={!anlegen}
-                  placeholder="30-30-05-0016"
+                  placeholder="90-039-0003"
                   onChange={(e) => setFeld('artikelnummer', e.target.value)}
                 />
               </Feld>
@@ -329,6 +346,14 @@ export function ArtikelDetailModal({
                   className={styles.input}
                   value={form.kurzzeichen}
                   onChange={(e) => setFeld('kurzzeichen', e.target.value)}
+                />
+              </Feld>
+              <Feld label="Preislisten-Nr." hinweis="Artikelnummer der gedruckten Preisliste / des ERP, z. B. 21033">
+                <input
+                  {...OHNE_AUTOFILL}
+                  className={[styles.input, styles.mono].join(' ')}
+                  value={form.preislistenNr ?? ''}
+                  onChange={(e) => setFeld('preislistenNr', e.target.value)}
                 />
               </Feld>
               <Feld label="Bezeichnung 1" breit>
@@ -425,19 +450,14 @@ export function ArtikelDetailModal({
                   ))}
                 </select>
               </Feld>
-              <Feld label="Preislogik">
-                <select
-                  {...OHNE_AUTOFILL}
-                  className={styles.input}
-                  value={form.preislogik}
-                  onChange={(e) => setFeld('preislogik', e.target.value as Artikel['preislogik'])}
+              <Feld label="Preisart" hinweis={'Gewählt im Reiter „Preisart & Preise"'}>
+                <button
+                  type="button"
+                  className={[styles.input, styles.verweis].join(' ')}
+                  onClick={() => setBereich('preise')}
                 >
-                  {preislogiken.map((p) => (
-                    <option key={p.code} value={p.code}>
-                      {p.code} — {p.bedeutung}
-                    </option>
-                  ))}
-                </select>
+                  {preisartTitel(form.preislogik)} →
+                </button>
               </Feld>
               <Feld label="Status">
                 <select
@@ -507,6 +527,26 @@ export function ArtikelDetailModal({
 
           {bereich === 'preise' ? (
             <div className={styles.preiseBereich}>
+              <PreisartWahl
+                wert={form.preislogik as PreisartCode}
+                altCode={altCode}
+                onChange={(code) => setFeld('preislogik', code as Artikel['preislogik'])}
+              />
+
+              {form.preislogik === 'AUFSCHLAG' ? (
+                <AufschlagFelder artikel={form} onChange={(patch) => setForm((f) => ({ ...f, ...patch }))} />
+              ) : null}
+
+              <PreisartPruefung artikel={form} zeilen={zeilen} />
+
+              {form.preislogik !== 'AUFSCHLAG' && form.preislogik !== 'AUF_ANFRAGE' && zeilen.length > 0 ? (
+                <Preisprobe artikel={form} zeilen={zeilen} />
+              ) : null}
+
+              {/* Ein Aufschlag rechnet ohne Preiszeilen. Stehen noch welche da (Herkunftsnachweis
+                  der Preisliste), bleiben sie eingeklappt erreichbar statt die Maske zu füllen. */}
+              {form.preislogik === 'AUFSCHLAG' && zeilen.length === 0 ? null : (
+              <PreiszeilenRahmen eingeklappt={form.preislogik === 'AUFSCHLAG'} anzahl={zeilen.length}>
               <div className={styles.achsenBox}>
                 <div className={styles.achsenKopf}>
                   Achsen dieses Artikels
@@ -636,6 +676,8 @@ export function ArtikelDetailModal({
               >
                 + Preiszeile hinzufügen
               </button>
+              </PreiszeilenRahmen>
+              )}
             </div>
           ) : null}
         </div>
@@ -859,6 +901,30 @@ function Achsenzelle({
       ariaLabel={code}
       onCommit={onChange}
     />
+  )
+}
+
+/**
+ * Achsen und Preiszeilen — bei einem Aufschlag eingeklappt: Die Zeilen werden dort nicht
+ * gerechnet und stehen nur noch als Herkunftsnachweis der Preisliste.
+ */
+function PreiszeilenRahmen({
+  eingeklappt,
+  anzahl,
+  children,
+}: {
+  eingeklappt: boolean
+  anzahl: number
+  children: React.ReactNode
+}) {
+  if (!eingeklappt) return <>{children}</>
+  return (
+    <details className={styles.herkunft}>
+      <summary>
+        {anzahl} Preiszeile(n) der Preisliste — Herkunftsnachweis, werden bei „Aufschlag" nicht gerechnet
+      </summary>
+      <div className={styles.preiseBereich}>{children}</div>
+    </details>
   )
 }
 
