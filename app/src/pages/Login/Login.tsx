@@ -4,6 +4,7 @@ import { BrandMark } from '../../components/ui/BrandMark'
 import { Button } from '../../components/ui/Button'
 import { TextField } from '../../components/ui/TextField'
 import { useAuth } from '../../context/AuthContext'
+import { beschreibeVersion } from '../../lib/version'
 import styles from './Login.module.css'
 
 /**
@@ -98,6 +99,13 @@ export default function LoginPage() {
           <span>anna.berger@cramer.de · Passwort: cramer2026</span>
         </footer>
       </main>
+
+      {/*
+        Der Versionsstand gehört sichtbar auf die Anmeldeseite: Fragt ein Berater „habe
+        ich die aktuelle Fassung?", ist das die Stelle, an der er ohne Anmeldung
+        nachsehen kann — und die Stelle, die im Support-Gespräch zuerst abgefragt wird.
+      */}
+      <p className={styles.version}>{beschreibeVersion()}</p>
 
       <p className={styles.copyright}>
         © {new Date().getFullYear()} Cramer · Nur zur internen Verwendung

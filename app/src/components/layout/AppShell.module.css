@@ -25,24 +25,40 @@
   gap: var(--space-4);
 }
 
-.backBtn {
+/* --- Rückgängig / Wiederherstellen ---------------------------------------- */
+
+.historie {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  min-height: 40px;
-  padding: 0 var(--space-3);
+  gap: 2px;
+  padding: 2px;
   border: 1px solid var(--color-line-strong);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--color-ink);
-  cursor: pointer;
-  transition: border-color 0.16s ease;
 }
 
-.backBtn:hover {
-  border-color: var(--color-ink);
+.histBtn {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--color-ink);
+  font-size: 1.05rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.16s ease, opacity 0.16s ease;
+}
+
+.histBtn:hover:not(:disabled) {
+  background: var(--color-surface-soft);
+}
+
+.histBtn:disabled {
+  opacity: 0.32;
+  cursor: default;
 }
 
 .brand {
@@ -158,4 +174,47 @@
 .leaveBtn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+/* --- Umschalter Vorschau ⇄ Admin ------------------------------------------ */
+
+.modusBtn,
+.modusBtnAktiv {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.86rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: border-color 0.16s ease, background 0.16s ease;
+}
+
+/* In der Bearbeitung: führt zur Vorschau — zurückhaltend. */
+.modusBtn {
+  border: 1px solid var(--color-line-strong);
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.modusBtn:hover {
+  border-color: var(--color-ink);
+  background: var(--color-surface-soft);
+}
+
+/*
+  In der Vorschau: führt zurück in die Bearbeitung. Hervorgehoben, weil der Administrator
+  hier sonst nicht sieht, dass er in einem Sondermodus steckt — die Oberfläche ist in der
+  Vorschau absichtlich von der des Beraters nicht zu unterscheiden.
+*/
+.modusBtnAktiv {
+  border: 1px solid color-mix(in srgb, var(--color-focus) 55%, var(--color-line));
+  background: color-mix(in srgb, var(--color-focus) 14%, var(--color-surface));
+  color: var(--color-ink);
+}
+
+.modusBtnAktiv:hover {
+  border-color: var(--color-ink);
 }

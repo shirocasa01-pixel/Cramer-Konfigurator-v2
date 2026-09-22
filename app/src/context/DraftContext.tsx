@@ -8,6 +8,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import type { Draft } from '../types'
 import { generateEntwurfsnummer } from '../lib/id'
 import {
@@ -34,6 +35,33 @@ const ALTER_LISTEN_KEY = 'cramer-planer.drafts.v2'
 
 /** Wartezeit des Auto-Speicherns nach der letzten Eingabe. */
 const AUTOSAVE_VERZOEGERUNG_MS = 2000
+
+/**
+ * Tiefe der Rückgängig-Historie.
+ *
+ * Protokolliert wird JEDE Änderung — auch jedes einzelne getippte Zeichen, weil jeder
+ * Tastendruck durch `updateDraft` läuft. 300 Schritte sind damit etwa eine halbe Seite
+ * Tipparbeit; der Speicherbedarf bleibt im einstelligen Megabyte-Bereich, weil ein
+ * Entwurf wenige Kilobyte JSON ist.
+ */
+const HISTORIE_TIEFE = 300
+
+/** Aufbewahrungsfrist verworfener Entwürfe, danach räumt der Papierkorb von selbst. */
+export const ENTWURF_AUFBEWAHRUNG_TAGE = 30
+
+/**
+ * Ein Zustand VOR einer Änderung, zusammen mit dem Ort, an dem sie stattfand.
+ *
+ * Die Route mitzuführen ist der eigentliche Trick: Ohne sie würde „Rückgängig" einen Wert
+ * zurücksetzen, den der Berater gerade gar nicht sieht — er stünde in Schritt 6 und
+ * wunderte sich, warum sich nichts tut, während in Schritt 3 eine Breite zurückspringt.
+ * Mit ihr springt die Ansicht an die Stelle, an der die Änderung passiert ist.
+ */
+interface HistorieEintrag {
+  draft: Draft
+  route: string
+  zeit: number
+}
 
 /**
  * Hat der Entwurf genug Inhalt, um in der Übersicht zu erscheinen? (Die Auftragsnummer
@@ -72,7 +100,29 @@ interface DraftContextValue {
    * Ergebnis der ersten.
    */
   updateDraftFrom: (berechne: (aktuell: Draft) => Partial<Draft>) => void
+  /** Verwirft den laufenden Entwurf vollständig (Abmelden, Kontowechsel). */
   resetDraft: () => void
+
+  // --- Rückgängig / Wiederherstellen (↶ / ↷) ---
+  /** true ⇒ es gibt einen Schritt, der sich zurücknehmen lässt. */
+  kannRueckgaengig: boolean
+  /**
+   * true ⇒ es wurde mindestens einmal zurückgenommen und noch nichts Neues geändert.
+   * Erst dann erscheint der Vorwärts-Pfeil — wie in Word.
+   */
+  kannWiederherstellen: boolean
+  /** Nimmt die letzte Änderung zurück und springt zu der Stelle, an der sie passierte. */
+  rueckgaengig: () => void
+  /** Stellt die zuletzt zurückgenommene Änderung wieder her. */
+  wiederherstellen: () => void
+
+  /**
+   * Setzt die KONFIGURATION zurück und behält den Auftragskopf.
+   *
+   * Nicht dasselbe wie `resetDraft`: Wer „Entwurf zurücksetzen" wählt, will noch einmal
+   * von vorn konfigurieren — nicht Kundenname, Auftragsnummer und Filiale neu eintippen.
+   */
+  setzeKonfigurationZurueck: () => void
   /**
    * Schreibt den aktuellen Entwurf nach Supabase (Upsert über die Entwurfsnummer)
    * und meldet das Ergebnis per Toast. Liefert true bei Erfolg.
@@ -123,11 +173,99 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   const [cloudSaving, setCloudSaving] = useState(false)
   const { user } = useAuth()
   const { showToast } = useToast()
+  const navigate = useNavigate()
+  const location = useLocation()
 
   useEffect(() => {
     if (draft) localStorage.setItem(CURRENT_KEY, JSON.stringify(draft))
     else localStorage.removeItem(CURRENT_KEY)
   }, [draft])
+
+  // -------------------------------------------------------------------------
+  // Rückgängig / Wiederherstellen
+  // -------------------------------------------------------------------------
+
+  const [vergangenheit, setVergangenheit] = useState<HistorieEintrag[]>([])
+  const [zukunft, setZukunft] = useState<HistorieEintrag[]>([])
+
+  /** Die Route, auf der gerade gearbeitet wird — ohne sie im Callback zu veralten. */
+  const routeRef = useRef(location.pathname)
+  useEffect(() => {
+    routeRef.current = location.pathname
+  }, [location.pathname])
+
+  /** Der zuletzt gesehene Entwurf — die Vergleichsgröße der Aufzeichnung unten. */
+  const letzterRef = useRef<Draft | null>(draft)
+  /**
+   * Gesetzt, solange eine Zeitreise läuft.
+   *
+   * Ohne diese Bremse würde „Rückgängig" seinen eigenen Sprung als neue Änderung
+   * protokollieren — die Historie liefe im Kreis und käme nie am Anfang an.
+   */
+  const zeitreiseRef = useRef(false)
+
+  /*
+    AUFGEZEICHNET WIRD IM EFFEKT, nicht im Schreibaufruf.
+
+    Der naheliegende Weg wäre, in `updateDraft` vor dem Setzen den alten Stand
+    wegzuschreiben. Das wäre aber eine Nebenwirkung im State-Updater, und React ruft
+    Updater im Entwicklungsmodus absichtlich doppelt auf — jede Eingabe stünde zweimal in
+    der Historie, und „Rückgängig" müsste man zweimal drücken.
+
+    Hier läuft die Aufzeichnung nach dem Commit, und der Referenzvergleich (`vorher ===
+    draft`) macht den doppelten Lauf wirkungslos: Beim zweiten Durchgang ist der
+    Vergleichswert bereits nachgezogen.
+  */
+  useEffect(() => {
+    const vorher = letzterRef.current
+    letzterRef.current = draft
+    if (zeitreiseRef.current) {
+      zeitreiseRef.current = false
+      return
+    }
+    if (!vorher || !draft || vorher === draft) return
+    // Ein Wechsel des Entwurfs ist kein Bearbeitungsschritt: Die Historie des einen
+    // Entwurfs darf nicht in den nächsten hineinwirken.
+    if (vorher.id !== draft.id) {
+      setVergangenheit([])
+      setZukunft([])
+      return
+    }
+    setVergangenheit((liste) => [
+      ...liste.slice(-(HISTORIE_TIEFE - 1)),
+      { draft: vorher, route: routeRef.current, zeit: Date.now() },
+    ])
+    // Jede neue Änderung kappt den Vorwärts-Ast — genau wie in Word.
+    setZukunft([])
+  }, [draft])
+
+  /*
+    Beide Zeitreisen sind reine Ereignisbehandlungen: Sie lesen den aktuellen Stand aus
+    der Closure und schreiben mit unverschachtelten Updatern zurück. Ein `setDraft` INNEN
+    in einem `setVergangenheit`-Updater wäre derselbe Doppelaufruf-Fehler, den die
+    Aufzeichnung oben bewusst vermeidet.
+  */
+
+  /** Springt einen Schritt zurück und dorthin, wo die Änderung stattfand. */
+  const rueckgaengig = useCallback(() => {
+    const eintrag = vergangenheit[vergangenheit.length - 1]
+    if (!eintrag || !draft) return
+    zeitreiseRef.current = true
+    setVergangenheit((liste) => liste.slice(0, -1))
+    setZukunft((liste) => [...liste, { draft, route: routeRef.current, zeit: Date.now() }])
+    setDraft(eintrag.draft)
+    if (eintrag.route && eintrag.route !== routeRef.current) navigate(eintrag.route)
+  }, [vergangenheit, draft, navigate])
+
+  const wiederherstellen = useCallback(() => {
+    const eintrag = zukunft[zukunft.length - 1]
+    if (!eintrag || !draft) return
+    zeitreiseRef.current = true
+    setZukunft((liste) => liste.slice(0, -1))
+    setVergangenheit((liste) => [...liste, { draft, route: routeRef.current, zeit: Date.now() }])
+    setDraft(eintrag.draft)
+    if (eintrag.route && eintrag.route !== routeRef.current) navigate(eintrag.route)
+  }, [zukunft, draft, navigate])
 
   // Einmalig aufräumen: Die alte localStorage-Liste ist keine Quelle mehr und würde
   // sonst als toter Datensatz weiterleben und beim Debuggen in die Irre führen.
@@ -277,6 +415,65 @@ export function DraftProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const resetDraft = useCallback(() => setDraft(null), [])
+
+  /**
+   * „Entwurf zurücksetzen": die Konfiguration fällt, der Auftragskopf bleibt.
+   *
+   * Aufgezählt wird, was ERHALTEN bleibt, nicht was gelöscht wird. Andersherum — ein
+   * Patch mit `productGroupId: undefined, dimensions: undefined, …` — müsste bei jedem
+   * neuen Konfigurationsfeld nachgezogen werden, und genau das würde irgendwann jemand
+   * vergessen. So kann ein neues Feld gar nicht erst überleben.
+   */
+  const setzeKonfigurationZurueck = useCallback(() => {
+    setDraft((prev) => {
+      if (!prev) return prev
+      return {
+        id: prev.id,
+        createdAt: prev.createdAt,
+        consultant: prev.consultant,
+        // Schritt 1, der Auftragskopf — das ist der Teil, den niemand zweimal tippen will.
+        orderNumber: prev.orderNumber,
+        customerName: prev.customerName,
+        branchId: prev.branchId,
+        artikelnummer: prev.artikelnummer,
+        variantLabel: prev.variantLabel,
+        variantOf: prev.variantOf,
+        zusatzfelder: prev.zusatzfelder,
+        isVerification: prev.isVerification,
+      }
+    })
+    navigate('/products')
+  }, [navigate])
+
+  /*
+    30-TAGE-RÄUMUNG DES ENTWURFS-PAPIERKORBS.
+
+    Ohne Server gibt es keinen nächtlichen Lauf; geräumt wird deshalb, wenn die Übersicht
+    geladen wird. Für eine Aufbewahrungsfrist reicht das: Sie ist die Zusage „mindestens
+    30 Tage", keine Stoppuhr. Referenz-Entwürfe (`isVerification`) sind ausgenommen — sie
+    sind Prüfstände und keine Kundendaten.
+  */
+  useEffect(() => {
+    const grenze = Date.now() - ENTWURF_AUFBEWAHRUNG_TAGE * 24 * 60 * 60 * 1000
+    const faellige = remoteDrafts.filter((item) => {
+      if (!item.deletedAt || item.isVerification) return false
+      const zeitpunkt = new Date(item.deletedAt).getTime()
+      return !Number.isNaN(zeitpunkt) && zeitpunkt < grenze
+    })
+    if (faellige.length === 0) return
+    void (async () => {
+      for (const eintrag of faellige) {
+        try {
+          await deleteProject(eintrag.id)
+          setRemoteDrafts((list) => list.filter((item) => item.id !== eintrag.id))
+        } catch {
+          // Stillschweigend: Eine abgelaufene Frist ist kein Vorgang, über den der
+          // Berater eine Fehlermeldung braucht — beim nächsten Laden wird es erneut
+          // versucht.
+        }
+      }
+    })()
+  }, [remoteDrafts])
 
   const saveDraft = useCallback<DraftContextValue['saveDraft']>(async () => {
     if (!draft) return false
@@ -441,6 +638,11 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       updateDraft,
       updateDraftFrom,
       resetDraft,
+      kannRueckgaengig: vergangenheit.length > 0,
+      kannWiederherstellen: zukunft.length > 0,
+      rueckgaengig,
+      wiederherstellen,
+      setzeKonfigurationZurueck,
       saveDraft,
       finalizeDraft,
       cloudSaving,
@@ -463,6 +665,11 @@ export function DraftProvider({ children }: { children: ReactNode }) {
       updateDraft,
       updateDraftFrom,
       resetDraft,
+      vergangenheit,
+      zukunft,
+      rueckgaengig,
+      wiederherstellen,
+      setzeKonfigurationZurueck,
       saveDraft,
       finalizeDraft,
       cloudSaving,

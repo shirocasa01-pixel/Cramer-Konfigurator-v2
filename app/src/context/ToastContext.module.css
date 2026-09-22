@@ -28,6 +28,11 @@
   border-left-color: var(--color-success);
 }
 
+/* Mitteilung – der messingfarbene Akzent der Marke, kein Ampelsignal. */
+.info {
+  border-left-color: var(--color-focus);
+}
+
 .error {
   border-left-color: var(--color-danger);
 }

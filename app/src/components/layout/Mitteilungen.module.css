@@ -1,0 +1,64 @@
+.leer {
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: var(--color-ink-secondary);
+}
+
+.liste {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eintrag {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+}
+
+.kopf {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.nummer {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.aktuell {
+  padding: 0.05rem 0.45rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--color-focus) 20%, transparent);
+  color: var(--color-ink-secondary);
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.zeit {
+  font-size: 0.82rem;
+  color: var(--color-ink-muted);
+}
+
+.notiz {
+  margin-top: 0.2rem;
+  font-size: 0.88rem;
+  color: var(--color-ink);
+}
+
+.von {
+  font-size: 0.78rem;
+  color: var(--color-ink-muted);
+}

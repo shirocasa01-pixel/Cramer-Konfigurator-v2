@@ -10,8 +10,14 @@ import {
 } from 'react'
 import styles from './ToastContext.module.css'
 
-/** Erfolg (grün) oder Fehler (rot) – mehr Varianten braucht der Planer nicht. */
-export type ToastVariant = 'success' | 'error'
+/**
+ * Erfolg (grün), Fehler (rot) — und Mitteilung (neutral) für die Versions-Meldung.
+ *
+ * „info" ist keine Rückmeldung auf eine Handlung, sondern eine Nachricht, die von selbst
+ * hereinkommt. Sie steht deshalb spürbar länger: Wer gerade tippt, soll sie zu Ende lesen
+ * können, ohne dass sie im Augenwinkel verschwindet.
+ */
+export type ToastVariant = 'success' | 'error' | 'info'
 
 interface Toast {
   id: number
@@ -29,7 +35,7 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | undefined>(undefined)
 
-const DAUER: Record<ToastVariant, number> = { success: 3200, error: 6400 }
+const DAUER: Record<ToastVariant, number> = { success: 3200, error: 6400, info: 8000 }
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
