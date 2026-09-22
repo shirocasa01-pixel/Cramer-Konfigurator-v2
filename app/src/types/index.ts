@@ -251,8 +251,16 @@ export interface FrontElement {
    * vordefinierte Liste gibt: „Grundsätzlich sind alle RAL-Classic Farben möglich."
    */
   griffProfilFarbe?: string
-  /** Phase A: Freitext-Farbe direkt nach der Griffwahl („Farbe nach Griffwahl"). */
+  /**
+   * Phase A: Freitext-Farbe direkt nach der Griffwahl („Farbe nach Griffwahl"). Beim
+   * Edge-Griff (Stahl) steht hier der RAL-Ton.
+   */
   griffFarbe?: string
+  /**
+   * Edge-Griff an einer Drehtür: gekürzte Grifflänge in cm. Leer = volle Türhöhe (Vorgabe).
+   * Schiebetüren tragen Edge immer über die volle Türhöhe — dort wird das Feld ignoriert.
+   */
+  griffLaengeCm?: string
 }
 
 /** Innenausbau „hinter der Front“ eines Segments (v. a. Refugium). */

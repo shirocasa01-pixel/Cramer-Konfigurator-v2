@@ -1,5 +1,5 @@
 import type { FrontField } from '../config/frontCatalog'
-import { getHandle } from '../config/handles'
+import { EDGE_HANDLE_ID, EDGE_KUERZBAR_FRONT_TYPE_IDS, getHandle } from '../config/handles'
 import type { AbschlussOben, FrontElement, FrontFieldValue } from '../types'
 import { PRICE_GROUP_LABEL, describeMaterialSelection } from './materialFormat'
 
@@ -45,7 +45,15 @@ export function describeFrontField(field: FrontField, value: FrontFieldValue | u
 export function describeHandleConfig(element: FrontElement): string {
   const parts: string[] = []
   if (element.pto) parts.push('PTO (Push-to-Open)')
-  if (element.griff) {
+  if (element.griff && element.griffId === EDGE_HANDLE_ID) {
+    // Edge ist ein Fertigungsteil nach Maß: Material, Länge und RAL-Ton gehören in die AV.
+    const ral = element.griffFarbe?.trim()
+    const laenge = element.griffLaengeCm?.trim()
+    const gekuerzt = laenge && EDGE_KUERZBAR_FRONT_TYPE_IDS.includes(element.typeId)
+    parts.push(
+      `Griff Edge (Stahl, vertikal) · Länge: ${gekuerzt ? `${laenge} cm (gekürzt)` : 'volle Türhöhe'} · RAL-Ton: ${ral || 'fehlt'}`,
+    )
+  } else if (element.griff) {
     const handle = getHandle(element.griffId)
     const details = element.griffFarbe?.trim()
     parts.push(`Griff${handle ? ` ${handle.label}` : ''}${details ? ` · Griffdetails: ${details}` : ''}`)

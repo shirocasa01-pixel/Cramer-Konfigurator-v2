@@ -227,7 +227,8 @@ export default function FrontsPage() {
   // Phase A – „Werte übernehmen": die erste konfigurierte Front (über alle Segmente) ist die Referenz.
   const firstElement = fronts.columns.flatMap((col) => col.elements)[0]
   function applyCopyFromFirst(columnId: string, elementId: string) {
-    if (firstElement) updateElement(columnId, elementId, copyableFrontValues(firstElement))
+    const ziel = fronts.columns.find((col) => col.id === columnId)?.elements.find((el) => el.id === elementId)
+    if (firstElement) updateElement(columnId, elementId, copyableFrontValues(firstElement, ziel?.typeId))
   }
 
   function handleContinue() {

@@ -33,6 +33,7 @@
  */
 
 import { equipmentAnzeigename, getEquipmentOption, type EquipmentOption } from '../config/equipment.ts'
+import { EDGE_HANDLE_ID } from '../config/handles.ts'
 import {
   anzahlMittelseiten,
   artikelAufschlaege,
@@ -43,7 +44,7 @@ import {
   frontLookups,
   getSerienRegel,
   griffImFrontpreisEnthalten,
-  grifflaengeCm,
+  grifflaenge,
   liniePgAchsenwert,
   schubHoeheCm,
   serviceZuschlaege,
@@ -1088,9 +1089,20 @@ function baueFrontPositionen(
         const griffArtikel = griffArtikelnummer(el.griffId)
         const stamm = griffArtikel ? getArtikelNr(griffArtikel) : undefined
         if (griffArtikel && !griffImFrontpreisEnthalten(stamm)) {
-          // Edge (€ je laufendem Meter): Länge = Türhöhe, Vorgabe Cramer vom 23.09.2026
-          // (`grifflaengeCm`). Ein Stückpreis-Griff braucht keine Länge und ignoriert sie.
-          const laengeCm = grifflaengeCm(el.typeId, hoeheCm)
+          // Edge (€ je laufendem Meter): nur vertikal an Türen, Länge = Türhöhe, an Drehtüren
+          // auch gekürzt — Preisliste S. 3, bestätigt von Cramer (`grifflaenge`).
+          const laenge = grifflaenge(el.typeId, hoeheCm, zahl(el.griffLaengeCm))
+          const wo = `Segment ${segment}, „${el.label || bezeichnung}"`
+          if (laenge.problem) meldungen.push({ schwere: 'fehler', text: `${wo}: ${laenge.problem}` })
+          if (el.griffId === EDGE_HANDLE_ID && !el.griffFarbe?.trim()) {
+            meldungen.push({ schwere: 'warnung', text: `${wo}: Edge-Griff (Stahl) — RAL-Ton fehlt.` })
+          }
+          const laengeText =
+            laenge.laengeCm == null
+              ? null
+              : laenge.gekuerzt
+                ? `Grifflänge ${cmText(laenge.laengeCm)} cm (gekürzt, Türhöhe ${cmText(hoeheCm ?? 0)} cm).`
+                : `Grifflänge = Türhöhe ${cmText(laenge.laengeCm)} cm.`
           positionen.push(
             bauePosition({
               lookup: { artikel: griffArtikel },
@@ -1098,16 +1110,9 @@ function baueFrontPositionen(
               bucket: 'upgrade',
               herkunft: 'gewaehlt',
               segment,
-              laengeCm,
-              hinweis:
-                [
-                  el.label ? `zu „${el.label}"` : null,
-                  laengeCm != null ? `Grifflänge = Türhöhe ${cmText(laengeCm)} cm.` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ') || undefined,
-              grundOhneMass:
-                'Grifflänge nur für Dreh- und Schiebetüren festgelegt (= Türhöhe) — an Schüben und Klappen auf Anfrage.',
+              laengeCm: laenge.laengeCm,
+              hinweis: [el.label ? `zu „${el.label}"` : null, laengeText].filter(Boolean).join(' · ') || undefined,
+              grundOhneMass: laenge.problem,
             }),
           )
         }

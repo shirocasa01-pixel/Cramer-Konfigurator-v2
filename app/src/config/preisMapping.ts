@@ -16,6 +16,7 @@
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
+import { EDGE_FRONT_TYPE_IDS, EDGE_KUERZBAR_FRONT_TYPE_IDS } from './handles.ts'
 import { resolvePriceGroup } from '../lib/materialRules.ts'
 import type { PriceGroup } from '../types/index.ts'
 
@@ -299,18 +300,34 @@ export function griffImFrontpreisEnthalten(artikel: { preislogik: string; einhei
 /**
  * GRIFFLÄNGE EINES GRIFFS NACH LAUFENDEM METER (Edge-Kantengriff, 40 €/lfm).
  *
- * Rückmeldung Cramer vom 23.09.2026: Die Grifflänge ist die Höhe der Tür — bei
- * Schiebetüren die volle Türhöhe, bei Drehtüren die Türhöhe. Der Berater gibt keine
- * eigene Länge ein; sie kommt aus der erfassten Fronthöhe.
+ * Preisliste S. 3, bestätigt von Cramer am 23.09.2026:
+ *   „Länge: Bei Schiebetüren über volle Türhöhe (Stabilität); bei Drehtüren auch gekürzt
+ *    möglich. Griff nur vertikal einplanen. Horizontal nicht möglich."
  *
- * Für Schübe und Klappen hat Cramer keine Länge festgelegt (dort läge ein Kantengriff
- * waagerecht an der Frontkante). Ohne Vorgabe wird nichts geraten: Die Griffposition
- * bleibt dort „auf Anfrage".
+ *   Schiebetür   immer die volle Türhöhe — eine gekürzte Angabe gilt dort nicht.
+ *   Drehtür      Vorgabe ist die Türhöhe (keine Eingabe nötig); gekürzt, wenn der Berater
+ *                eine kürzere Länge einträgt. Länger als die Tür geht nicht.
+ *   Schub/Klappe Edge wäre dort waagerecht — nicht möglich, die Auswahl bietet ihn nicht an.
+ *                Kommt er trotzdem an (Altentwurf, „Werte übernehmen"), wird nichts geraten.
  */
-const GRIFFLAENGE_AUS_TUERHOEHE = new Set(['drehtuer', 'schiebetuer'])
+export interface Grifflaenge {
+  laengeCm?: number
+  /** true, wenn eine Drehtür bewusst kürzer als die Türhöhe bestückt wird. */
+  gekuerzt?: boolean
+  /** Warum keine Länge feststeht — die Position bleibt dann „auf Anfrage". */
+  problem?: string
+}
 
-export function grifflaengeCm(frontTypId: string, hoeheCm: number | undefined): number | undefined {
-  return GRIFFLAENGE_AUS_TUERHOEHE.has(frontTypId) ? hoeheCm : undefined
+export function grifflaenge(frontTypId: string, hoeheCm: number | undefined, gewuenschtCm?: number): Grifflaenge {
+  if (!EDGE_FRONT_TYPE_IDS.includes(frontTypId)) {
+    return { problem: 'Edge ist nur vertikal an Dreh- und Schiebetüren möglich — horizontal nicht.' }
+  }
+  if (hoeheCm == null) return {}
+  if (!EDGE_KUERZBAR_FRONT_TYPE_IDS.includes(frontTypId) || gewuenschtCm == null) return { laengeCm: hoeheCm }
+  if (gewuenschtCm <= 0 || gewuenschtCm > hoeheCm) {
+    return { problem: `Grifflänge ${String(gewuenschtCm).replace('.', ',')} cm passt nicht zur Türhöhe ${String(hoeheCm).replace('.', ',')} cm — höchstens die volle Türhöhe.` }
+  }
+  return { laengeCm: gewuenschtCm, gekuerzt: gewuenschtCm < hoeheCm }
 }
 
 /**

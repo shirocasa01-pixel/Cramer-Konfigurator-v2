@@ -6,8 +6,8 @@
  *   10 Artikel   TPL-001 / TPL-002 Tavolo-Massivplatten → Status „entwurf", Preisart
  *                „Auf Anfrage": Tavolo wird im Konfigurator derzeit nicht verbaut. Die
  *                Preiszeilen bleiben stehen — sie werden gebraucht, sobald Tavolo kommt.
- *                GRF-001 Edge-Griff → Bemerkung nennt die neue Längenregel (Grifflänge =
- *                Türhöhe), statt „bei Drehtüren kürzbar".
+ *                GRF-001 Edge-Griff → Bemerkung mit der vollständigen Vorgabe (Länge nach
+ *                Türhöhe, an Drehtüren kürzbar, nur vertikal, Stahl, RAL-Ton nach Wahl).
  *
  * Die übrigen Antworten (Edge-Staffel, Wandtablar, Aufkantung, Container-Sperre,
  * Personalnummer M-104) betreffen Supabase-Overrides — die Mappe trägt dort bereits den
@@ -44,8 +44,10 @@ const SOLL = [
     kurzzeichen: 'GRF-001',
     werte: {
       Bemerkung:
-        'Grifflänge = Türhöhe: bei Schiebetüren die volle Türhöhe, bei Drehtüren die Türhöhe — ' +
-        'wird automatisch aus der Front übernommen (Cramer, 23.09.2026). An Schüben und Klappen auf Anfrage.',
+        'Länge: bei Schiebetüren über die volle Türhöhe (Stabilität); bei Drehtüren auch gekürzt möglich. ' +
+        'Griff nur vertikal einplanen, horizontal nicht möglich — deshalb nur an Dreh- und Schiebetüren. ' +
+        'Material Stahl, Oberfläche RAL-Ton nach Wahl. Die Länge übernimmt der Konfigurator aus der ' +
+        'Türhöhe; an Drehtüren kann sie gekürzt werden (Cramer, 23.09.2026).',
     },
   },
 ]

@@ -5,6 +5,7 @@ import {
   getEquipmentOption,
 } from '../config/equipment.ts'
 import { LINE_AUFKANTUNG_GROUPS, getFrontType, type FrontField } from '../config/frontCatalog.ts'
+import { EDGE_KUERZBAR_FRONT_TYPE_IDS, getAvailableHandles } from '../config/handles.ts'
 import { MATERIAL_CUSTOM_ID, getMaterialGroup } from '../config/materialMatrix.ts'
 import { FRONT_OFFSET_MM, hoeheFuerRaster } from './raster.ts'
 
@@ -386,8 +387,21 @@ export function entferneAbgewaehlteAusstattung(
  * Kopierbare Konfigurationswerte eines Front-Elements (ohne id/label/typeId) für die
  * „Werte übernehmen"-Funktion (Phase A). `fieldValues` wird tief kopiert, damit Quelle
  * und Ziel danach unabhängig bearbeitet werden können.
+ *
+ * Mit `zielTypeId` bleibt ein Griff weg, den der Ziel-Typ nicht anbietet — vor allem Edge,
+ * der nur vertikal an Türen geht (eine Schub-Front bekäme sonst einen unmöglichen Griff).
  */
-export function copyableFrontValues(src: FrontElement): Partial<FrontElement> {
+export function copyableFrontValues(src: FrontElement, zielTypeId?: string): Partial<FrontElement> {
+  const werte = copyableFrontValuesRoh(src)
+  if (zielTypeId && werte.griffId && !getAvailableHandles(werte.styleLineId, zielTypeId).some((h) => h.id === werte.griffId)) {
+    werte.griffId = undefined
+    werte.griffLaengeCm = undefined
+  }
+  if (zielTypeId && !EDGE_KUERZBAR_FRONT_TYPE_IDS.includes(zielTypeId)) werte.griffLaengeCm = undefined
+  return werte
+}
+
+function copyableFrontValuesRoh(src: FrontElement): Partial<FrontElement> {
   return {
     // Die Breite wird BEWUSST nicht übernommen (Überarbeitung 9): Sie folgt aus der Ebene,
     // in der die Front sitzt — eine kopierte 59 aus einem Türpaar 59/39 wäre anderswo falsch.
@@ -405,6 +419,7 @@ export function copyableFrontValues(src: FrontElement): Partial<FrontElement> {
     griff: src.griff,
     griffId: src.griffId,
     griffFarbe: src.griffFarbe,
+    griffLaengeCm: src.griffLaengeCm,
     laufschienenfarbe: src.laufschienenfarbe,
     griffProfil: src.griffProfil,
     griffProfilFarbe: src.griffProfilFarbe,

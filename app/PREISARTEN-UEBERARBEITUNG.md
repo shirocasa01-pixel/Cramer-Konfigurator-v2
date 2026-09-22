@@ -164,7 +164,7 @@ Preisstand; auch ältere Snapshots werden zweistufig angezeigt.
 | Gesperrte Artikel | Korpus, Raumteiler, Montage gesperrt bzw. Entwurf | jeweils „auf Anfrage", nicht verbindlich ✓ |
 | Supabase | Laden eines Satzes aus Supabase, Alt-Override, Speichern/Laden-Logik (`sync:test`) | ✓ |
 | Bestand | `data:test` `kalk:test` `preis:test` `pg:test` `achsen:test` `praxis:test` (372 Teilbeträge) `sync:test` `ue89:test` `format:test` `mass:test` | ✓ · `tsc` ✓ · `vite build` ✓ |
-| Antworten Cramer (23.09.) | Abschnitt M von `preisart:test` (14 Prüfungen) und Nachrechnung mit dem Live-Stand aus Supabase | ✓ — Einzelheiten unten |
+| Antworten Cramer (23.09.) | Abschnitt M von `preisart:test` (26 Prüfungen) und Nachrechnung mit dem Live-Stand aus Supabase | ✓ — Einzelheiten unten |
 
 ---
 
@@ -177,10 +177,11 @@ der Preisliste; Punkt 5 ist eine Mappen-Migration (`npm run data:migrate-cramer-
 
 1. **[GEFIXT] Edge-Griff — 40 €/lfm, Länge = Türhöhe.** Die Staffel (100/200/300 cm →
    40/80/120 €) ist aus Supabase entfernt; es gilt „Matrix – Maßgenau" mit 40 €/m laut
-   Preisliste S. 3. Die Grifflänge kommt automatisch aus der Front — bei Schiebetüren die volle
-   Türhöhe, bei Drehtüren die Türhöhe; eine eigene Längeneingabe gibt es nicht. Die Position
-   zeigt die Herleitung: Drehtür 195 cm → „1,95 m × 40 €/m = 78,00 €, Grifflänge = Türhöhe
-   195 cm". Bisher nutzt kein gespeicherter Entwurf den Edge-Griff.
+   Preisliste S. 3. Die Grifflänge kommt automatisch aus der Front — eine Eingabe ist nicht
+   nötig. Die Position zeigt die Herleitung: Drehtür 195 cm → „1,95 m × 40 €/m = 78,00 €,
+   Grifflänge = Türhöhe 195 cm". Bisher nutzt kein gespeicherter Entwurf den Edge-Griff.
+   Vollständige Vorgabe (siehe 7): Schiebetür immer volle Türhöhe, Drehtür auch gekürzt,
+   nur vertikal, Stahl, RAL-Ton nach Wahl.
 2. **[GEFIXT] KMK-Wandtablar** (40-020-0003) rechnet wieder laut Preisliste S. 33:
    Festpreis + Matrix, 75 € Grundpreis + 180 €/lfm (1,5 m → 345,00 €). Hinweis: Bei genau 1 m
    ergibt das ebenfalls 255 € — der bisherige Festpreis entsprach einem 1-m-Tablar.
@@ -201,14 +202,21 @@ der Preisliste; Punkt 5 ist eine Mappen-Migration (`npm run data:migrate-cramer-
    Kerschbaummayr stillschweigend auf Sarib umgeschrieben (erster Treffer unter M-004); das
    ist damit behoben. War er auf einem Gerät angemeldet, bitte einmal ab- und wieder anmelden.
 
-### Neue Rückfrage
-
-7. **[OFFEN] Edge-Griff an Schüben und Klappen.** Die Griff-Auswahl bietet Edge auch bei
-   Schüben und Klappen (Stil-Linie Glatt) an. Die Vorgabe „Grifflänge = Türhöhe" gilt für
-   Türen; an einem Schub läge der Kantengriff eher waagerecht an der Frontkante. Soll dort die
-   **Frontbreite** als Grifflänge gelten, oder soll Edge bei Schüben und Klappen aus der Auswahl
-   verschwinden? Bis dahin steht die Position dort sichtbar „auf Anfrage" — es wird nichts
-   geraten.
+7. **[GEFIXT] Edge-Griff — vollständige Vorgabe** (Preisliste S. 3, von Cramer bestätigt):
+   „Länge: Bei Schiebetüren über volle Türhöhe (Stabilität); bei Drehtüren auch gekürzt
+   möglich. Griff nur vertikal einplanen. Horizontal nicht möglich. Material: Stahl.
+   Oberfläche: RAL-Ton nach Wahl."
+   - **Nur vertikal:** Edge ist nur noch an Dreh- und Schiebetüren wählbar; bei Schüben und
+     Klappen läge er waagerecht und verschwindet aus der Griff-Auswahl. „Werte übernehmen"
+     trägt ihn nicht auf einen Schub. Kommt er doch an (Altentwurf), meldet die Kalkulation
+     einen Fehler und rät keinen Preis.
+   - **Länge:** Schiebetür immer volle Türhöhe. Drehtür: Vorgabe volle Türhöhe, ohne Eingabe;
+     im neuen Feld „Grifflänge (cm)" lässt sie sich kürzen (120 cm → 48,00 €), aber nicht
+     über die Türhöhe hinaus.
+   - **Stahl, RAL-Ton nach Wahl:** Bei Edge heißt das Feld unter der Griff-Auswahl
+     „RAL-Ton (Stahl)". Zusammenfassung und AV-PDF führen „Griff Edge (Stahl, vertikal) ·
+     Länge · RAL-Ton"; fehlt der RAL-Ton, zeigt die Kalkulation einen Hinweis.
+   - Die Bemerkung des Artikels in der Mappe trägt die Vorgabe im Wortlaut.
 
 ## Technischer Überblick
 
@@ -218,7 +226,7 @@ der Preisliste; Punkt 5 ist eine Mappen-Migration (`npm run data:migrate-cramer-
 | Lookup je Preisart (Stufe / exakt, Bezugsgrößen) | `src/lib/preisLookup.ts` |
 | Zweistufige Kalkulation, Preisprobe, Griff-Lookup | `src/lib/kalkulation.ts` |
 | Häkchen → Aufschlag-Artikel | `src/config/preisMapping.ts` (`artikelAufschlaege`, `serviceZuschlaege`) |
-| Grifflänge Edge (= Türhöhe) | `src/config/preisMapping.ts` (`grifflaengeCm`) |
+| Edge: nur an Türen, Länge (Türhöhe / gekürzt) | `src/config/handles.ts` (`EDGE_FRONT_TYPE_IDS`), `src/config/preisMapping.ts` (`grifflaenge`), Feld in `FrontElementCard.tsx` |
 | Übersicht für Abschluss und PDF | `src/lib/kalkulationsUebersicht.ts`, `KalkulationsPanel.tsx`, `generatePdf.ts` |
 | Artikelverwaltung | `ArtikelDetailModal.tsx`, `PreisartEditor.tsx`, Spalte „Preisart" im Gitter |
 | Mappe | `scripts/migrate-preisarten.js` (idempotent) · neue Spalten „Aufschlag", „Aufschlag-Einheit", „Aufschlag-Basis", „Preislisten-Nr." · `scripts/migrate-cramer-antworten.js` (Tavolo, Edge-Bemerkung) |

@@ -46,7 +46,8 @@ import {
   serviceZuschlaege,
   verblendungLookups,
 } from '../src/config/preisMapping.ts'
-import { handles } from '../src/config/handles.ts'
+import { getAvailableHandles, handles } from '../src/config/handles.ts'
+import { copyableFrontValues } from '../src/lib/frontsHelpers.ts'
 import { demoEntwurf } from '../src/data/demoEntwurf.ts'
 
 const c = {
@@ -372,12 +373,58 @@ const edgeSchiebe = griffPos(
   berechneEntwurf(mitFront(3, 0, { typeId: 'schiebetuer', heightCm: '230', hoeheModus: undefined, tuerAnschlag: undefined, griffId: 'edge' })),
 )
 pruefe(edgeSchiebe[0]?.status === 'berechnet' && edgeSchiebe[0].gesamt === 92, `Edge an Schiebetür 230 cm (volle Türhöhe): ${eur(edgeSchiebe[0]?.gesamt)} € (92 €)`, edgeSchiebe)
-const edgeSchub = griffPos(berechneEntwurf(mitFront(2, 0, { styleLineId: 'glatt', griff: true, griffId: 'edge' })))
-pruefe(
-  edgeSchub[0]?.status === 'auf-anfrage' && /Schüben und Klappen/.test(edgeSchub[0].hinweis ?? ''),
-  'Edge an einem Schub: keine Länge festgelegt → auf Anfrage mit Begründung, nichts geraten',
-  edgeSchub,
+const edgeSchiebeKurz = griffPos(
+  berechneEntwurf(mitFront(3, 0, { typeId: 'schiebetuer', heightCm: '230', hoeheModus: undefined, tuerAnschlag: undefined, griffId: 'edge', griffLaengeCm: '100' })),
 )
+pruefe(edgeSchiebeKurz[0]?.gesamt === 92, 'Schiebetür: eine gekürzte Länge gilt nicht — immer volle Türhöhe (Stabilität)', edgeSchiebeKurz)
+const kurz = berechneEntwurf(mitFront(3, 0, { griffId: 'edge', griffLaengeCm: '120', griffFarbe: 'RAL 9005' }))
+pruefe(
+  griffPos(kurz)[0]?.gesamt === 48 && /gekürzt, Türhöhe 195 cm/.test(griffPos(kurz)[0]?.hinweis ?? ''),
+  `Drehtür, Edge gekürzt auf 120 cm: 1,2 m × 40 €/m = ${eur(griffPos(kurz)[0]?.gesamt)} € (48 €)`,
+  griffPos(kurz),
+)
+const zuLang = berechneEntwurf(mitFront(3, 0, { griffId: 'edge', griffLaengeCm: '250' }))
+pruefe(
+  griffPos(zuLang)[0]?.status === 'auf-anfrage' && zuLang.meldungen.some((m) => m.schwere === 'fehler' && /höchstens die volle Türhöhe/.test(m.text)),
+  'Drehtür, Edge länger als die Tür (250 > 195 cm) → Fehler, auf Anfrage',
+  zuLang.meldungen,
+)
+pruefe(
+  !kurz.meldungen.some((m) => /RAL-Ton fehlt/.test(m.text)) &&
+    berechneEntwurf(mitFront(3, 0, { griffId: 'edge' })).meldungen.some((m) => m.schwere === 'warnung' && /RAL-Ton fehlt/.test(m.text)),
+  'Edge ohne RAL-Ton → Hinweis „RAL-Ton fehlt" (Stahl, RAL nach Wahl)',
+)
+// Nur vertikal: an Schüben und Klappen nicht wählbar; kommt er doch an, wird nichts geraten.
+for (const typ of ['schuebe', 'stauraumklappe', 'hochstellklappe', 'schreibklappe']) {
+  pruefe(!getAvailableHandles('glatt', typ).some((h) => h.id === 'edge'), `Edge an „${typ}" nicht wählbar (horizontal nicht möglich)`)
+}
+pruefe(
+  ['drehtuer', 'schiebetuer'].every((typ) => getAvailableHandles('glatt', typ).some((h) => h.id === 'edge')),
+  'Edge an Dreh- und Schiebetüren (Glatt) wählbar',
+)
+const edgeSchub = berechneEntwurf(mitFront(2, 0, { styleLineId: 'glatt', griff: true, griffId: 'edge' }))
+pruefe(
+  griffPos(edgeSchub)[0]?.status === 'auf-anfrage' &&
+    edgeSchub.meldungen.some((m) => m.schwere === 'fehler' && /nur vertikal/.test(m.text)),
+  'Edge an einem Schub (Altentwurf) → Fehler „nur vertikal", auf Anfrage, nichts geraten',
+  edgeSchub.meldungen,
+)
+const kopie = copyableFrontValues({ ...demoEntwurf.fronts.columns[3].elements[0], griffId: 'edge', griffLaengeCm: '120' }, 'schuebe')
+pruefe(kopie.griffId === undefined && kopie.griffLaengeCm === undefined, '„Werte übernehmen" trägt Edge nicht auf einen Schub')
+{
+  // frontsFormat.ts importiert ohne Dateiendung — Node löst das nicht auf, Vite schon.
+  const { createServer } = await import('vite')
+  const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' })
+  try {
+    const { describeHandleConfig } = await vite.ssrLoadModule('/src/lib/frontsFormat.ts')
+    const d3 = demoEntwurf.fronts.columns[3].elements[0]
+    const text = describeHandleConfig({ ...d3, griffId: 'edge', griffLaengeCm: '120', griffFarbe: 'RAL 9005' })
+    pruefe(/Griff Edge \(Stahl, vertikal\) · Länge: 120 cm \(gekürzt\) · RAL-Ton: RAL 9005/.test(text), `Zusammenfassung/AV-PDF: „${text}"`)
+    pruefe(/Länge: volle Türhöhe · RAL-Ton: fehlt/.test(describeHandleConfig({ ...d3, griffId: 'edge' })), 'Ohne Kürzung „volle Türhöhe", fehlender RAL-Ton sichtbar')
+  } finally {
+    await vite.close()
+  }
+}
 pruefe(griffPos(berechneEntwurf(demoEntwurf)).length === 0, 'Stückgriff Nr. 121 bleibt im Türpreis enthalten (keine eigene Position)')
 
 // 2 · KMK-Wandtablar laut Preisliste: Festpreis + Matrix, 75 € + 180 €/lfm.

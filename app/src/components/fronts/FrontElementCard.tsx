@@ -9,7 +9,8 @@ import {
   type FrontField,
   type FrontStyleLine,
 } from '../../config/frontCatalog'
-import { getAvailableHandles } from '../../config/handles'
+import { EDGE_HANDLE_ID, EDGE_KUERZBAR_FRONT_TYPE_IDS, getAvailableHandles } from '../../config/handles'
+import { grifflaenge } from '../../config/preisMapping'
 import { MATERIAL_CUSTOM_ID, aktuelleOptionId, getMaterialGroup } from '../../config/materialMatrix'
 import { formatMassZahl } from '../../lib/format'
 import { resolvePriceGroup } from '../../lib/materialRules'
@@ -104,6 +105,15 @@ export function FrontElementCard({
   const maxHeight = type?.maxHeightCm
   const heightNum = Number((element.heightCm ?? '').replace(',', '.'))
   const heightViolation = maxHeight != null && Number.isFinite(heightNum) && heightNum > maxHeight
+  // Edge-Griff: dieselbe Längenregel wie in der Kalkulation (`grifflaenge`).
+  const istEdge = Boolean(element.griff) && element.griffId === EDGE_HANDLE_ID
+  const griffLaengeNum = Number((element.griffLaengeCm ?? '').replace(',', '.'))
+  const griffLaengeFehler =
+    istEdge && element.griffLaengeCm?.trim()
+      ? !Number.isFinite(griffLaengeNum)
+        ? 'Bitte eine Zahl in cm eingeben.'
+        : grifflaenge(element.typeId, Number.isFinite(heightNum) && heightNum > 0 ? heightNum : undefined, griffLaengeNum).problem
+      : undefined
 
   const hoeheModus = element.hoeheModus
   // „Höhe bis Korpusoberkante" und die Rastererkennung schreibt die Fronten-Seite über
@@ -163,8 +173,9 @@ export function FrontElementCard({
       lineAufkantungGleich: undefined,
     }
     // Schritt 7: bei Wechsel zu Glossy/Less einen dort nicht mehr zulässigen Griff verwerfen.
-    if (element.griffId && !getAvailableHandles(styleLineId).some((h) => h.id === element.griffId)) {
+    if (element.griffId && !getAvailableHandles(styleLineId, element.typeId).some((h) => h.id === element.griffId)) {
       patch.griffId = undefined
+      patch.griffLaengeCm = undefined
     }
     onChange(patch)
   }
@@ -523,7 +534,7 @@ export function FrontElementCard({
                   onChange(
                     event.target.checked
                       ? { griff: true, pto: false }
-                      : { griff: false, griffId: undefined, griffFarbe: undefined },
+                      : { griff: false, griffId: undefined, griffFarbe: undefined, griffLaengeCm: undefined },
                   )
                 }
               />
@@ -535,12 +546,36 @@ export function FrontElementCard({
             <Select
               label="Griff-Auswahl"
               placeholder="Bitte Griff wählen"
-              options={getAvailableHandles(element.styleLineId).map((handle) => ({
+              options={getAvailableHandles(element.styleLineId, element.typeId).map((handle) => ({
                 value: handle.id,
                 label: handle.label,
               }))}
               value={element.griffId ?? ''}
-              onChange={(event) => onChange({ griffId: event.target.value })}
+              onChange={(event) =>
+                onChange({
+                  griffId: event.target.value,
+                  ...(event.target.value !== EDGE_HANDLE_ID ? { griffLaengeCm: undefined } : {}),
+                })
+              }
+            />
+          ) : null}
+          {istEdge ? (
+            <p className={styles.handleHint}>
+              Edge: Stahl, nur vertikal. Berechnet nach laufendem Meter über die Türhöhe
+              {EDGE_KUERZBAR_FRONT_TYPE_IDS.includes(element.typeId)
+                ? ' — bei Drehtüren auch gekürzt möglich.'
+                : ' — bei Schiebetüren immer über die volle Türhöhe (Stabilität).'}
+            </p>
+          ) : null}
+          {istEdge && EDGE_KUERZBAR_FRONT_TYPE_IDS.includes(element.typeId) ? (
+            <TextField
+              label="Grifflänge (cm)"
+              inputMode="decimal"
+              placeholder={element.heightCm ? `volle Türhöhe (${element.heightCm} cm)` : 'volle Türhöhe'}
+              value={element.griffLaengeCm ?? ''}
+              onChange={(event) => onChange({ griffLaengeCm: event.target.value || undefined })}
+              hint="Leer lassen = volle Türhöhe. Kürzer möglich, länger nicht."
+              error={griffLaengeFehler}
             />
           ) : null}
           {styleLine?.id === 'glossy' || styleLine?.id === 'less' ? (
@@ -551,8 +586,8 @@ export function FrontElementCard({
           ) : null}
           {element.griff && element.griffId ? (
             <TextField
-              label="Griffdetails"
-              placeholder="z. B. Farbe / Sondergriff / spezielle Position"
+              label={istEdge ? 'RAL-Ton (Stahl)' : 'Griffdetails'}
+              placeholder={istEdge ? 'z. B. RAL 9005 Tiefschwarz' : 'z. B. Farbe / Sondergriff / spezielle Position'}
               value={element.griffFarbe ?? ''}
               onChange={(event) => onChange({ griffFarbe: event.target.value })}
             />

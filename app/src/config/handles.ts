@@ -61,13 +61,31 @@ export const GLAS_ONLY_HANDLE_IDS = ['nr127']
 const GLAS_STYLE_LINE_IDS = new Set(['glossy', 'less', 'glossy-less'])
 
 /**
- * Verfügbare Griffe je Stil-Linie:
+ * EDGE-KANTENGRIFF (Preisliste S. 3, bestätigt von Cramer am 23.09.2026):
+ * „Griff nur vertikal einplanen. Horizontal nicht möglich." Material Stahl, Oberfläche
+ * RAL-Ton nach Wahl. Länge: bei Schiebetüren über die volle Türhöhe (Stabilität), bei
+ * Drehtüren auch gekürzt möglich.
+ *
+ * Vertikal geht er nur an Türen — an Schüben und Klappen läge er waagerecht. Deshalb
+ * bieten nur diese Front-Typen Edge an.
+ */
+export const EDGE_HANDLE_ID = 'edge'
+export const EDGE_FRONT_TYPE_IDS: readonly string[] = ['drehtuer', 'schiebetuer']
+
+/** Front-Typen, an denen Edge gekürzt werden darf (sonst gilt immer die volle Türhöhe). */
+export const EDGE_KUERZBAR_FRONT_TYPE_IDS: readonly string[] = ['drehtuer']
+
+/**
+ * Verfügbare Griffe je Stil-Linie und Front-Typ:
  *   - Glossy/Less: ohne Nr. 103, 125, 126, 128 und ohne Edge.
  *   - Alle übrigen Linien: ohne Nr. 127 (klebt nur auf Glas).
+ *   - Edge nur an Dreh- und Schiebetüren (nur vertikal möglich). Ohne Front-Typ bleibt
+ *     die Liste wie bisher.
  */
-export function getAvailableHandles(styleLineId: string | undefined): HandleOption[] {
+export function getAvailableHandles(styleLineId: string | undefined, frontTypeId?: string): HandleOption[] {
   const istGlas = styleLineId != null && GLAS_STYLE_LINE_IDS.has(styleLineId)
   return handles.filter((handle) => {
+    if (handle.id === EDGE_HANDLE_ID && frontTypeId != null && !EDGE_FRONT_TYPE_IDS.includes(frontTypeId)) return false
     if (istGlas) return !GLOSSY_LESS_EXCLUDED_HANDLE_IDS.includes(handle.id)
     return !GLAS_ONLY_HANDLE_IDS.includes(handle.id)
   })
