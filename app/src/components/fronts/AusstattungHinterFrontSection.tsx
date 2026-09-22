@@ -12,6 +12,7 @@ import {
   type SegmentMasse,
 } from '../../config/equipment'
 import { EQUIPMENT_FIELD_LABEL, beschreibeHoehe } from '../../lib/ausstattungFormat'
+import { belegteRaster, benoetigteRaster, rasterKollisionen } from '../../lib/rasterBelegung'
 import type { EquipmentHoehe, SegmentEquipmentItem } from '../../types'
 import styles from './AusstattungHinterFrontSection.module.css'
 
@@ -20,7 +21,7 @@ interface Props {
   eligibleFrontTypes: string[]
   /** In Schritt 6 vorausgewählte Options-IDs. */
   selectedOptionIds: string[]
-  /** Sondertiefe (< 60 cm) ⇒ nur Einlegeböden. */
+  /** Sondertiefe (< 60 cm) ⇒ nur die dafür freigegebenen Optionen (Überarbeitung 8, S. 1). */
   sondertiefe: boolean
   /** Korpus- und Frontmaße dieses Segments – Grundlage der Katalog-Regeln. */
   masse: SegmentMasse
@@ -32,7 +33,12 @@ interface Props {
  * SCHRITT 8 – „Ausstattung hinter Fronten" je Segment (Refugium).
  *
  * Angeboten werden ausschließlich die in Schritt 6 vorausgewählten Optionen, gefiltert
- * nach den Front-Typen des Segments und – bei Sondertiefe – auf Einlegeböden beschränkt.
+ * nach den Front-Typen des Segments und – bei Sondertiefe – auf die dafür freigegebenen
+ * Optionen (`availableInSondertiefe`, Überarbeitung 8).
+ *
+ * Überarbeitung 8, S. 5: Keine zwei Teile auf derselben Rasterposition — belegte Raster sind
+ * im Dropdown gesperrt (mit dem Teil, das sie belegt), und eine Überschneidung, die durch ein
+ * später hinzugefügtes Teil entsteht (Container unter bestehenden Böden), wird gemeldet.
  *
  * Überarbeitung 2_2: Die Einbauhöhe wird vorrangig in RASTERN erfasst (cm nur als
  * Ausnahme, „am Korpusboden" wo der Katalog es vorsieht), Einlegeböden bekommen je Stück
@@ -60,6 +66,7 @@ export function AusstattungHinterFrontSection({
     .filter((o) => !sondertiefe || isEquipmentAvailableInSondertiefe(o.id))
 
   const itemFor = (optionId: string) => items.find((i) => i.optionId === optionId)
+  const kollisionen = rasterKollisionen(items, masse.korpusRaster)
 
   /** Im Segment konfigurierte Teile, auf die sich ein Bezug richten darf. */
   function bezugsZiele(option: EquipmentOption): SegmentEquipmentItem[] {
@@ -127,6 +134,13 @@ export function AusstattungHinterFrontSection({
 
       {open ? (
         <div className={styles.body}>
+          {kollisionen.length > 0 ? (
+            <ul className={styles.kollisionen} role="alert">
+              {kollisionen.map((k, i) => (
+                <li key={i}>{k.text}</li>
+              ))}
+            </ul>
+          ) : null}
           {options.length === 0 ? (
             <p className={styles.empty}>
               {selectedOptionIds.length === 0
@@ -271,6 +285,8 @@ export function AusstattungHinterFrontSection({
                               hoehe={hoehe}
                               maxRaster={maxRaster}
                               mitBoden={option.heightMode === 'raster-oder-boden'}
+                              belegt={belegteRaster(items, { itemId: item.id, stueck: index })}
+                              benoetigt={(start) => benoetigteRaster(item, start)}
                               onChange={(neu) => setHoehe(item, option, index, neu)}
                             />
                           ))}
@@ -421,14 +437,29 @@ function HoehenZeile({
   hoehe,
   maxRaster,
   mitBoden,
+  belegt,
+  benoetigt,
   onChange,
 }: {
   nummer?: number
   hoehe: EquipmentHoehe
   maxRaster: number
   mitBoden: boolean
+  /** Raster, die andere Teile schon belegen (Raster → Klartext des belegenden Teils). */
+  belegt: Map<number, string>
+  /** Raster, die dieses Teil ab einer Starthöhe belegen würde (Schublade 2R → zwei). */
+  benoetigt: (start: number) => number[]
   onChange: (hoehe: EquipmentHoehe) => void
 }) {
+  /** Warum eine Rasterstufe nicht wählbar ist — oder `null`. */
+  const sperre = (r: number): string | null => {
+    for (const x of benoetigt(r)) {
+      if (x > maxRaster) return 'reicht über den Korpus'
+      const durch = belegt.get(x)
+      if (durch) return `belegt: ${durch}`
+    }
+    return null
+  }
   const modi: { wert: EquipmentHoehe['modus']; label: string }[] = [
     { wert: 'raster', label: 'Rasterhöhe' },
     { wert: 'cm', label: 'Sonderhöhe (cm)' },
@@ -461,11 +492,15 @@ function HoehenZeile({
           <option value="" disabled>
             Raster wählen
           </option>
-          {Array.from({ length: maxRaster }, (_, i) => i + 1).map((r) => (
-            <option key={r} value={r}>
-              {r} Raster
-            </option>
-          ))}
+          {Array.from({ length: maxRaster }, (_, i) => i + 1).map((r) => {
+            const grund = sperre(r)
+            // Die aktuelle Auswahl bleibt wählbar, damit ein Konflikt sichtbar bleibt (Meldung oben).
+            return (
+              <option key={r} value={r} disabled={Boolean(grund) && hoehe.raster !== r}>
+                {r} Raster{grund ? ` – ${grund}` : ''}
+              </option>
+            )
+          })}
         </select>
       ) : hoehe.modus === 'cm' ? (
         <input

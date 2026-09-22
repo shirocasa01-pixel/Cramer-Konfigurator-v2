@@ -215,11 +215,16 @@ export interface FrontElement {
    * `undefined` = Altbestand/andere Front-Typen: `heightCm` ist die einzige Quelle.
    */
   hoeheModus?: 'korpusoberkante' | 'raster' | 'cm'
-  /** Eingabe „Höhe (Raster)“ – nur bei `hoeheModus === 'raster'`; 3–21 Raster. */
+  /**
+   * Rasterzahl der Türhöhe. Bei `raster` die Eingabe (3 bis zur freien Korpushöhe), bei
+   * `korpusoberkante` und `cm` die ERKANNTE Rasterzahl — nur wenn die Höhe exakt einem
+   * Raster entspricht, sonst leer (Überarbeitung 9, S. 2).
+   */
   hoeheRaster?: string
   /**
-   * Türanschlag einer Drehtür. Laut Überarbeitung 3 unabhängig von der Position der Tür
-   * im Schrank immer abzufragen.
+   * Türanschlag einer Drehtür. Seit Überarbeitung 9 nur noch bei EINZELtüren abgefragt;
+   * bei einem Türpaar nebeneinander ist er vorgegeben (links links, rechts rechts) und wird
+   * von `lib/frontGeometrie.ts` eingetragen.
    */
   tuerAnschlag?: 'rechts' | 'links'
   /**
@@ -330,6 +335,18 @@ export interface SegmentEquipmentItem {
 export interface FrontColumn {
   id: string
   elements: FrontElement[]
+  /**
+   * Überarbeitung 9: Nach einer Änderung der Korpusbreite, die sich nicht eindeutig auf die
+   * Fronten übertragen ließ, steht hier der Klartext. Solange er gesetzt ist, gilt das
+   * Segment als ungültig; die nächste Bearbeitung einer Front dieses Segments löscht ihn.
+   */
+  geometrieHinweis?: string
+  /**
+   * Korpus-Nennbreite (cm), für die die Fronten dieses Segments eingestellt sind. Weicht die
+   * aktuelle Korpusbreite davon ab, wurde der Korpus nach der Frontplanung geändert — dann
+   * rechnet `lib/frontGeometrie.ts` die Fronten neu oder markiert das Segment als ungültig.
+   */
+  korpusBreiteCm?: number
   /** Innenausbau hinter der Front (Phase 9b, Legacy – durch `equipment` abgelöst). */
   interior?: SegmentInterior
   /**
@@ -497,9 +514,19 @@ export type VerblendungArt = 'keine' | 'korpusbuendig' | 'frontbuendig'
 
 export interface Verblendung {
   art: VerblendungArt
-  /** Laufmeter für die Kalkulation (Freitext, z. B. „2,4"). */
+  /**
+   * Laufmeter (Text, z. B. „5,35"). Seit der Positionswahl per Haken wird er aus Schrank-
+   * höhe und -breite errechnet; nur bei `lfmManuell` gilt der eingetragene Wert.
+   */
   lfm?: string
-  /** Position – Freitext (z. B. „links, oben"). */
+  /** true ⇒ der Berater hat die Laufmeter überschrieben (Sonderanforderung). */
+  lfmManuell?: boolean
+  /**
+   * Position als Haken: links und rechts je einmal die Schrankhöhe, oben einmal die
+   * Schrankbreite — daraus ergeben sich die Laufmeter.
+   */
+  seiten?: { links?: boolean; oben?: boolean; rechts?: boolean }
+  /** ALTBESTAND: Position als Freitext (z. B. „links, oben") aus der Zeit vor den Haken. */
   positionNote?: string
 }
 
@@ -626,6 +653,13 @@ export interface PricingSnapshotPosition {
  * … die Summe in der Zeile des unteren Preises, der in die Summe fließt."
  */
 export interface PricingSnapshotTeil {
+  /**
+   * Name der Teilposition, wenn sie aus einem eigenen Artikel stammt — etwa „Einlegeboden"
+   * und „Kleiderstange" (Überarbeitung 8). Fehlt bei Teilen desselben Artikels.
+   */
+  bezeichnung?: string
+  /** Artikelnummer der Teilposition, wenn sie aus einem anderen Artikel als die Position stammt. */
+  artikelnummer?: string
   /** Die Menge als Zahl — Stückzahl, Zentimeter, Meter oder Quadratmeter. */
   menge: number
   /** Dieselbe Menge lesbar, mit Einheit („123 cm", „1,48 m²", „2"). */

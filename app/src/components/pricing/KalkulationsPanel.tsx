@@ -111,8 +111,11 @@ function Achsen({ position }: { position: PricingSnapshotPosition }) {
  */
 function Betragsspalten({ position }: { position: PricingSnapshotPosition }) {
   const teile = position.teile ?? []
+  // Eine einzelne Bezugsgröße, die keine Stückzahl ist (Verblendung „3,35 m × 75 €/m"), zeigt
+  // ihre Menge mit Einheit — „1× 75 €" wäre neben 251,25 € nicht nachrechenbar.
+  const einzelMitEinheit = teile.length === 1 && teile[0].preisEinheit !== '€'
 
-  if (teile.length < 2) {
+  if (teile.length < 2 && !einzelMitEinheit) {
     return (
       <>
         <td className={styles.tdNum}>{position.menge}×</td>
@@ -134,8 +137,13 @@ function Betragsspalten({ position }: { position: PricingSnapshotPosition }) {
     <>
       <td className={styles.tdNum}>
         <span className={styles.teilStapel}>
+          {/* Überarbeitung 8: Teilpositionen aus eigenen Artikeln tragen ihren Namen —
+              „Einlegeboden 1 × 55 €" und „Kleiderstange 1 × 15 €" statt zweier namenloser Zeilen. */}
           {teile.map((t, i) => (
-            <span key={i}>{t.mengeText}</span>
+            <span key={i}>
+              {t.bezeichnung ? `${t.bezeichnung} ` : ''}
+              {t.mengeText}
+            </span>
           ))}
         </span>
       </td>

@@ -289,7 +289,7 @@ const p03 = baueEntwurf({
     },
     {
       // Offenes Regalfeld ohne Front — erzeugt bewusst keine Frontposition.
-      elements: [{ id: 'p3t4a', typeId: 'offen', label: 'O1', widthCm: '99', heightCm: '230,1' }],
+      elements: [{ id: 'p3t4a', typeId: 'offen', label: 'O1', widthCm: '98', heightCm: '230,1' }],
       equipment: [boeden('p3q4a', [4, 7, 10, 13, 16])],
     },
   ],

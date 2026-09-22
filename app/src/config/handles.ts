@@ -25,7 +25,9 @@ export const handles: HandleOption[] = [
   { id: 'nr126', label: 'Nr. 126 Kantengriff (148 mm)', priceEur: 35 },
   { id: 'nr127', label: 'Nr. 127 Griffleiste (200 mm)', priceEur: 60 },
   { id: 'nr128', label: 'Nr. 128 Muschelgriff', priceEur: 40 },
-  { id: 'edge', label: 'Edge (Kantengriff, 40 €/lfm)', priceEur: 40 },
+  // Überarbeitung 9, S. 3–7: Der Zusatz „(Kantengriff, 40 €/lfm)" ist in der Griff-Auswahl
+  // gestrichen — im Dropdown steht nur der Name; der Preis kommt aus den Stammdaten.
+  { id: 'edge', label: 'Edge', priceEur: 40 },
   /**
    * Überarbeitung 3: „Bitte bei den Griffen einen zusätzlichen Griff einfügen (gilt bei
    * allen Glatten Fronten): Sondergriff. Dieser muß im Freitextfeld darunter definiert

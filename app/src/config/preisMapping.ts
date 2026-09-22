@@ -59,6 +59,17 @@ export interface BauteilLookup {
   artikelBeiAuswahl?: string
   /** Abweichende Anzeige-Bezeichnung; sonst kommt sie aus dem Artikelstamm. */
   label?: string
+  /**
+   * Weitere Artikel, die zur SELBEN Position gehören und als eigene Teilposition sichtbar
+   * bleiben. Überarbeitung 8, S. 5: „Einlegeboden inkl. Kleiderstange" = Bodenpreis +
+   * 15 € Kleiderstange — beides steht als eigener Artikel in den Stammdaten und erscheint
+   * in der Kalkulation als „Einlegeboden … + Kleiderstange 15 €", statt als unsichtbarer
+   * Aufschlag in einer Summe zu verschwinden. Jede Komponente wird mit Breite, Tiefe und
+   * Preisgruppe der Position nachgeschlagen (Achsen, die sie nicht führt, filtern nicht).
+   */
+  komponenten?: Array<{ artikel: string; label: string }>
+  /** Name der Teilposition des Hauptartikels, wenn `komponenten` gesetzt sind. */
+  teilLabel?: string
 }
 
 // ---------------------------------------------------------------------------
@@ -160,9 +171,14 @@ export const serienRegeln: Record<string, SerienRegel> = {
       // Breite und Tiefe (Preisliste S. 13 / 14 / 15).
     },
     mittelseite: {
-      artikel: '10-002-0001', // Mittelseite (2 cm)
+      // Mittelseite (2 cm) — HÖHE × TIEFE × PG. Überarbeitung 8, S. 2: In PG 2–4 gilt der
+      // Atrium-Preis der „Seite" (227 € bei PG 2 · 60 cm · 18 R), in PG 1 der Refugium-Preis.
+      // Die Preisgruppe ist die HÖCHSTE der Korpi (S. 4) — gewählt in lib/kalkulation.ts.
+      artikel: '10-002-0001',
       nutztHoehe: true,
       hoeheAusKorpus: true,
+      nutztTiefe: true,
+      nutztPg: true,
     },
     // Refugium-Korpi bringen ihre linke Seite mit — es fehlt nur die Abschlusswand rechts.
     mittelseitenRegel: 'abschluss',
@@ -314,11 +330,21 @@ export function schubHoeheCm(hoeheCm: number | undefined): number {
  * „Wenn ihr von mir keine Info bekommt, ist nur der Preis in der Preisgruppe 1 relevant."
  */
 export const ausstattungLookups: Record<string, BauteilLookup> = {
-  einlegeboden: { artikel: '40-014-0001' },
+  // Überarbeitung 8, S. 5: Material wie Korpus innen — Preisgruppe und Tiefe wählen die Zeile
+  // (PG 1 Refugium, PG 2–4 Atrium „Aufpreis für zusätzliche Böden" S. 13 / 14 / 15).
+  einlegeboden: { artikel: '40-014-0001', nutztTiefe: true, nutztPg: true },
   glasboden: { artikel: '40-014-0002' },
   rollboden: { artikel: '40-014-0003', nutztPg: true },
   kleiderlift: { artikel: '40-015-0001' },
-  'einlegeboden-kleiderstange': { artikel: '40-015-0002' },
+  // Überarbeitung 8, S. 5: Einlegebodenpreis (wie oben) + 15 € Kleiderstange (KST-002).
+  'einlegeboden-kleiderstange': {
+    artikel: '40-014-0001',
+    nutztTiefe: true,
+    nutztPg: true,
+    label: 'Einlegeboden inkl. Kleiderstange',
+    teilLabel: 'Einlegeboden',
+    komponenten: [{ artikel: '40-015-0002', label: 'Kleiderstange' }],
+  },
   innenschublade: { artikel: '40-016-0001', nutztHoehe: true, nutztPg: true },
   rollkorb: { artikel: '40-016-0002' },
   'innenspiegel-drehtuer': { artikel: '40-018-0001' },

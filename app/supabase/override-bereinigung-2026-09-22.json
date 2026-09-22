@@ -1,0 +1,439 @@
+{
+ "zweck": "Überarbeitung 8/9: Overrides entfernt, die der neuen Stammdaten-Struktur widersprechen. MIT-001 Mittelseite trug HÖHE × PG mit Atrium-Werten der 31-cm-Tiefe (S. 13) und die Bezeichnung „Seitenwand\"; die Mappe führt die Mittelseite jetzt als HÖHE × TIEFE × PG (PG 2 · 60 cm · 18 R = 227 €). Zwei Drehtür-Zeilen „268,5 cm\" ohne Preis und ohne Linie waren ein abgebrochener 21-Raster-Versuch; die 21-R-Zeilen stehen jetzt in der Mappe.",
+ "entferntAm": "2026-09-22T20:12:16.939Z",
+ "zeilen": [
+  {
+   "bereich": "artikel",
+   "schluessel": "10-002-0001",
+   "aktion": "geaendert",
+   "daten": {
+    "modus": "R",
+    "achsen": [
+     "HOEHE",
+     "PG"
+    ],
+    "quelle": "S. 26",
+    "status": "aktiv",
+    "einheit": "Stück",
+    "dropdown": "MITTELSEITE",
+    "teileart": "KORPUS",
+    "bemerkung": "",
+    "achsenText": "HOEHE × PG",
+    "preislogik": "MATRIX",
+    "sortierung": 10,
+    "bezeichnung": "Seitenwand",
+    "kurzzeichen": "MIT-001",
+    "oberflaeche": false,
+    "preiszellen": 2,
+    "bezeichnung2": "Refugium Ausstattung"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#1100|273,4 cm | 21R|PG2|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "273,4 cm | 21R",
+     "PG2",
+     "",
+     "",
+     ""
+    ],
+    "ref": 1100,
+    "preis": 191,
+    "seite": "13",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "zeile-3"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#1099|235 cm | 18R|PG2|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "235 cm | 18R",
+     "PG2",
+     "",
+     "",
+     ""
+    ],
+    "ref": 1099,
+    "preis": 159,
+    "seite": "13",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "zeile-2"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#|235 cm | 18R|PG3|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "235 cm | 18R",
+     "PG3",
+     "",
+     "",
+     ""
+    ],
+    "ref": null,
+    "preis": 198,
+    "seite": "13",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "neu-1"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#|273,4 cm | 21R|PG3|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "273,4 cm | 21R",
+     "PG3",
+     "",
+     "",
+     ""
+    ],
+    "ref": null,
+    "preis": 238,
+    "seite": "13",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "neu-2"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#|235 cm | 18R|PG4|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "235 cm | 18R",
+     "PG4",
+     "",
+     "",
+     ""
+    ],
+    "ref": null,
+    "preis": 248,
+    "seite": "13",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "neu-3"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#|273,4 cm | 21R|PG4|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "273,4 cm | 21R",
+     "PG4",
+     "",
+     "",
+     ""
+    ],
+    "ref": null,
+    "preis": 298,
+    "seite": "13",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "neu-4"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "20-006-0001#|50 cm | 50er|268,5 cm|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "50 cm | 50er",
+     "268,5 cm",
+     "",
+     "",
+     ""
+    ],
+    "ref": null,
+    "preis": null,
+    "seite": "",
+    "status": "fixed",
+    "artikel": "20-006-0001",
+    "_localId": "neu-1"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "20-006-0001#|50 cm | 60er|268,5 cm|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "50 cm | 60er",
+     "268,5 cm",
+     "",
+     "",
+     ""
+    ],
+    "ref": null,
+    "preis": null,
+    "seite": "",
+    "status": "fixed",
+    "artikel": "20-006-0001",
+    "_localId": "neu-6"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#1099|235 cm | 18R|PG1|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "235 cm | 18R",
+     "PG1",
+     "",
+     "",
+     ""
+    ],
+    "ref": 1099,
+    "preis": 135,
+    "seite": "26",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "zeile-0"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  },
+  {
+   "bereich": "preise",
+   "schluessel": "10-002-0001#1100|273,4 cm | 21R|PG1|||",
+   "aktion": "neu",
+   "daten": {
+    "a": [
+     "273,4 cm | 21R",
+     "PG1",
+     "",
+     "",
+     ""
+    ],
+    "ref": 1100,
+    "preis": 165,
+    "seite": "26",
+    "status": "fixed",
+    "artikel": "10-002-0001",
+    "_localId": "zeile-1"
+   },
+   "version": 1,
+   "updated_at": "2026-09-22T19:07:55.112+00:00",
+   "updated_by": "admin (admin@cramer.de)"
+  }
+ ],
+ "zweiterSchritt": {
+  "zweck": "Veraltete Artikel-Overrides (Altstand vor Achsen-Reform/PG-Migration) entfernt: Container 40-017-0019 führte die nicht mehr existierende Achse RASTER (Container ohne Preis), Schubladenunterteilung Craft 40-023-0011 hatte die PG-Achse verloren (PG 2–4 zu billig), Drehtür 20-006-0001 überdeckte Bemerkung/Preiszellen der 21R-Zeilen.",
+  "entferntAm": "2026-09-22T20:17:40.422Z",
+  "zeilen": [
+   {
+    "bereich": "artikel",
+    "schluessel": "40-023-0011",
+    "aktion": "geaendert",
+    "daten": {
+     "modus": "R",
+     "achsen": [
+      "BREITE"
+     ],
+     "quelle": "S. 28",
+     "status": "aktiv",
+     "einheit": "Stück",
+     "dropdown": "ZUBEHOER",
+     "teileart": "INNENAUSSTATTUNG",
+     "bemerkung": "",
+     "achsenText": "BREITE",
+     "preislogik": "MATRIX_AUF",
+     "sortierung": 110,
+     "bezeichnung": "Schubladenunterteilung Craft",
+     "kurzzeichen": "ZUB-011",
+     "oberflaeche": true,
+     "preiszellen": 12,
+     "bezeichnung2": "Ausstattungserie Craft"
+    },
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "artikel",
+    "schluessel": "40-017-0019",
+    "aktion": "geaendert",
+    "daten": {
+     "modus": "R",
+     "achsen": [
+      "BREITE",
+      "RASTER"
+     ],
+     "quelle": "S. 26",
+     "status": "aktiv",
+     "einheit": "EUR",
+     "dropdown": "CONTAINER",
+     "teileart": "INNENAUSSTATTUNG",
+     "bemerkung": "",
+     "achsenText": "BREITE × RASTER",
+     "preislogik": "MATRIX_AUF",
+     "sortierung": 190,
+     "bezeichnung": "Container - 4,5R / 6R",
+     "kurzzeichen": "CON-019",
+     "oberflaeche": false,
+     "preiszellen": 6,
+     "bezeichnung2": "Refugium Ausstattung"
+    },
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "artikel",
+    "schluessel": "20-006-0001",
+    "aktion": "geaendert",
+    "daten": {
+     "modus": "AVPRO",
+     "achsen": [
+      "BREITE",
+      "HOEHE",
+      "LINIE_PG"
+     ],
+     "quelle": "S. 7",
+     "status": "aktiv",
+     "einheit": "Stück",
+     "dropdown": "DREHTUER",
+     "teileart": "FRONT",
+     "bemerkung": "",
+     "achsenText": "BREITE × HOEHE × LINIE_PG",
+     "preislogik": "MATRIX",
+     "sortierung": 10,
+     "bezeichnung": "Drehtür",
+     "kurzzeichen": "DRT-001",
+     "oberflaeche": true,
+     "preiszellen": 120,
+     "bezeichnung2": "Drehtüren"
+    },
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|100er (98,8cm)|PG4|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|80er (79,5cm)|PG4|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|50/60er (49,5/59,5cm)|PG4|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|100er (98,8cm)|PG3|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|80er (79,5cm)|PG3|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|50/60er (49,5/59,5cm)|PG3|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|100er (98,8cm)|PG2|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|80er (79,5cm)|PG2|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   },
+   {
+    "bereich": "preise",
+    "schluessel": "40-023-0011#|50/60er (49,5/59,5cm)|PG2|||",
+    "aktion": "geloescht",
+    "daten": null,
+    "version": 1,
+    "updated_at": "2026-09-22T19:07:55.112+00:00",
+    "updated_by": "admin (admin@cramer.de)"
+   }
+  ]
+ }
+}

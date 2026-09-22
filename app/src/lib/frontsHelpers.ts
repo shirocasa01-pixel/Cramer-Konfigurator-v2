@@ -1,12 +1,12 @@
-import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../types'
+import type { FrontColumn, FrontElement, FrontsData, SegmentEquipmentItem } from '../types/index.ts'
 import {
   EQUIPMENT_ELIGIBLE_FRONT_TYPES,
   equipmentChoiceDefaults,
   getEquipmentOption,
-} from '../config/equipment'
-import { LINE_AUFKANTUNG_GROUPS, getFrontType, type FrontField } from '../config/frontCatalog'
-import { MATERIAL_CUSTOM_ID, getMaterialGroup } from '../config/materialMatrix'
-import { FRONT_OFFSET_MM, frontRaster, hoeheFuerRaster } from './raster'
+} from '../config/equipment.ts'
+import { LINE_AUFKANTUNG_GROUPS, getFrontType, type FrontField } from '../config/frontCatalog.ts'
+import { MATERIAL_CUSTOM_ID, getMaterialGroup } from '../config/materialMatrix.ts'
+import { FRONT_OFFSET_MM, hoeheFuerRaster } from './raster.ts'
 
 /** Front-Typ der zweiläufigen Schiebetür (exklusiv – Schritt 7). */
 export const ZWEILAEUFIG_TYPE_ID = 'schiebetuer-zwei'
@@ -103,9 +103,11 @@ export function makeElement(typeId: string, fronts?: FrontsData, breiteCm?: numb
 // Überarbeitung 3 – Türhöhe der Drehtür (drei exklusive Optionen)
 // ---------------------------------------------------------------------------
 
-/** Zulässige Rasterspanne für die Eingabe „Höhe (Raster)" (Vorgabe: 3 bis 21 Raster). */
-export const DREHTUER_RASTER_MIN = 3
-export const DREHTUER_RASTER_MAX = 21
+/**
+ * Zulässige Rasterspanne der Drehtür (Vorgabe: 3 bis 21 Raster). Die tatsächliche Obergrenze
+ * je Tür ergibt sich aus der freien Korpushöhe — siehe `maxFrontRaster` in `frontGeometrie.ts`.
+ */
+export { DREHTUER_RASTER_MAX, DREHTUER_RASTER_MIN } from './frontGeometrie.ts'
 
 /**
  * Fronthöhe (cm) aus einer Rasterangabe — EINBAHNSTRASSE Raster → cm.
@@ -129,40 +131,12 @@ export function parseRasterEingabe(text: string | undefined): number | undefined
   return Number.isFinite(n) && n > 0 ? n : undefined
 }
 
-function hoeheCmVonElement(element: FrontElement): number | undefined {
-  const n = Number((element.heightCm ?? '').replace(',', '.'))
-  return Number.isFinite(n) && n > 0 ? n : undefined
-}
-
-/**
- * Resthöhe für „Höhe bis Korpusoberkante": das Korpusraster minus die Rasterstufen der
- * übrigen Fronten derselben Spalte.
- *
- * Vorlage: „wenn darunter z. B. 2 Schubladen à 2 Raster sind und der Schrank eine Höhe
- * von 18 Rastern hat, würde sich daraus automatisch die Türhöhe von 14 Rastern ergeben".
- *
- * `undefined`, wenn das Korpusraster unbekannt ist, eine andere Front der Spalte keine
- * verwertbare Höhe hat oder rechnerisch nichts übrig bleibt — dann bleibt die Höhe offen
- * und wird in der AV geklärt, statt einen falschen Wert zu erfinden.
+/*
+ * „Höhe bis Korpusoberkante" rechnet seit Überarbeitung 9 `resthoeheBisOberkante` in
+ * `lib/frontGeometrie.ts`: Dort sind die Fronten eines Segments in Ebenen geordnet, und ein
+ * Nachbar derselben Ebene (die zweite Tür beim 100er Korpus) zählt nicht mehr als Front
+ * „darunter".
  */
-export function restRasterBisKorpusoberkante(
-  column: FrontColumn,
-  elementId: string,
-  korpusRaster: number | undefined,
-): number | undefined {
-  if (korpusRaster == null || korpusRaster <= 0) return undefined
-  let summe = 0
-  for (const el of column.elements) {
-    if (el.id === elementId) continue
-    // Eine zweite „bis Oberkante"-Front macht die Rechnung mehrdeutig.
-    if (el.hoeheModus === 'korpusoberkante') return undefined
-    const cm = hoeheCmVonElement(el)
-    if (cm == null) return undefined
-    summe += frontRaster(cm)
-  }
-  const rest = korpusRaster - summe
-  return rest >= 1 ? rest : undefined
-}
 
 // ---------------------------------------------------------------------------
 // Überarbeitung 3 – „Line": Frontscheibe / Aufkantung
@@ -220,12 +194,16 @@ export function decodeAufkantungValue(value: string): { groupId: string; optionI
  * Optionen des Aufkantungs-Dropdowns. Bei mehreren Gruppen wird die Gruppe dem Label
  * vorangestellt, damit „Eiche geölt" (Furnier) und „Stone" (Glas) unterscheidbar bleiben.
  */
-export function aufkantungOptions(groupIds: string[]): Array<{ value: string; label: string }> {
+export function aufkantungOptions(
+  groupIds: string[],
+  ausgeschlossen: (groupId: string) => string[] = () => [],
+): Array<{ value: string; label: string }> {
   const mehrere = groupIds.length > 1
   return groupIds.flatMap((groupId) => {
     const group = getMaterialGroup(groupId)
     if (!group) return []
-    return group.options.map((option) => ({
+    const weg = ausgeschlossen(group.id)
+    return group.options.filter((option) => !weg.includes(option.id)).map((option) => ({
       value: encodeAufkantungValue(group.id, option.id),
       label: mehrere ? `${group.label} – ${option.label}` : option.label,
     }))
@@ -411,7 +389,8 @@ export function entferneAbgewaehlteAusstattung(
  */
 export function copyableFrontValues(src: FrontElement): Partial<FrontElement> {
   return {
-    widthCm: src.widthCm,
+    // Die Breite wird BEWUSST nicht übernommen (Überarbeitung 9): Sie folgt aus der Ebene,
+    // in der die Front sitzt — eine kopierte 59 aus einem Türpaar 59/39 wäre anderswo falsch.
     heightCm: src.heightCm,
     hoeheModus: src.hoeheModus,
     hoeheRaster: src.hoeheRaster,

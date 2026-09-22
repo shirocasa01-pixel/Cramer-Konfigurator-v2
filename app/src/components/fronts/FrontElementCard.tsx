@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { MaterialSelect } from '../material/MaterialSelect'
 import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
 import {
+  ausgeschlosseneOptionIds,
   getFrontType,
   getStyleLine,
   type FrontField,
@@ -12,8 +13,8 @@ import { getAvailableHandles } from '../../config/handles'
 import { MATERIAL_CUSTOM_ID, aktuelleOptionId, getMaterialGroup } from '../../config/materialMatrix'
 import { formatMassZahl } from '../../lib/format'
 import { resolvePriceGroup } from '../../lib/materialRules'
+import type { Resthoehe } from '../../lib/frontGeometrie'
 import {
-  DREHTUER_RASTER_MAX,
   DREHTUER_RASTER_MIN,
   aufkantungGroupIds,
   aufkantungOptions,
@@ -40,6 +41,25 @@ const ANSCHLAG_SEITEN: Array<{ key: 'links' | 'rechts'; label: string }> = [
   { key: 'rechts', label: 'rechts' },
 ]
 
+/**
+ * Was die Front-Geometrie (`lib/frontGeometrie.ts`) über DIESE Front weiß — Überarbeitung 9.
+ * Die Karte rechnet nichts davon selbst; sie zeigt es an und begrenzt die Auswahl.
+ */
+export interface FrontKartenGeometrie {
+  /** „Höhe bis Korpusoberkante": abgeleitete Höhe, `undefined` wenn nicht ableitbar. */
+  resthoehe?: Resthoehe
+  /** Größte zulässige Rasterzahl — Obergrenze der Raster-Auswahl. */
+  maxRaster: number
+  /** Größte zulässige Höhe in cm für die freie Eingabe. */
+  maxHoeheCm?: number
+  /** Rasterstufe des Korpus für die Hinweise. */
+  korpusRaster?: number
+  /** Vorgegebener Anschlag bei einem Türpaar — dann gibt es keine Auswahl. */
+  anschlagVorgabe?: 'links' | 'rechts'
+  /** Hinweis unter dem Breitenfeld (Frontbereich, Nachbarflügel). */
+  breitenHinweis?: string
+}
+
 interface FrontElementCardProps {
   element: FrontElement
   onChange: (patch: Partial<FrontElement>) => void
@@ -48,12 +68,8 @@ interface FrontElementCardProps {
   onCopyValues?: () => void
   /** Anzeigename der Quellfront für den Übernehmen-Button (z. B. „Front 1"). */
   copyFromLabel?: string
-  /**
-   * Überarbeitung 3 („Höhe bis Korpusoberkante"): aus dem Korpusraster minus den übrigen
-   * Fronten der Spalte abgeleitete Resthöhe. `undefined`, wenn sie sich nicht eindeutig
-   * ergibt – dann bleibt die Höhe offen (AV).
-   */
-  restRasterBisOberkante?: number
+  /** Überarbeitung 9: Geometrie dieser Front im Segment (Höhe, Raster, Anschlag, Breite). */
+  geometrie?: FrontKartenGeometrie
 }
 
 /**
@@ -72,7 +88,7 @@ export function FrontElementCard({
   onRemove,
   onCopyValues,
   copyFromLabel,
-  restRasterBisOberkante,
+  geometrie,
 }: FrontElementCardProps) {
   const [labelTouched, setLabelTouched] = useState(false)
   // Die Aufkantungs-Liste und die Gruppen-Labels kommen aus den Oberflächen-Stammdaten;
@@ -90,22 +106,10 @@ export function FrontElementCard({
   const heightViolation = maxHeight != null && Number.isFinite(heightNum) && heightNum > maxHeight
 
   const hoeheModus = element.hoeheModus
-  const oberkanteHoeheCm =
-    restRasterBisOberkante != null ? frontHoeheAusRaster(restRasterBisOberkante) : undefined
-
-  /**
-   * „Höhe bis Korpusoberkante" hält `heightCm` an der abgeleiteten Resthöhe – sonst hätte
-   * die Kalkulation für diese Front keine Rasterstufe. Ändern sich die übrigen Fronten der
-   * Spalte, zieht die Türhöhe automatisch nach.
-   */
-  useEffect(() => {
-    if (hoeheModus !== 'korpusoberkante') return
-    const soll = oberkanteHoeheCm != null ? formatMassZahl(oberkanteHoeheCm) : ''
-    if ((element.heightCm ?? '') !== soll) onChange({ heightCm: soll })
-    // onChange ist ein Inline-Closure des Aufrufers und wechselt bei jedem Render – bewusst
-    // nicht in der Abhängigkeitsliste, sonst liefe der Effekt endlos.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hoeheModus, oberkanteHoeheCm, element.heightCm])
+  // „Höhe bis Korpusoberkante" und die Rastererkennung schreibt die Fronten-Seite über
+  // `normalisiereSpalte` in den Entwurf — hier wird nur angezeigt.
+  const resthoehe = geometrie?.resthoehe
+  const maxRaster = geometrie?.maxRaster ?? 21
 
   function setField(fieldId: string, value: FrontFieldValue) {
     onChange({ fieldValues: { ...element.fieldValues, [fieldId]: value } })
@@ -179,7 +183,7 @@ export function FrontElementCard({
       onChange({ hoeheModus: undefined, hoeheRaster: '', heightCm: '' })
       return
     }
-    // Einbahnstraße: Raster → cm. Eine Rückrechnung cm → Raster gibt es bewusst nicht.
+    // Einbahnstraße: Raster → cm.
     onChange({
       hoeheModus: 'raster',
       hoeheRaster: text,
@@ -187,18 +191,34 @@ export function FrontElementCard({
     })
   }
   function setHoeheCm(text: string) {
-    onChange({ hoeheModus: text.trim() ? 'cm' : undefined, hoeheRaster: undefined, heightCm: text })
+    // Die Rasterzahl einer freien cm-Höhe trägt die Normalisierung nach — nur bei vollen
+    // Rastern, sonst bleibt das Feld leer (Überarbeitung 9, S. 2).
+    onChange({ hoeheModus: text.trim() ? 'cm' : undefined, hoeheRaster: '', heightCm: text })
   }
 
+  /*
+    Überarbeitung 9, S. 1: „Trotz Korpushöhe mit 18 Raster kann ich Türen mit 21 Rasterhöhe
+    konfigurieren." Die Auswahl endet deshalb an der freien Korpushöhe (`maxRaster`) — eine
+    Eingabe darüber ist gar nicht erst möglich. Nur ein Altwert, der schon zu hoch
+    gespeichert ist, bleibt sichtbar und wird als Fehler gemeldet.
+  */
   const rasterEingabe = parseRasterEingabe(element.hoeheRaster)
+  const rasterOptionen = Array.from(
+    { length: Math.max(0, maxRaster - DREHTUER_RASTER_MIN + 1) },
+    (_, i) => String(DREHTUER_RASTER_MIN + i),
+  )
+  const aktuellerRaster = element.hoeheRaster?.trim() ?? ''
+  if (aktuellerRaster && !rasterOptionen.includes(aktuellerRaster)) rasterOptionen.push(aktuellerRaster)
+  const korpusText = geometrie?.korpusRaster != null ? `Korpus ${geometrie.korpusRaster} Raster` : 'Korpus'
   const rasterFehler =
-    hoeheModus === 'raster' && element.hoeheRaster?.trim() && rasterEingabe == null
-      ? 'Bitte eine Zahl eingeben.'
-      : hoeheModus === 'raster' &&
-          rasterEingabe != null &&
-          (rasterEingabe < DREHTUER_RASTER_MIN || rasterEingabe > DREHTUER_RASTER_MAX)
-        ? `Zulässig sind ${DREHTUER_RASTER_MIN} bis ${DREHTUER_RASTER_MAX} Raster.`
-        : undefined
+    hoeheModus === 'raster' && rasterEingabe != null && rasterEingabe > maxRaster
+      ? `Höchstens ${maxRaster} Raster (${korpusText} abzüglich der übrigen Fronten).`
+      : undefined
+  const cmWert = Number((element.heightCm ?? '').replace(',', '.'))
+  const cmFehler =
+    hoeheModus === 'cm' && geometrie?.maxHoeheCm != null && Number.isFinite(cmWert) && cmWert > geometrie.maxHoeheCm
+      ? `Höher als der freie Korpusbereich (max. ${formatMassZahl(geometrie.maxHoeheCm)} cm).`
+      : undefined
 
   // Überarbeitung 3: Curve mit Mattlack oder „anders" hat gar kein Griffprofil.
   const materialGruppe = frontMaterialGroupId(element)
@@ -241,6 +261,7 @@ export function FrontElementCard({
           placeholder="z. B. 50"
           value={element.widthCm ?? ''}
           onChange={(event) => onChange({ widthCm: event.target.value })}
+          hint={geometrie?.breitenHinweis}
         />
         {/* Zweiläufige Schiebetür: kein Höhenfeld – sie geht immer über die volle Höhe. */}
         {type?.ohneHoehe || type?.hoeheModi ? null : (
@@ -313,25 +334,40 @@ export function FrontElementCard({
           </label>
           {hoeheModus === 'korpusoberkante' ? (
             <p className={styles.handleHint}>
-              {restRasterBisOberkante != null && oberkanteHoeheCm != null
-                ? `Ergibt ${formatMassZahl(restRasterBisOberkante)} Raster ≙ ${formatMassZahl(oberkanteHoeheCm)} cm (Korpusraster abzüglich der übrigen Fronten dieses Segments).`
-                : 'Resthöhe noch nicht ableitbar – erst die übrigen Fronten dieses Segments bemaßen; sonst klärt die AV die Türhöhe.'}
+              {resthoehe
+                ? resthoehe.raster != null
+                  ? `Ergibt ${resthoehe.raster} Raster ≙ ${formatMassZahl(resthoehe.hoeheCm)} cm (${korpusText} abzüglich der Fronten darunter und darüber; die Tür daneben zählt nicht).`
+                  : `Ergibt ${formatMassZahl(resthoehe.hoeheCm)} cm — kein volles Raster (Sondermaß, bepreist mit der nächsten Rasterstufe).`
+                : 'Resthöhe noch nicht ableitbar – erst die übrigen Fronten dieses Segments bemaßen.'}
             </p>
           ) : null}
           <div className={styles.hoeheRow}>
-            <TextField
+            {/*
+              Die Rasterzahl ist eine AUSWAHL bis zur freien Korpushöhe. In den beiden anderen
+              Modi zeigt sie die erkannte Rasterzahl — nur bei vollen Rastern, sonst bleibt sie
+              leer (Überarbeitung 9, S. 2).
+            */}
+            <Select
               label={t('feld.hoeheRaster', 'Höhe (Raster)')}
-              inputMode="decimal"
-              placeholder={`${DREHTUER_RASTER_MIN}–${DREHTUER_RASTER_MAX}`}
-              value={element.hoeheRaster ?? ''}
+              // Im Raster-Modus gibt es statt des Platzhalters einen wählbaren Leer-Eintrag —
+              // nur so kommt der Berater wieder zu „bis Korpusoberkante" oder zur cm-Angabe.
+              placeholder={
+                hoeheModus === 'raster'
+                  ? undefined
+                  : hoeheModus
+                    ? '—'
+                    : maxRaster >= DREHTUER_RASTER_MIN
+                      ? `${DREHTUER_RASTER_MIN}–${maxRaster}`
+                      : 'kein Platz'
+              }
+              options={[
+                ...(hoeheModus === 'raster' ? [{ value: '', label: '– keine Rasterangabe –' }] : []),
+                ...rasterOptionen.map((r) => ({ value: r, label: `${r} Raster` })),
+              ]}
+              value={aktuellerRaster}
               disabled={Boolean(hoeheModus) && hoeheModus !== 'raster'}
               onChange={(event) => setRaster(event.target.value)}
               error={rasterFehler}
-              hint={
-                hoeheModus === 'raster' && rasterEingabe != null && !rasterFehler
-                  ? `= ${formatMassZahl(frontHoeheAusRaster(rasterEingabe))} cm Fronthöhe`
-                  : undefined
-              }
             />
             <TextField
               label="Höhe (cm)"
@@ -342,13 +378,19 @@ export function FrontElementCard({
               value={element.heightCm ?? ''}
               disabled={Boolean(hoeheModus) && hoeheModus !== 'cm'}
               onChange={(event) => setHoeheCm(event.target.value)}
+              error={cmFehler}
               hint={
                 hoeheModus && hoeheModus !== 'cm'
                   ? '1 Raster = 12,5 cm, dazwischen je 0,3 cm Fuge – errechnet, nicht editierbar.'
-                  : undefined
+                  : hoeheModus === 'cm' && !element.hoeheRaster
+                    ? 'Kein volles Raster – Sondermaß, bepreist mit der nächsten Rasterstufe.'
+                    : undefined
               }
             />
           </div>
+          {hoeheModus === 'raster' && rasterEingabe != null && !rasterFehler ? (
+            <p className={styles.handleHint}>= {formatMassZahl(frontHoeheAusRaster(rasterEingabe))} cm Fronthöhe</p>
+          ) : null}
         </div>
       ) : null}
 
@@ -371,20 +413,34 @@ export function FrontElementCard({
             />
             <Inspector feld="fronten.anschlag" />
           </span>
-          <div className={styles.handleChecks} role="radiogroup" aria-label="Türanschlag">
-            {ANSCHLAG_SEITEN.map((seite) => (
-              <label key={seite.key} className={styles.check}>
-                <input
-                  type="radio"
-                  className={styles.checkbox}
-                  name={`anschlag-${element.id}`}
-                  checked={element.tuerAnschlag === seite.key}
-                  onChange={() => onChange({ tuerAnschlag: seite.key })}
-                />
-                {t(`anschlag.${seite.key}`, seite.label)}
-              </label>
-            ))}
-          </div>
+          {/*
+            Überarbeitung 9, S. 2: „Die Position des Türanschlag soll nur bei Einzeltüren
+            abgefragt werden." Beim Türpaar ist sie vorgegeben — links links, rechts rechts —
+            und wird nur angezeigt.
+          */}
+          {geometrie?.anschlagVorgabe ? (
+            <p className={styles.vorgabe}>
+              {t(`anschlag.${geometrie.anschlagVorgabe}`, geometrie.anschlagVorgabe)}{' '}
+              <span className={styles.vorgabeHinweis}>
+                — vorgegeben ({geometrie.anschlagVorgabe === 'links' ? 'linke' : 'rechte'} Tür des Türpaars)
+              </span>
+            </p>
+          ) : (
+            <div className={styles.handleChecks} role="radiogroup" aria-label="Türanschlag">
+              {ANSCHLAG_SEITEN.map((seite) => (
+                <label key={seite.key} className={styles.check}>
+                  <input
+                    type="radio"
+                    className={styles.checkbox}
+                    name={`anschlag-${element.id}`}
+                    checked={element.tuerAnschlag === seite.key}
+                    onChange={() => onChange({ tuerAnschlag: seite.key })}
+                  />
+                  {t(`anschlag.${seite.key}`, seite.label)}
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -496,7 +552,7 @@ export function FrontElementCard({
           {element.griff && element.griffId ? (
             <TextField
               label="Griffdetails"
-              placeholder="z. B. Oberfläche od. Farbe / Sondergriff / spezielle Position"
+              placeholder="z. B. Farbe / Sondergriff / spezielle Position"
               value={element.griffFarbe ?? ''}
               onChange={(event) => onChange({ griffFarbe: event.target.value })}
             />
@@ -591,11 +647,25 @@ function FieldRenderer({
   const getrennt = istLineMaterial && element.lineAufkantungGleich === false && gruppeId != null && !istAnders
   const hatAuswahl = Boolean(material?.optionId) || Boolean(material?.customText?.trim())
   /**
-   * Bei „Line" folgt die Ja/Nein-Frage DIREKT auf die Materialwahl – die Ausführung kommt
-   * erst danach: bei „Ja" das gewohnte Dropdown von `MaterialSelect`, bei „Nein" die beiden
-   * getrennten Felder Frontscheibe und Aufkantung.
+   * Bei „Line" folgt die Ja/Nein-Frage DIREKT auf die Materialwahl und steht OBERHALB der
+   * Ausführung (Überarbeitung 9, S. 8: „Soll oberhalb der Glasausführung stehen bleiben."):
+   *   Material → „… gleich?" → Ausführung (bei „Ja") bzw. Frontscheibe + Aufkantung (bei „Nein").
+   * `MaterialSelect` zeigt deshalb bei Line nur die Material-Chips; das Ausführungs-
+   * Dropdown baut diese Komponente selbst unter die Frage.
    */
-  const lineFrageOffen = istLineMaterial && !istAnders && gruppeId != null && element.lineAufkantungGleich == null
+  const lineAusfuehrungHier = istLineMaterial && !istAnders && gruppeId != null
+  const gleich = istLineMaterial && element.lineAufkantungGleich === true && gruppeId != null && !istAnders
+  const ausgeschlossen = ausgeschlosseneOptionIds(styleLine, gruppeId)
+  const ausfuehrungsOptionen = (getMaterialGroup(gruppeId)?.options ?? [])
+    .filter((option) => !ausgeschlossen.includes(option.id))
+    .map((option) => ({ value: option.id, label: option.label }))
+  const waehleAusfuehrung = (optionId: string) =>
+    onMaterialChange({
+      ...(material as MaterialSelection),
+      optionId,
+      priceGroup: resolvePriceGroup(gruppeId, optionId),
+    })
+  const legacyNotiz = !field.withNote && value?.note?.trim()
 
   return (
     <div className={styles.matField}>
@@ -606,7 +676,8 @@ function FieldRenderer({
         value={material}
         onChange={onMaterialChange}
         customPlaceholder={field.customPlaceholder}
-        hideOptionSelect={getrennt || lineFrageOffen}
+        hideOptionSelect={lineAusfuehrungHier}
+        excludeOptionIds={ausgeschlossen}
         // Eigene Preisspalte (Line/107/Curve/Glossy·Less) statt PG 1–4.
         hideCustomPriceGroup={Boolean(styleLine.eigenePreisspalte)}
         priceColumnLabel={hatAuswahl ? styleLine.eigenePreisspalte : undefined}
@@ -644,31 +715,26 @@ function FieldRenderer({
         </div>
       ) : null}
 
-      {/* Bei „Nein" ersetzt die Frontscheiben-Ausführung das normale Ausführungs-Dropdown. */}
-      {getrennt ? (
+      {/* „Ja": eine Ausführung für Frontscheibe und Aufkantung; „Nein": die Frontscheibe
+          hier, die Aufkantung als eigenes Feld darunter. */}
+      {gleich || getrennt ? (
         <Select
-          label={`${gruppeLabel ?? 'Material'} – Ausführung Frontscheibe`}
+          label={`${gruppeLabel ?? 'Material'} – ${getrennt ? 'Ausführung Frontscheibe' : 'Ausführung'}`}
           placeholder="Bitte wählen"
-          options={(getMaterialGroup(gruppeId)?.options ?? []).map((option) => ({
-            value: option.id,
-            label: option.label,
-          }))}
+          options={ausfuehrungsOptionen}
           value={aktuelleOptionId(gruppeId, material?.optionId) ?? ''}
-          onChange={(event) =>
-            onMaterialChange({
-              ...(material as MaterialSelection),
-              optionId: event.target.value,
-              priceGroup: resolvePriceGroup(gruppeId, event.target.value),
-            })
-          }
+          onChange={(event) => waehleAusfuehrung(event.target.value)}
         />
       ) : null}
 
-      {/* Überarbeitung 3: Bei „anders" steht alles im oberen Textfeld – der zweite
-          Freitext unter der Preisgruppe entfällt. */}
-      {field.withNote && !istAnders ? (
+      {/*
+        Überarbeitung 9: Das allgemeine Freitextfeld „Sonderwünsche" ist bei katalogisierten
+        Materialien entfallen. Ein Altentwurf, der dort schon etwas stehen hat, zeigt es
+        weiter an — sonst stünde im AV-PDF ein Text, den niemand mehr sieht oder ändern kann.
+      */}
+      {(field.withNote && !istAnders) || legacyNotiz ? (
         <TextField
-          label="Freitext"
+          label={field.withNote ? 'Freitext' : 'Freitext (bisherige Angabe)'}
           placeholder={field.notePlaceholder}
           value={value?.note ?? ''}
           onChange={(event) => onChange({ ...value, note: event.target.value })}
@@ -694,6 +760,7 @@ function AufkantungField({
   onChange: (value: FrontFieldValue) => void
 }) {
   const groupIds = aufkantungGroupIds(element)
+  const styleLine = getStyleLine(element.typeId, element.styleLineId)
   const frontGruppe = getMaterialGroup(frontMaterialGroupId(element))
   const material = value?.material
   const aktuell =
@@ -709,7 +776,7 @@ function AufkantungField({
       <Select
         label={`${frontGruppe?.label ?? 'Material'} – ${field.label}`}
         placeholder="Bitte wählen"
-        options={aufkantungOptions(groupIds)}
+        options={aufkantungOptions(groupIds, (groupId) => ausgeschlosseneOptionIds(styleLine, groupId))}
         value={aktuell}
         onChange={(event) => {
           const gewaehlt = decodeAufkantungValue(event.target.value)

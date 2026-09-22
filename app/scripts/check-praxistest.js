@@ -117,11 +117,17 @@ for (const entwurf of praxistestEntwuerfe) {
     const betraege = new Set(zeilen.map((z) => z.preis))
     for (const teil of p.teile) {
       geprueft++
-      if (!betraege.has(teil.preis)) {
+      // Teilpositionen aus einem eigenen Artikel (Überarbeitung 8: Einlegeboden + Kleiderstange)
+      // werden gegen DESSEN Preiszeilen geprüft.
+      const quelle = teil.artikelnummer && teil.artikelnummer !== p.artikelnummer ? teil.artikelnummer : null
+      const erlaubt = quelle
+        ? new Set((zeilenNachArtikel.get(quelle) ?? []).map((z) => z.preis))
+        : betraege
+      if (!erlaubt.has(teil.preis)) {
         melde(
           entwurf,
-          `${p.label} (${p.artikelnummer}): Teilbetrag ${eur(teil.preis)} € steht nicht in den Stammdaten ` +
-            `(dort: ${[...betraege].map(eur).join(' / ')} €).`,
+          `${p.label} (${quelle ?? p.artikelnummer}): Teilbetrag ${eur(teil.preis)} € steht nicht in den Stammdaten ` +
+            `(dort: ${[...erlaubt].map(eur).join(' / ')} €).`,
         )
         continue
       }

@@ -86,10 +86,23 @@ export interface EquipmentOption {
   /** Schritt 6: standardmäßig vorausgewählt (abwählbar). */
   defaultSelected?: boolean
   /**
-   * Bei Sondertiefe (Korpustiefe < 60 cm) verfügbar. Regel S. 5: „Bei Sondertiefen
-   * sollen als Ausstattung nur Einlegeböden möglich sein!" → nur Einlegeboden = true.
+   * Bei Sondertiefe (Korpustiefe < 60 cm) verfügbar. Ursprünglich (S. 5) nur der
+   * Einlegeboden; Überarbeitung 8, S. 1 erweitert die Liste: „Folgende Innenausstattungen
+   * sind bei Sondertiefe doch auch möglich: Einlegeboden, LED-Syncro Licht, LED Band
+   * Beleuchtung im Aluprofil, Glasboden, Rückwandausschnitt, Innenspiegel für Drehtür,
+   * Krawattenspange, Kleiderbügel ausziehbar, Revisionsklappe." Die Regel steht damit je
+   * Artikel hier — die Sondertiefe sperrt die Ausstattung nicht pauschal.
    */
   availableInSondertiefe?: boolean
+  /**
+   * Welche Raster das Teil im Korpus belegt (Überarbeitung 8, S. 5 — keine zwei Teile auf
+   * derselben Position). Ausgewertet in `lib/rasterBelegung.ts`:
+   *   'punkt'     genau die gewählte Einbauhöhe (Böden, Rollkorb …),
+   *   'variante'  so viele Raster, wie die Variante hoch ist (Container „6R", Schublade
+   *               „1,5R") — ab der Einbauhöhe bzw. ab Raster 1, wenn das Teil am Boden steht.
+   * Ohne Angabe belegt das Teil keine Bodenposition (seitlich montierte Auszüge …).
+   */
+  rasterBelegung?: 'punkt' | 'variante'
   /**
    * Schritt 8: nur hinter diesen Front-Typen anbieten (Teilmenge der eligiblen Typen).
    * `undefined` ⇒ hinter allen eligiblen Front-Typen. (z. B. Innenspiegel nur Drehtür.)
@@ -155,6 +168,12 @@ export interface EquipmentOption {
    * Korpusbreite ermittelt."
    */
   preisAusKorpusbreite?: boolean
+  /**
+   * Beleuchtung mit Kabelführung hinter der Rückwand. Überarbeitung 8, S. 1: „Sobald bei der
+   * Ausstattung eine Beleuchtung (LED-Band oder Syncro-Licht) gewählt wird, erhöht sich die
+   * Tiefe um + 1 cm." Die Zugabe selbst steht in „50 Meta" (`beleuchtungTiefenzugabeMm`).
+   */
+  beleuchtung?: boolean
 }
 
 export interface EquipmentCategory {
@@ -256,7 +275,8 @@ export const equipmentCategories: EquipmentCategory[] = [
         detailFields: ['qty'],
         heightMode: 'raster',
         heightPerPiece: true,
-        hint: 'Standardmäßig ausgewählt, abwählbar. Je Boden eine eigene Rasterhöhe.',
+        rasterBelegung: 'punkt',
+        hint: 'Standardmäßig ausgewählt, abwählbar. Je Boden eine eigene Rasterhöhe. Material wie Korpus innen.',
       },
       {
         id: 'einlegeboden-kleiderstange',
@@ -265,8 +285,9 @@ export const equipmentCategories: EquipmentCategory[] = [
         detailFields: ['qty'],
         heightMode: 'raster',
         heightPerPiece: true,
+        rasterBelegung: 'punkt',
         choices: [KLEIDERSTANGE_AUSFUEHRUNG],
-        hint: 'Standardmäßig ausgewählt, abwählbar. Chrom und Schwarz sind preisgleich.',
+        hint: 'Standardmäßig ausgewählt, abwählbar. Boden im Material des Korpus innen; Chrom und Schwarz sind preisgleich.',
       },
       {
         id: 'container',
@@ -275,6 +296,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         variantLabel: 'Container-Höhe',
         // Keine Höhenabfrage: „Container stehen immer am Schrankboden."
         heightMode: 'keine',
+        rasterBelegung: 'variante',
         detailFields: ['rauchglas', 'note'],
         hint: 'Steht immer am Schrankboden; Breite an Korpusbreite; Material wie Innenkorpus.',
       },
@@ -286,6 +308,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         detailFields: ['qty'],
         heightMode: 'raster-oder-boden',
         heightPerPiece: true,
+        rasterBelegung: 'punkt',
         hint: 'Material wie Innenkorpus. Je Boden eine eigene Einbauhöhe.',
       },
       {
@@ -298,6 +321,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         detailFields: ['qty'],
         heightMode: 'raster-oder-boden',
         heightPerPiece: true,
+        rasterBelegung: 'variante',
         hint: 'An Korpusbreite angepasst; statt Griff 3 cm Spalt zum Greifen. Je Schublade eine eigene Einbauhöhe.',
       },
       {
@@ -308,12 +332,14 @@ export const equipmentCategories: EquipmentCategory[] = [
         detailFields: ['qty'],
         heightMode: 'raster-oder-boden',
         heightPerPiece: true,
+        rasterBelegung: 'punkt',
         korpusBreitenCm: ROLLKORB_BREITEN_CM,
         hint: 'Nur im 50er, 60er und 100er Korpus — er wird nicht in Sondergrößen gefertigt. Je Korb eine eigene Einbauhöhe.',
       },
       {
         id: 'innenspiegel-drehtuer',
         label: 'Innenspiegel für Drehtür',
+        availableInSondertiefe: true,
         frontTypes: ['drehtuer'],
         detailFields: ['format', 'note'],
         // Überarbeitung 6, S. 5: Standardformat vorbelegen, Notizfeld fragt nach der Position.
@@ -334,9 +360,11 @@ export const equipmentCategories: EquipmentCategory[] = [
         // 2., 3. oder 4. Glasboden definieren."
         id: 'glasboden',
         label: 'Glasboden',
+        availableInSondertiefe: true,
         detailFields: ['qty'],
         heightMode: 'raster',
         heightPerPiece: true,
+        rasterBelegung: 'punkt',
         choices: [GLASART],
         hint: 'Je Boden eine eigene Einbauhöhe.',
       },
@@ -344,6 +372,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         // Die 47-cm-Regel steht im PDF unter DIESER Kachel, nicht unter dem Innenspiegel.
         id: 'krawattenspange',
         label: 'Krawattenspange',
+        availableInSondertiefe: true,
         detailFields: ['qty', 'position'],
         minFrontBreiteCm: 47,
         // Überarbeitung 6, S. 6: Die Position wird als Höhe angegeben.
@@ -353,6 +382,7 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         id: 'kleiderbuegelhalter',
         label: 'Kleiderbügelhalter ausziehbar',
+        availableInSondertiefe: true,
         detailFields: ['qty', 'position'],
         heightMode: 'raster',
         positionPlaceholder: 'z. B. rechts',
@@ -363,6 +393,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         // Überarbeitung 6, S. 6: „Anzahl der Revisionsklappen … abfragen."
         id: 'revisionsklappe',
         label: 'Revisionsklappe',
+        availableInSondertiefe: true,
         detailFields: ['qty', 'format', 'position'],
         formatPlaceholder: 'z. B. 40 × 20 cm',
         positionPlaceholder: 'z. B. genaue Angabe der Position',
@@ -371,6 +402,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         // Überarbeitung 6, S. 6: „… und Anzahl der Rückwandausschnitte abfragen."
         id: 'rueckwandausschnitt',
         label: 'Rückwandausschnitt',
+        availableInSondertiefe: true,
         detailFields: ['qty', 'format', 'position'],
         formatPlaceholder: 'z. B. 40 × 20 cm',
         positionPlaceholder: 'z. B. genaue Angabe der Position',
@@ -389,6 +421,8 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         id: 'led-syncro',
         label: 'LED-Syncro',
+        availableInSondertiefe: true,
+        beleuchtung: true,
         // In der Vorlage sind ANZAHL und POSITION beide gestrichen: „Positionsabfrage
         // braucht es nicht. Wird immer am Korpusdeckel montiert." und „Anzahl gibt es
         // nicht. Der Preis leitet sich vom Korpus ab."
@@ -397,6 +431,8 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         id: 'led-band-aluprofil',
         label: 'LED-Band Aluprofil',
+        availableInSondertiefe: true,
+        beleuchtung: true,
         // „Anzahl gibt es nicht. Der Preis leitet sich vom Korpus ab."
         positionSeiten: true,
         // Überarbeitung 6, S. 8: „Wenn links + rechts ausgewählt wird, muss VK mal 2
@@ -447,6 +483,7 @@ export const equipmentCategories: EquipmentCategory[] = [
       {
         id: 'rollboden-schuhablage-craft',
         label: 'Rollboden mit Schuhablage Craft',
+        rasterBelegung: 'punkt',
         // Keine manuelle Korpusbreiten-Variante mehr: „Der richtige Preis wird automatisch
         // durch die Korpusbreite ermittelt."
         preisAusKorpusbreite: true,
@@ -531,7 +568,7 @@ export function defaultSelectedEquipmentIds(): string[] {
   return equipmentCategories.flatMap((cat) => cat.options.filter((o) => o.defaultSelected).map((o) => o.id))
 }
 
-/** Ist eine Option bei Sondertiefe zulässig? (Nur einfache Einlegeböden.) */
+/** Ist eine Option bei Sondertiefe zulässig? (Liste aus Überarbeitung 8, S. 1.) */
 export function isEquipmentAvailableInSondertiefe(id: string): boolean {
   return Boolean(getEquipmentOption(id)?.availableInSondertiefe)
 }
@@ -596,4 +633,18 @@ export function equipmentChoiceDefaults(option: EquipmentOption | undefined): Re
     if (choice.standard) werte[choice.id] = choice.standard
   }
   return werte
+}
+
+/** Ist in der Ausstattungs-Vorauswahl eine Beleuchtung mit Kabelführung gewählt? */
+export function hatBeleuchtung(selected: readonly string[] | undefined): boolean {
+  return (selected ?? []).some((id) => Boolean(getEquipmentOption(id)?.beleuchtung))
+}
+
+/** Klartext der bei Sondertiefe möglichen Optionen — für Hinweis und Modulregel. */
+export function sondertiefeOptionenText(): string {
+  return equipmentCategories
+    .flatMap((cat) => cat.options)
+    .filter((o) => o.availableInSondertiefe)
+    .map((o) => o.label)
+    .join(', ')
 }

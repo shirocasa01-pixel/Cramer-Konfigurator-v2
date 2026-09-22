@@ -185,3 +185,66 @@
   color: var(--color-ink-secondary);
   overflow-x: auto;
 }
+
+/*
+  Verblendung (Überarbeitung 8 / Vorgabe Verblendungs-UI): links die Positions-Haken,
+  rechts ein schmales Laufmeter-Feld für kurze Zahlen wie „2,4" oder „5,35".
+*/
+.verblendungRow {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.verblendungSeiten {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.fieldLabel {
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  color: var(--color-ink-secondary);
+}
+
+.seitenChecks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.lfmFeld {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  width: 132px;
+}
+
+/* Das Eingabefeld selbst schmal halten — ohne diese Angabe nimmt es seine Standardbreite. */
+.lfmFeld > * {
+  width: 100%;
+}
+
+.lfmFeld input {
+  width: 100%;
+  box-sizing: border-box;
+  text-align: right;
+}
+
+.lfmReset {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--color-ink-secondary);
+  text-decoration: underline;
+}
+
+.checkDisabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

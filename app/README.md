@@ -45,6 +45,7 @@ npm run data:build          # Modul neu erzeugen (läuft automatisch vor dev/bui
 npm run data:check          # nur Kreuzprüfung Excel ↔ Markdown ↔ Referenzen
 npm run data:test           # Selbsttest der Modus-/Lookup-Logik gegen die echten Daten
 npm run kalk:test           # Kalkulation gegen die Sollwerte des Vorgänger-Tools
+npm run ue89:test           # Überarbeitung 8+9: Front-Geometrie, Mittelseite, Böden, Sonderfarben, Verblendung
 ```
 
 Einmalige Datenpflege-Läufe (alle idempotent, mit Backup):
@@ -52,6 +53,7 @@ Einmalige Datenpflege-Läufe (alle idempotent, mit Backup):
 npm run data:clean-modus    # Modus-Spalte auf Buchstaben-Notation
 npm run data:seed-filialen  # echte Filialanschriften in „41 Filialen"
 npm run data:fix-achsen     # belegte Achsenwert-Korrekturen in „20 Preise"
+npm run data:migrate-ue89   # Überarbeitung 8+9: Mittelseite/Einlegeboden mit Tiefe×PG, Kleiderstange 15 €, Drehtür 21 R
 ```
 
 **Serien-Freigabe („Modus").** Jeder Artikel trägt die Kürzel der Serien, für die er

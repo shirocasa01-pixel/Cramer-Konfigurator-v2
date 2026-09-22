@@ -36,14 +36,28 @@ export function resolveCustomPriceGroup(text: string | undefined): PriceGroup | 
 }
 
 /**
+ * Verlangt die gewählte Oberfläche einen Farbcode, der noch fehlt?
+ *
+ * Überarbeitung 9, S. 4: Bei den Sonderfarben (Sikkens, NCS, RAL Design, RAL Classic)
+ * „braucht es dann immer ein Freitextfeld um den jeweiligen Farbton/Farbnummer
+ * einzufügen". Ohne Farbcode kann die AV nicht bestellen — das Feld ist Pflicht. Welche
+ * Oberfläche das verlangt, steht in den Stammdaten (Oberfläche → „Freitext"), nicht hier.
+ */
+export function fehlenderFarbcode(selection: MaterialSelection | undefined): boolean {
+  if (!selection?.optionId) return false
+  const option = getMaterialOption(selection.materialGroupId, selection.optionId)
+  return Boolean(option?.requiresFreeText) && !selection.note?.trim()
+}
+
+/**
  * Eine Material-Auswahl gilt als vollständig, wenn:
  *  - „Keine …“ (Sentinel) gewählt ist, ODER
  *  - „anders“ mit Freitext befüllt ist, ODER
- *  - eine echte Materialgruppe + Option gewählt ist.
+ *  - eine echte Materialgruppe + Option gewählt ist — bei Sonderfarben samt Farbcode.
  */
 export function isMaterialSelectionComplete(selection: MaterialSelection | undefined): boolean {
   if (!selection || !selection.materialGroupId) return false
   if (selection.materialGroupId === MATERIAL_NONE_ID) return true
   if (selection.materialGroupId === MATERIAL_CUSTOM_ID) return Boolean(selection.customText?.trim())
-  return Boolean(selection.optionId)
+  return Boolean(selection.optionId) && !fehlenderFarbcode(selection)
 }

@@ -14,7 +14,7 @@ import { getVisibleKorpusAreas } from '../../config/korpus'
 import { getFrontType, getStyleLine } from '../../config/frontCatalog'
 import { support } from '../../config/support'
 import { isKorpusComplete } from '../../lib/korpusValidation'
-import { isFrontsComplete } from '../../lib/frontsValidation'
+import { isFrontsComplete, isFrontsCompleteFuerEntwurf } from '../../lib/frontsValidation'
 import { PRICE_GROUP_LABEL, describeMaterialSelection } from '../../lib/materialFormat'
 import {
   ABSCHLUSS_UNTEN_LABEL,
@@ -29,7 +29,7 @@ import { downloadPdf } from '../../lib/generatePdf'
 import { formatVkPreis } from '../../lib/pricing'
 import { formatDezimal } from '../../lib/format'
 import { caPrefix, formatDimensions } from '../../lib/massFormat'
-import { describeKorpusGrunddatenZeilen } from '../../lib/korpusMass'
+import { aussenmassOptionen, describeKorpusGrunddatenZeilen, type AussenmassOptionen } from '../../lib/korpusMass'
 import type { FrontElement, KorpusGrunddaten, KorpusInnen, PriceGroup } from '../../types'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
 import { Beschriftung, fuelle, useTexte } from '../../components/schema/Beschriftung'
@@ -70,7 +70,10 @@ export default function SummaryPage() {
   // Referenz-/Verifizierungs-Entwürfe umgehen die Vollständigkeits-Weichen (Positions-basiert).
   const isReference = Boolean(draft.isVerification)
   if (!isReference && !isKorpusComplete(draft.korpus, visibleAreas)) return <Navigate to="/korpus" replace />
-  if (!isReference && !isFrontsComplete(draft.fronts)) return <Navigate to="/fronts" replace />
+  // Überarbeitung 9: Offene Entwürfe müssen auch geometrisch passen (Frontbreite/-höhe zum
+  // Korpus). Ein ABGESCHLOSSENER Auftrag bleibt lesbar, auch wenn er vor dieser Regel entstand.
+  const frontsOk = draft.finalizedAt ? isFrontsComplete(draft.fronts) : isFrontsCompleteFuerEntwurf(draft)
+  if (!isReference && !frontsOk) return <Navigate to="/fronts" replace />
   const fronts = draft.fronts ?? { columns: [] }
 
   const dim = draft.dimensions
@@ -160,7 +163,7 @@ export default function SummaryPage() {
           <Row k="Segmente" v={String(fronts.columns.length)} />
         </Block>
 
-        <KorpusGrunddatenRecap grunddaten={draft.korpusGrunddaten} />
+        <KorpusGrunddatenRecap grunddaten={draft.korpusGrunddaten} optionen={aussenmassOptionen(draft)} />
 
         <Block title="Material">
           {visibleAreas.map((area) => {
@@ -347,9 +350,9 @@ export default function SummaryPage() {
   )
 }
 
-function KorpusGrunddatenRecap({ grunddaten }: { grunddaten?: KorpusGrunddaten }) {
+function KorpusGrunddatenRecap({ grunddaten, optionen }: { grunddaten?: KorpusGrunddaten; optionen: AussenmassOptionen }) {
   if (!grunddaten) return null
-  const zeilen = describeKorpusGrunddatenZeilen(grunddaten)
+  const zeilen = describeKorpusGrunddatenZeilen(grunddaten, optionen)
   if (zeilen.length === 0) return null
   return (
     <Block title="Korpus-Grunddaten">

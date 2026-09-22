@@ -69,6 +69,14 @@ export const basisOberflaechen: Oberflaeche[] = [
   { id: 'karamell-sikkens-e7-42-34', kategorie: 'mattlack', bezeichnung: 'Karamell Sikkens E7.42.34', preisgruppe: '', freitext: false, freitextLabel: '', sortierung: 210, status: 'aktiv', bemerkung: '' },
   { id: 'curry-sikkens-e8-59-46', kategorie: 'mattlack', bezeichnung: 'Curry Sikkens E8.59.46', preisgruppe: '', freitext: false, freitextLabel: '', sortierung: 220, status: 'aktiv', bemerkung: '' },
   { id: 'goldgelb-sikkens-f2-60-60', kategorie: 'mattlack', bezeichnung: 'Goldgelb Sikkens F2.60.60', preisgruppe: '', freitext: false, freitextLabel: '', sortierung: 230, status: 'aktiv', bemerkung: '' },
+  // Überarbeitung 9, S. 4: „Zu unseren Standardmattlacken müssen auch die ‚Sonderfarben'
+  // eingefügt werden. Bei den Sonderfarben braucht es dann immer ein Freitextfeld um den
+  // jeweiligen Farbton/Farbnummer einzufügen." Die Preisgruppe kennt das System — der
+  // Berater trägt nur den Farbcode ein (Pflichtfeld über `freitext`).
+  { id: 'sonderfarbe-sikkens', kategorie: 'mattlack', bezeichnung: 'Sonderfarbe Sikkens', preisgruppe: 'PG4', freitext: true, freitextLabel: 'Sikkens-Farbton / Farbnummer', sortierung: 900, status: 'aktiv', bemerkung: 'Überarbeitung 9: Sonderfarbe, Preisgruppe 4.' },
+  { id: 'sonderfarbe-ncs', kategorie: 'mattlack', bezeichnung: 'Sonderfarbe NCS', preisgruppe: 'PG4', freitext: true, freitextLabel: 'NCS-Farbton / Farbnummer', sortierung: 910, status: 'aktiv', bemerkung: 'Überarbeitung 9: Sonderfarbe, Preisgruppe 4.' },
+  { id: 'sonderfarbe-ral-design', kategorie: 'mattlack', bezeichnung: 'Sonderfarbe RAL Design', preisgruppe: 'PG4', freitext: true, freitextLabel: 'RAL-Design-Farbton / Farbnummer', sortierung: 920, status: 'aktiv', bemerkung: 'Überarbeitung 9: Sonderfarbe, Preisgruppe 4.' },
+  { id: 'sonderfarbe-ral-classic', kategorie: 'mattlack', bezeichnung: 'Sonderfarbe RAL Classic', preisgruppe: 'PG3', freitext: true, freitextLabel: 'RAL-Classic-Farbton / Farbnummer', sortierung: 930, status: 'aktiv', bemerkung: 'Überarbeitung 9: Sonderfarbe, Preisgruppe 3 („andere RAL-Lacke").' },
   { id: 'eiche-lackiert', kategorie: 'furnier', bezeichnung: 'Eiche lackiert', preisgruppe: '', freitext: false, freitextLabel: '', sortierung: 10, status: 'aktiv', bemerkung: '' },
   { id: 'eiche-geoelt', kategorie: 'furnier', bezeichnung: 'Eiche geölt', preisgruppe: '', freitext: false, freitextLabel: '', sortierung: 20, status: 'aktiv', bemerkung: '' },
   { id: 'eiche-puro-geoelt', kategorie: 'furnier', bezeichnung: 'Eiche Puro geölt', preisgruppe: '', freitext: false, freitextLabel: '', sortierung: 30, status: 'aktiv', bemerkung: '' },

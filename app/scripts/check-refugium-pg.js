@@ -22,6 +22,7 @@ import { artikel, preise } from '../src/data/stammdaten.generated.ts'
 import { getVisibleKorpusAreas } from '../src/config/korpus.ts'
 import { getSeries } from '../src/config/productCatalog.ts'
 import { resolvePriceGroup } from '../src/lib/materialRules.ts'
+import { getMaterialGroup } from '../src/config/materialMatrix.ts'
 import { BETROFFENE_ARTIKEL, PG_FAKTOREN, PG_STUFEN, runde2 } from './lib/refugium-pg.js'
 import {
   ATRIUM,
@@ -133,7 +134,10 @@ pruefe(gesamtPg4 > gesamtPg1, `Gesamtpreis folgt dem Materialwechsel (${gesamtPg
 // ---------------------------------------------------------------------------
 console.log(c.bold('\nC — Nicht betroffene Artikel bleiben unverändert'))
 // ---------------------------------------------------------------------------
-const UNBETROFFEN = ['40-014-0001', '40-015-0002', '40-018-0001', '50-024-0006']
+// Einlegeboden (40-014-0001) und Kleiderstange (40-015-0002) sind seit Überarbeitung 8 NICHT
+// mehr unbetroffen: Der Boden folgt der Innenausführung (Atrium-Bodenpreise), die Kleiderstange
+// ist ein Aufpreis zum Boden. Geprüft in scripts/check-ueberarbeitung-8-9.js.
+const UNBETROFFEN = ['40-018-0001', '50-024-0006']
 for (const nr of UNBETROFFEN) {
   const werte = varianten.map(([g, o, pg]) => betrag(berechneEntwurf(mitInnenausfuehrung(g, o, pg)), nr))
   const gleich = werte.every((w) => Math.abs(w - werte[0]) < 0.005)
@@ -371,23 +375,35 @@ console.log(c.bold('\nH — Alle vier Preisgruppen sind über die Innenausführu
 const innenBereich = getVisibleKorpusAreas(refugium, 'komplett').find((a) => a.id === 'innen')
 pruefe(innenBereich != null, 'Bereich „a. Innen" ist für Refugium sichtbar')
 
+// Erreichbar über die Gruppe selbst ODER über eine einzelne Oberfläche mit eigener
+// Preisgruppe: Seit Überarbeitung 8 gibt es innen kein Xtreme Plus mehr — PG 4 kommt bei
+// Refugium über die Mattlack-Sonderfarben Sikkens / NCS / RAL Design (Überarbeitung 9).
 const erreichbar = new Map()
 for (const gruppeId of innenBereich?.materialGroupIds ?? []) {
-  const pg = resolvePriceGroup(gruppeId, undefined)
-  if (pg) erreichbar.set(pg, gruppeId)
+  const gruppenPg = resolvePriceGroup(gruppeId, undefined)
+  if (gruppenPg && !erreichbar.has(gruppenPg)) erreichbar.set(gruppenPg, { gruppeId, optionId: undefined })
+  for (const option of getMaterialGroup(gruppeId)?.options ?? []) {
+    const pg = resolvePriceGroup(gruppeId, option.id)
+    if (pg && !erreichbar.has(pg)) erreichbar.set(pg, { gruppeId, optionId: option.id })
+  }
 }
 for (const pg of PG_STUFEN) {
+  const weg = erreichbar.get(pg)
   pruefe(
     erreichbar.has(pg),
-    `${pg} über die Innenausführung wählbar  ${c.dim(erreichbar.get(pg) ?? 'KEINE Gruppe')}`,
+    `${pg} über die Innenausführung wählbar  ${c.dim(weg ? `${weg.gruppeId}${weg.optionId ? ` / ${weg.optionId}` : ''}` : 'KEINE Gruppe')}`,
     'keine Materialgruppe dieses Bereichs trägt diese Preisgruppe',
   )
 }
+pruefe(
+  !(innenBereich?.materialGroupIds ?? []).includes('xtreme-plus'),
+  'Xtreme Plus ist bei Refugium innen nicht wählbar (Überarbeitung 8, S. 3)',
+)
 
 // Und der Preis muss dann auch wirklich anders herauskommen.
 const preiseJePg = new Map()
-for (const [pg, gruppeId] of erreichbar) {
-  const e = berechneEntwurf(mitInnenausfuehrung(gruppeId, undefined, pg))
+for (const [pg, { gruppeId, optionId }] of erreichbar) {
+  const e = berechneEntwurf(mitInnenausfuehrung(gruppeId, optionId, pg))
   preiseJePg.set(pg, korpusPos(e)?.einzelpreis)
 }
 pruefe(

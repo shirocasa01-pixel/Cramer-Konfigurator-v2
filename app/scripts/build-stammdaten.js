@@ -131,6 +131,7 @@ function ladeMeta(rows) {
     'raumteilerZuschlagPct',
     'sichtrueckwandZuschlagPct',
     'rasterMm',
+    'beleuchtungTiefenzugabeMm',
   ]) {
     if (scalars[key] === undefined) warn(`„${SHEETS.meta}": Schlüssel "${key}" fehlt.`)
   }
@@ -662,6 +663,8 @@ function erzeugeModul(xl, md, anleitung, meta, mig) {
     `  sichtrueckwandZuschlagPct: ${num(sc.sichtrueckwandZuschlagPct) ?? 0},`,
     `  rasterMm: ${num(sc.rasterMm) ?? 0},`,
     `  frontOffsetMm: ${num(sc.frontOffsetMm) ?? 0},`,
+    '  /** Zusätzliche Korpustiefe bei Beleuchtung (Kabelführung) — Planungsmaß, keine Preisachse. */',
+    `  beleuchtungTiefenzugabeMm: ${num(sc.beleuchtungTiefenzugabeMm) ?? 0},`,
     `  quelle: ${s(sc.source)},`,
     '  preisgruppen: {',
     ...Object.entries(meta.preisgruppen).map(([k, v]) => `    ${k}: ${s(v)},`),

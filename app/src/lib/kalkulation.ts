@@ -46,7 +46,16 @@ import {
   type SerienRegel,
 } from '../config/preisMapping.ts'
 import { meta } from '../data/stammdaten.generated.ts'
-import { resolveDepthCm, resolveHeightCm, resolveKorpusBreiteCm } from './korpusMass.ts'
+import { pruefeSpalte, segmentGeometrie } from './frontGeometrie.ts'
+import {
+  formatLfm,
+  resolveDepthCm,
+  resolveHeightCm,
+  resolveKorpusBreiteCm,
+  verblendungLfm,
+  verblendungRechenweg,
+  verblendungSeitenText,
+} from './korpusMass.ts'
 import {
   findePreis,
   getArtikelNr,
@@ -119,6 +128,10 @@ export interface KalkPosition {
 
 /** Eine Teilposition: Menge × Betrag einer Bezugsgröße. */
 export interface KalkTeil {
+  /** Name, wenn die Teilposition ein eigener Artikel ist („Einlegeboden", „Kleiderstange"). */
+  bezeichnung?: string
+  /** Artikelnummer der Teilposition, wenn sie NICHT aus dem Artikel der Position stammt. */
+  artikelnummer?: string
   menge: number
   /** Die Menge lesbar, mit Einheit („123 cm", „1,48 m²", „2"). */
   mengeText: string
@@ -188,6 +201,27 @@ function innenPgFuerKorpus(draft: Draft, index: number): PriceGroup | undefined 
   const korpusId = draft.korpusGrunddaten?.korpusse?.[index]?.id
   const jeKorpus = korpusId ? draft.korpusInnenJeKorpus?.[korpusId] : undefined
   return pgVon(jeKorpus) ?? pgVon(draft.korpus?.innen)
+}
+
+/** Rangfolge der Preisgruppen — PG 4 ist die teuerste. */
+const PG_RANG: Record<PriceGroup, number> = { PG1: 1, PG2: 2, PG3: 3, PG4: 4 }
+
+/**
+ * DIE TEUERSTE PREISGRUPPE einer Liste.
+ *
+ * Überarbeitung 8, S. 4 — ein Schrank aus 50er PG 1, 60er PG 2 und 100er PG 3: „Die
+ * Mittelseite soll dann immer in der teuersten Preisgruppe gerechnet werden. In dem Fall
+ * also in PG3." Ebenso das Abschlussset bei links PG 3 / rechts PG 2 → PG 3.
+ */
+export function hoechstePreisgruppe(pgs: ReadonlyArray<PriceGroup | undefined>): PriceGroup | undefined {
+  return pgs.reduce<PriceGroup | undefined>(
+    (max, pg) => (pg && (!max || PG_RANG[pg] > PG_RANG[max]) ? pg : max),
+    undefined,
+  )
+}
+
+function pgText(pg: PriceGroup): string {
+  return pg.replace('PG', 'PG ')
 }
 
 let lfd = 0
@@ -261,7 +295,10 @@ function mengeFuerPreisart(
   if (preisart === PREISARTEN.CM) {
     return { menge: runde2(laenge * eingabe.menge), text: `${cmText(laenge)} cm` }
   }
-  return { menge: runde2((laenge / 100) * eingabe.menge), text: `${cmText(laenge / 100)} m` }
+  // Meter mit zwei Nachkommastellen: „3,35 m" — auf eine Stelle gerundet stünde neben
+  // 251,25 € ein „3,4 m", das sich nicht nachrechnen lässt.
+  const meter = runde2(laenge / 100)
+  return { menge: runde2(meter * eingabe.menge), text: `${String(meter).replace('.', ',')} m` }
 }
 
 function bauePosition(eingabe: PositionsEingabe): KalkPosition {
@@ -345,6 +382,56 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
   }
 }
 
+/**
+ * EINE POSITION AUS MEHREREN ARTIKELN (`BauteilLookup.komponenten`).
+ *
+ * Überarbeitung 8, S. 5: „Einlegeboden inkl. Kleiderstange" = Einlegebodenpreis + 15 €.
+ * Beide Beträge stehen als eigene Stammdaten — der Boden mit Breite × Tiefe × Preisgruppe,
+ * die Kleiderstange als Aufpreis. Die Position zeigt sie als zwei benannte Teilpositionen:
+ *
+ *     Einlegeboden    1 × 55 €
+ *     Kleiderstange   1 × 15 €        70 €
+ *
+ * Fehlt für eine Komponente der Preis, ist die ganze Position „auf Anfrage" — ein halber
+ * Preis wäre schlimmer als keiner.
+ */
+function baueMitKomponenten(eingabe: PositionsEingabe): KalkPosition {
+  const haupt = bauePosition(eingabe)
+  const komponenten = eingabe.lookup.komponenten ?? []
+  if (komponenten.length === 0 || haupt.status !== 'berechnet') return haupt
+
+  const teile: KalkTeil[] = haupt.teile.map((t) => ({ ...t, bezeichnung: eingabe.lookup.teilLabel ?? t.bezeichnung }))
+  let einzelpreis = haupt.einzelpreis ?? 0
+  const erklaerung = [`${eingabe.lookup.teilLabel ?? 'Hauptteil'} ${runde2(haupt.einzelpreis ?? 0)} €`]
+  for (const komponente of komponenten) {
+    const teil = bauePosition({
+      ...eingabe,
+      lookup: { artikel: komponente.artikel, nutztPg: true, nutztTiefe: true },
+      hinweis: undefined,
+    })
+    if (teil.status !== 'berechnet') {
+      return {
+        ...haupt,
+        teile: [],
+        einzelpreis: null,
+        gesamt: null,
+        status: 'auf-anfrage',
+        hinweis: [haupt.hinweis, `${komponente.label}: ${teil.hinweis ?? 'kein Preis hinterlegt'}`].filter(Boolean).join(' — '),
+      }
+    }
+    teile.push(...teil.teile.map((t) => ({ ...t, bezeichnung: komponente.label, artikelnummer: komponente.artikel })))
+    einzelpreis += teil.einzelpreis ?? 0
+    erklaerung.push(`${komponente.label} ${runde2(teil.einzelpreis ?? 0)} € (${komponente.artikel})`)
+  }
+  return {
+    ...haupt,
+    teile,
+    einzelpreis: runde2(einzelpreis),
+    gesamt: runde2(teile.reduce((summe, t) => summe + t.gesamt, 0)),
+    hinweis: [haupt.hinweis, `Je Stück: ${erklaerung.join(' + ')} = ${runde2(einzelpreis)} €.`].filter(Boolean).join(' '),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Stufe 1–3: Korpus-Kontext
 // ---------------------------------------------------------------------------
@@ -363,6 +450,12 @@ interface KorpusKontext {
    */
   korpusHoeheCm?: number
   rasterHinweis?: string
+  /**
+   * Die bepreiste TIEFENSTUFE (31 · 41 · 60 cm) — nächstgrößere Stufe zur Korpustiefe.
+   * Gilt für Korpus, Mittelseite und Einlegeboden gleichermaßen (Atrium S. 13 / 14 / 15).
+   * Eine Beleuchtungs-Tiefenzugabe ist ein Planungsmaß und verschiebt diese Stufe nicht.
+   */
+  bepreisteTiefeCm?: number
 }
 
 function leseKorpusKontext(draft: Draft, regel: SerienRegel, meldungen: KalkMeldung[]): KorpusKontext {
@@ -389,6 +482,12 @@ function leseKorpusKontext(draft: Draft, regel: SerienRegel, meldungen: KalkMeld
   }
 
   const kontext: KorpusKontext = { hoeheCm, tiefeCm, breiten }
+
+  // Tiefenstufe nach „Preis des nächstgrößeren Maßes" (Preisliste S. 13/14/15, „Sondermaße").
+  const tiefenStufen = regel.korpus?.nutztTiefe ? verfuegbareTiefen(regel.korpus.artikel) : []
+  if (tiefeCm != null && tiefenStufen.length > 0) {
+    kontext.bepreisteTiefeCm = tiefenStufen.find((t) => t >= tiefeCm - 0.001)
+  }
 
   if (hoeheCm != null && regel.korpus) {
     const offset = korpusOffsetMm(regel.id)
@@ -476,10 +575,7 @@ function baueKorpusPositionen(
    * Preisliste für diesen Fall ausdrücklich die 60er-Stufe vorsieht.
    */
   const tiefenStufen = regel.korpus.nutztTiefe ? verfuegbareTiefen(regel.korpus.artikel) : []
-  const bepreisteTiefe =
-    kontext.tiefeCm != null && tiefenStufen.length > 0
-      ? tiefenStufen.find((t) => t >= kontext.tiefeCm! - 0.001)
-      : undefined
+  const bepreisteTiefe = kontext.bepreisteTiefeCm
   if (regel.korpus.nutztTiefe && kontext.tiefeCm != null && bepreisteTiefe == null && tiefenStufen.length > 0) {
     meldungen.push({
       schwere: 'fehler',
@@ -567,19 +663,25 @@ function baueKorpusPositionen(
     const lookup = verblendungLookups[verblendung.art]
     if (lookup) {
       /*
-       * LAUFENDE METER WERDEN JETZT GERECHNET.
+       * LAUFENDE METER — seit der Positionswahl per Haken errechnet.
        *
-       * Bis zur Achsen-Reform stand hier die Menge fest auf 1 und der erfasste Laufmeter-
-       * Wert wurde nur als Hinweis ausgewiesen — es gab keine Stelle in den Stammdaten,
-       * an der „je laufendem Meter" etwas anderes gewesen wäre als ein Wort im
-       * Einheitenfeld. Seit die Achse PREISART am Betrag hängt, ist die Bezugsgröße eine
-       * gepflegte Eigenschaft der Preiszeile, und die Multiplikation ist nachvollziehbar:
-       * Die Position zeigt sie als Teilposition „x m × y €/m".
+       * Die Preiszeile trägt „€/m" (Achse PREISART, 75 €/m korpusbündig, 150 €/m
+       * frontbündig); die Menge sind die Laufmeter. Sie ergeben sich aus den Haken:
+       * links/rechts je einmal die Schrankhöhe, oben einmal die Schrankbreite (Summe der
+       * Korpusbreiten) — überschreibbar für Sonderanforderungen (`verblendungLfm`).
+       * Die Position nennt Art, Seiten und Laufmeter im Titel:
+       *     „Verblendung korpusbündig (Links, Oben) · 5,35 lfm"
        */
-      const lfm = zahl(verblendung.lfm)
+      const g = draft.korpusGrunddaten
+      const lfm = verblendungLfm(g)
+      const art = verblendung.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig'
+      const seiten = verblendungSeitenText(verblendung)
+      const rechenweg = verblendungRechenweg(g)
       const hinweise = [
-        `Verblendung ${verblendung.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig'} — einmal je Möbel.`,
-        verblendung.positionNote?.trim() ? `Position: ${verblendung.positionNote.trim()}.` : null,
+        'Einmal je Möbel.',
+        rechenweg && !verblendung.lfmManuell ? `Laufmeter: ${rechenweg}${lfm != null ? ` = ${formatLfm(lfm)} lfm` : ''}.` : null,
+        verblendung.lfmManuell ? 'Laufmeter vom Berater manuell eingetragen.' : null,
+        verblendung.positionNote?.trim() ? `Position (Freitext): ${verblendung.positionNote.trim()}.` : null,
         lfm == null
           ? 'Ohne Laufmeter-Angabe – der Betrag ist der Preis je laufendem Meter und kann nicht mit der Länge multipliziert werden.'
           : null,
@@ -590,6 +692,7 @@ function baueKorpusPositionen(
           menge: 1,
           bucket: 'korpus',
           herkunft: 'gewaehlt',
+          label: `Verblendung ${art}${seiten ? ` (${seiten})` : ''}${lfm != null ? ` · ${formatLfm(lfm)} lfm` : ''}`,
           laengeCm: lfm != null ? runde2(lfm * 100) : undefined,
           hinweis: hinweise.join(' '),
         }),
@@ -644,6 +747,28 @@ function baueKorpusPositionen(
   const segmente = kontext.breiten.length
   const mittelseiten = anzahlMittelseiten(regel.mittelseitenRegel, segmente)
   if (regel.mittelseite && mittelseiten > 0) {
+    /*
+     * PREISGRUPPE UND TIEFE DER MITTELSEITE (Überarbeitung 8, S. 2 und 4).
+     *
+     * Die Mittelseite folgt dem Material der Korpi — und bei unterschiedlichen Materialien
+     * der TEUERSTEN Preisgruppe: 50er PG 1 + 60er PG 2 + 100er PG 3 ⇒ PG 3. Den Betrag
+     * liefert allein die Preiszeile (Mittelseite × Höhe × Tiefe × PG); in PG 2–4 steht dort
+     * der Atrium-Preis der „Seite", in PG 1 der Refugium-Preis.
+     */
+    const korpusPgs = kontext.breiten.map((_, i) => innenPgFuerKorpus(draft, i))
+    const pg = regel.mittelseite.nutztPg ? hoechstePreisgruppe(korpusPgs) : undefined
+    const verschieden = new Set(korpusPgs.filter(Boolean)).size > 1
+    const hinweise = [
+      regel.mittelseitenRegel === 'abschluss'
+        ? `Automatisch ergänzt: Jeder der ${segmente} Korpi bringt seine linke Seite mit — nötig ist nur die Wand, die den Block rechts abschließt.`
+        : `Automatisch ergänzt: ${segmente} Segmente erfordern ${mittelseiten} Mittelseite(n).`,
+      pg
+        ? verschieden
+          ? `Preisgruppe ${pgText(pg)} = teuerste Preisgruppe der Korpi (${korpusPgs.map((p) => (p ? pgText(p) : '—')).join(' · ')}).`
+          : `Preisgruppe ${pgText(pg)} aus der Innenausführung der Korpi.`
+        : null,
+      regel.mittelseite.nutztTiefe && kontext.bepreisteTiefeCm != null ? `Tiefenstufe ${kontext.bepreisteTiefeCm} cm.` : null,
+    ].filter(Boolean)
     positionen.push(
       bauePosition({
         lookup: regel.mittelseite,
@@ -651,10 +776,9 @@ function baueKorpusPositionen(
         bucket: 'korpus',
         herkunft: 'abgeleitet',
         hoeheCm: kontext.korpusHoeheCm,
-        hinweis:
-          regel.mittelseitenRegel === 'abschluss'
-            ? `Automatisch ergänzt: Jeder der ${segmente} Korpi bringt seine linke Seite mit — nötig ist nur die Wand, die den Block rechts abschließt.`
-            : `Automatisch ergänzt: ${segmente} Segmente erfordern ${mittelseiten} Mittelseite(n).`,
+        tiefeCm: kontext.bepreisteTiefeCm,
+        pg,
+        hinweis: hinweise.join(' '),
       }),
     )
   }
@@ -676,7 +800,21 @@ function baueKorpusPositionen(
        * weiterhin führen (Atrium, Velare, Publicum), und Refugium-Entwürfe, die vor der
        * Umstellung gespeichert wurden, behalten damit exakt ihren bisherigen Preis.
        */
+      /*
+       * Getrennt gewählt (links/rechts)? Dann gilt die TEUERSTE der beteiligten Seiten —
+       * Überarbeitung 8, S. 4: „Abschlussset links in PG3, rechts in PG2 >> Das Abschlussset
+       * soll dann immer in der teuersten Preisgruppe gerechnet werden." Beteiligt ist nur,
+       * was die Position auch hat: bei „nur links" zählt die rechte Auswahl nicht.
+       */
+      const getrenntePgs = abschluss?.materialGetrennt
+        ? [
+            position !== 'rechts' ? pgVon(abschluss.materialLinks) : undefined,
+            position !== 'links' ? pgVon(abschluss.materialRechts) : undefined,
+          ]
+        : []
+      const getrenntPg = hoechstePreisgruppe(getrenntePgs)
       const aussenPg =
+        getrenntPg ??
         pgVon(abschluss?.material) ??
         pgVon(abschluss?.materialLinks) ??
         pgVon(abschluss?.materialRechts) ??
@@ -697,8 +835,14 @@ function baueKorpusPositionen(
           herkunft: 'abgeleitet',
           hoeheCm: kontext.korpusHoeheCm,
           pg: aussenPg,
-          hinweis:
+          hinweis: [
             'Automatisch ergänzt: schließt den Möbelblock seitlich ab. Trägt die Oberfläche des Möbels nach außen — der Korpus selbst ist nur in Decoboard lieferbar.',
+            getrenntPg && new Set(getrenntePgs.filter(Boolean)).size > 1
+              ? `Links und rechts in verschiedenen Materialien: gerechnet in der teuersten Preisgruppe ${pgText(getrenntPg)} (${getrenntePgs.map((p) => (p ? pgText(p) : '—')).join(' / ')}).`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' '),
         }),
       )
     }
@@ -733,6 +877,18 @@ function baueFrontPositionen(
   ;(draft.fronts?.columns ?? []).forEach((spalte, spaltenIndex) => {
     const segment = spaltenIndex + 1
     const segmentBreite = kontext.breiten[spaltenIndex]
+
+    /*
+     * Überarbeitung 9: Passen die Fronten noch zum Korpus? Eine 70-cm-Tür im 50er Korpus,
+     * eine 21-Raster-Tür im 18-Raster-Korpus oder ein Türpaar, das nach einer Änderung der
+     * Korpusbreite nicht mehr passt, wird nicht stillschweigend weiter bepreist — der
+     * Befund ist ein FEHLER und nimmt der Kalkulation die Verbindlichkeit. Die Regeln stehen
+     * in `lib/frontGeometrie.ts`, dieselben wie im Fronten-Schritt.
+     */
+    const geo = segmentGeometrie(draft.korpusGrunddaten, draft.seriesId, spaltenIndex)
+    for (const befund of pruefeSpalte(spalte, geo)) {
+      meldungen.push({ schwere: 'fehler', text: `Segment ${segment}: ${befund}` })
+    }
 
     spalte.elements.forEach((el) => {
       const lookup = frontLookups[el.typeId]
@@ -1010,10 +1166,14 @@ function baueAusstattungsPositionen(
         aufgeloesterLookup.nutztPg && innenPg
           ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
           : null,
+        // Überarbeitung 8, S. 5: Die Tiefe wählt die Atrium-Bodenpreise (S. 13 / 14 / 15).
+        aufgeloesterLookup.nutztTiefe && kontext.bepreisteTiefeCm != null
+          ? `Tiefenstufe ${kontext.bepreisteTiefeCm} cm.`
+          : null,
       ].filter(Boolean)
 
       positionen.push(
-        bauePosition({
+        baueMitKomponenten({
           lookup: aufgeloesterLookup,
           menge,
           bucket: 'innen',
@@ -1022,6 +1182,7 @@ function baueAusstattungsPositionen(
           segment,
           breiteCm: segmentBreite,
           hoeheCm: hoeheCmFuerTeil,
+          tiefeCm: kontext.bepreisteTiefeCm,
           pg: innenPg,
           hinweis: hinweise.length ? hinweise.join(' ') : undefined,
         }),
@@ -1043,6 +1204,9 @@ function baueAusstattungsPositionen(
           herkunft: 'gewaehlt',
           label: 'Einlegeboden (Korpus Innen)',
           breiteCm: kontext.breiten[0],
+          // Seit Überarbeitung 8 führt der Boden Tiefe und Preisgruppe als Achsen.
+          tiefeCm: kontext.bepreisteTiefeCm,
+          pg: innenPgFuerKorpus(draft, 0),
           hinweis:
             kontext.breiten.length > 1
               ? 'Korpusweite Angabe ohne Segmentbezug – bepreist mit der Breite von Segment 1. Für eine exakte Kalkulation je Segment erfassen.'

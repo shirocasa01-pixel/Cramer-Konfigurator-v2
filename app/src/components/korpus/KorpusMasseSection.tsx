@@ -4,16 +4,23 @@ import { Beschriftung, BeschriftungsGruppe, fuelle, useTexte } from '../schema/B
 import { Inspector } from '../schema/Inspector'
 import { makeId } from '../../lib/frontsHelpers'
 import {
+  VERBLENDUNG_SEITEN,
   berechneAussenmass,
   formatKorpusMass,
+  formatLfm,
   resolveDepthCm,
   resolveHeightCm,
   resolveKorpusBreiteCm,
+  verblendungAutoLfm,
+  verblendungBezugsmasse,
+  verblendungRechenweg,
+  type VerblendungSeite,
 } from '../../lib/korpusMass'
+import { sondertiefeOptionenText } from '../../config/equipment'
 import { breitenWarnung, hoehenWarnung, tiefenWarnung } from '../../lib/dimensionsValidation'
 import { frontAufteilung, mmZuCm } from '../../lib/frontbreiten'
 import { formatMassZahl } from '../../lib/format'
-import type { KorpusEinheit, KorpusGrunddaten, VerblendungArt } from '../../types'
+import type { KorpusEinheit, KorpusGrunddaten, Verblendung, VerblendungArt } from '../../types'
 import styles from './KorpusMasseSection.module.css'
 
 const HEIGHT_MODES: Array<{ key: KorpusGrunddaten['heightMode']; label: string }> = [
@@ -67,7 +74,20 @@ export function makeDefaultGrunddaten(): KorpusGrunddaten {
 interface Props {
   value: KorpusGrunddaten
   onChange: (next: KorpusGrunddaten) => void
+  /**
+   * Überarbeitung 8, S. 1: In der Ausstattung ist eine Beleuchtung (LED-Band/Syncro) gewählt —
+   * die Korpustiefe ohne Front wächst im Außenmaß um die Kabelführung.
+   */
+  beleuchtung?: boolean
+  /** Zweiläufige Schiebetür geplant: Verblendung nur seitlich (kein „Oben"). */
+  nurSeitlicheVerblendung?: boolean
 }
+
+/**
+ * Überarbeitung 8, S. 1: Diese Innenausstattungen sind auch bei Sondertiefe möglich. Der Text
+ * kommt aus dem Katalog (`availableInSondertiefe`), damit Hinweis und Regel nicht auseinanderlaufen.
+ */
+const SONDERTIEFE_HINWEIS = `Hinweis: Bei Sondertiefe sind als Innenausstattung nur möglich: ${sondertiefeOptionenText()}.`
 
 /**
  * SCHRITT 4 (Refugium) – Korpus-Maß-Raster. Höhe & Tiefe als Modi (Standard/anders),
@@ -81,7 +101,7 @@ interface Props {
  * Punkt 4.13: Zu jeder Korpusbreite wird die abgeleitete Frontbreite angezeigt –
  * der Berater sieht sofort, was aus seiner Auswahl folgt.
  */
-export function KorpusMasseSection({ value, onChange }: Props) {
+export function KorpusMasseSection({ value, onChange, beleuchtung, nurSeitlicheVerblendung }: Props) {
   // Alle Beschriftungen dieses Moduls liegen im Abschnitt „masse" des Schemas; im Code
   // steht der Standard, den der Administrator überschreiben kann.
   const t = useTexte('masse')
@@ -99,7 +119,30 @@ export function KorpusMasseSection({ value, onChange }: Props) {
 
   const warnHoehe = hoehenWarnung(resolveHeightCm(value))
   const warnTiefe = tiefenWarnung(depthCm)
-  const masse = berechneAussenmass(value)
+  const masse = berechneAussenmass(value, { beleuchtung })
+
+  // --- Verblendung: Haken → Laufmeter (Überarbeitung 8, Vorgabe Verblendungs-UI) --------
+  const setzeVerblendung = (next: Partial<Verblendung>) => patch({ verblendung: { ...verblendung, ...next } })
+  const bezug = verblendungBezugsmasse(value)
+  const autoLfm = verblendungAutoLfm(value)
+  const seitenGesetzt = Boolean(verblendung.seiten?.links || verblendung.seiten?.oben || verblendung.seiten?.rechts)
+  const lfmAnzeige = verblendung.lfmManuell
+    ? verblendung.lfm ?? ''
+    : seitenGesetzt
+      ? autoLfm != null
+        ? formatLfm(autoLfm)
+        : ''
+      : verblendung.lfm ?? ''
+  function toggleSeite(seite: VerblendungSeite, an: boolean) {
+    const seiten = { ...verblendung.seiten, [seite]: an }
+    const naechste: Verblendung = { ...verblendung, seiten }
+    // Solange nicht überschrieben, folgt der gespeicherte Wert der Rechnung.
+    if (!verblendung.lfmManuell) {
+      const auto = verblendungAutoLfm({ ...value, verblendung: naechste })
+      naechste.lfm = auto != null ? formatLfm(auto) : ''
+    }
+    patch({ verblendung: naechste })
+  }
 
   return (
     <div className={styles.root}>
@@ -174,8 +217,7 @@ export function KorpusMasseSection({ value, onChange }: Props) {
               },
               {
                 schluessel: 'tiefe.sondertiefe',
-                standard:
-                  'Hinweis: Bei Sondertiefe sind als Innenausstattung nur Einlegeböden möglich.',
+                standard: SONDERTIEFE_HINWEIS,
                 label: 'Hinweis bei Sondertiefe',
                 mehrzeilig: true,
               },
@@ -214,10 +256,7 @@ export function KorpusMasseSection({ value, onChange }: Props) {
         {warnTiefe ? <p className={styles.warn} role="status">{warnTiefe}</p> : null}
         {isSondertiefe ? (
           <p className={styles.note}>
-            {t(
-              'tiefe.sondertiefe',
-              'Hinweis: Bei Sondertiefe sind als Innenausstattung nur Einlegeböden möglich.',
-            )}
+            {t('tiefe.sondertiefe', SONDERTIEFE_HINWEIS)}
           </p>
         ) : null}
       </section>
@@ -432,21 +471,80 @@ export function KorpusMasseSection({ value, onChange }: Props) {
         </div>
         {verblendung.art !== 'keine' ? (
           <>
-            <div className={styles.customRow}>
-              <TextField
-                label={t('verblendung.lfm', 'Laufmeter (lfm)')}
-                inputMode="decimal"
-                placeholder="z. B. 2,4"
-                value={verblendung.lfm ?? ''}
-                onChange={(e) => patch({ verblendung: { ...verblendung, lfm: e.target.value } })}
-              />
-              <TextField
-                label={t('verblendung.position', 'Position')}
-                placeholder="z. B. links, oben"
-                value={verblendung.positionNote ?? ''}
-                onChange={(e) => patch({ verblendung: { ...verblendung, positionNote: e.target.value } })}
-              />
+            {/*
+              LINKS die Position als Haken (frei kombinierbar), RECHTS die Laufmeter — schmal,
+              weil dort nur kurze Zahlen stehen. Aus den Haken rechnet das System:
+                links/rechts je 1 × Schrankhöhe, oben 1 × Schrankbreite (Summe der Korpusbreiten).
+              Der Berater kann den Wert für Sonderfälle überschreiben; „automatisch" nimmt die
+              Rechnung zurück.
+            */}
+            <div className={styles.verblendungRow}>
+              <div className={styles.verblendungSeiten}>
+                <span className={styles.fieldLabel}>{t('verblendung.position', 'Position')}</span>
+                <div className={styles.seitenChecks} role="group" aria-label="Position der Verblendung">
+                  {VERBLENDUNG_SEITEN.map((seite) => {
+                    const gesperrt = seite.key === 'oben' && Boolean(nurSeitlicheVerblendung)
+                    return (
+                      <label
+                        key={seite.key}
+                        className={[styles.check, gesperrt ? styles.checkDisabled : ''].filter(Boolean).join(' ')}
+                        title={gesperrt ? 'Bei Schiebetürschränken ist die Verblendung nur seitlich möglich.' : undefined}
+                      >
+                        <input
+                          type="checkbox"
+                          className={styles.checkbox}
+                          checked={Boolean(verblendung.seiten?.[seite.key]) && !gesperrt}
+                          disabled={gesperrt}
+                          onChange={(e) => toggleSeite(seite.key, e.target.checked)}
+                        />
+                        {t(`verblendung.seite.${seite.key}`, seite.label)}
+                      </label>
+                    )
+                  })}
+                </div>
+              </div>
+              <div className={styles.lfmFeld}>
+                <TextField
+                  label={t('verblendung.lfm', 'Laufmeter (lfm)')}
+                  inputMode="decimal"
+                  placeholder="z. B. 2,4"
+                  value={lfmAnzeige}
+                  onChange={(e) =>
+                    setzeVerblendung(
+                      e.target.value.trim()
+                        ? { lfm: e.target.value, lfmManuell: true }
+                        : { lfm: autoLfm != null ? formatLfm(autoLfm) : '', lfmManuell: false },
+                    )
+                  }
+                />
+                {verblendung.lfmManuell && seitenGesetzt ? (
+                  <button
+                    type="button"
+                    className={styles.lfmReset}
+                    onClick={() => setzeVerblendung({ lfm: autoLfm != null ? formatLfm(autoLfm) : '', lfmManuell: false })}
+                  >
+                    automatisch{autoLfm != null ? ` (${formatLfm(autoLfm)})` : ''}
+                  </button>
+                ) : null}
+              </div>
             </div>
+            {seitenGesetzt ? (
+              <p className={styles.rechenweg}>
+                {verblendung.lfmManuell
+                  ? `Manuell überschrieben — errechnet wären ${verblendungRechenweg(value)}${autoLfm != null ? ` = ${formatLfm(autoLfm)} lfm` : ''}.`
+                  : `${verblendungRechenweg(value)}${autoLfm != null ? ` = ${formatLfm(autoLfm)} lfm` : ''}`}
+              </p>
+            ) : (
+              <p className={styles.rechenweg}>
+                Haken setzen: links/rechts je Schrankhöhe
+                {bezug.hoeheM != null ? ` (${formatLfm(bezug.hoeheM)} m)` : ''}, oben Schrankbreite
+                {bezug.breiteM != null ? ` (${formatLfm(bezug.breiteM)} m, Summe der Korpusbreiten)` : ''}.
+              </p>
+            )}
+            {/* Altbestand: Positionsangabe als Freitext aus der Zeit vor den Haken. */}
+            {verblendung.positionNote?.trim() ? (
+              <p className={styles.note}>Frühere Positionsangabe: {verblendung.positionNote.trim()}</p>
+            ) : null}
             <p className={styles.note}>
               {t(
                 'verblendung.hinweis',
@@ -587,10 +685,15 @@ export function KorpusMasseSection({ value, onChange }: Props) {
                 hoehe: formatKorpusMass(masse.gesamthoeheCm),
                 breite: formatKorpusMass(masse.gesamtbreiteCm),
                 tiefe: formatKorpusMass(masse.gesamttiefeCm ?? masse.korpustiefeCm),
-                tiefeZusatz:
-                  masse.gesamttiefeCm != null
-                    ? 'Korpustiefe ohne Fronten, inkl. Fußleistenausschnitt'
-                    : 'Korpustiefe ohne Fronten',
+                tiefeZusatz: [
+                  'Korpustiefe ohne Fronten',
+                  masse.gesamttiefeCm != null ? 'inkl. Fußleistenausschnitt' : null,
+                  masse.beleuchtungZugabeCm != null
+                    ? `inkl. ${formatMassZahl(masse.beleuchtungZugabeCm)} cm Kabelführung für die Beleuchtung`
+                    : null,
+                ]
+                  .filter(Boolean)
+                  .join(', '),
               })}
             </p>
             <p className={styles.rechenweg}>{masse.rechenweg}</p>

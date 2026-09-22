@@ -97,12 +97,14 @@ export function MaterialSelect({
 
   function pickOption(optionId: string) {
     if (!activeGroupId) return
+    // Kontext-Notiz (z. B. Abdeckplatte-Glas-Spezifikation) über den Options-Wechsel erhalten —
+    // außer sie war der Farbcode einer Sonderfarbe: „NCS S 7010-B" gehört nicht zu RAL Design.
+    const warFarbcode = Boolean(selectedOption?.requiresFreeText) && optionId !== selectedOption?.id
     onChange({
       materialGroupId: activeGroupId,
       optionId,
       priceGroup: resolvePriceGroup(activeGroupId, optionId),
-      // Kontext-Notiz (z. B. Abdeckplatte-Glas-Spezifikation) über den Options-Wechsel erhalten.
-      note: value?.note,
+      note: warFarbcode ? undefined : value?.note,
     })
   }
 
@@ -171,13 +173,20 @@ export function MaterialSelect({
         </div>
       ) : null}
 
+      {/*
+        Überarbeitung 9, S. 4: Bei Sonderfarben (und hinterlackierten Gläsern) ist der
+        Farbcode Pflicht — bei den Standardfarben erscheint das Feld gar nicht. Welche
+        Oberfläche ihn verlangt, steht in den Stammdaten (Oberfläche → „Freitext").
+      */}
       {activeGroup && value && selectedOption?.requiresFreeText ? (
         <div className={styles.detail}>
           <TextField
-            label={selectedOption.freeTextLabel ?? 'Bezeichnung (Freitext)'}
+            label={`${selectedOption.freeTextLabel ?? 'Farbton / Farbnummer'} *`}
             placeholder="z. B. RAL 7016, NCS S 7010-B, Sikkens F6.28.66 …"
+            required
             value={value.note ?? ''}
             onChange={(event) => onChange({ ...value, note: event.target.value })}
+            error={value.note?.trim() ? undefined : 'Pflichtfeld – bitte den Farbton / die Farbnummer eintragen.'}
           />
         </div>
       ) : null}

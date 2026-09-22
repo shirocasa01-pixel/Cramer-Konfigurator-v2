@@ -12,7 +12,7 @@ import { getProductGroup, getSeries } from '../../config/productCatalog'
 import { getVisibleKorpusAreas } from '../../config/korpus'
 import { isKorpusComplete } from '../../lib/korpusValidation'
 import { isDimensionsValid } from '../../lib/dimensionsValidation'
-import { isFrontsComplete } from '../../lib/frontsValidation'
+import { isFrontsComplete, isFrontsCompleteFuerEntwurf } from '../../lib/frontsValidation'
 import { formatVkPreis } from '../../lib/pricing'
 import { gruppiereVarianten, variantenName } from '../../lib/entwurfsVarianten'
 import type { Draft } from '../../types'
@@ -29,7 +29,8 @@ function resumeRoute(draft: Draft): string {
   // Reihenfolge wie im Workflow: Maße vor Korpus.
   if (!isDimensionsValid(draft.dimensions)) return '/dimensions'
   if (!isKorpusComplete(draft.korpus, getVisibleKorpusAreas(series, draft.korpusMode))) return '/korpus'
-  if (!isFrontsComplete(draft.fronts)) return '/fronts'
+  // Überarbeitung 9: offene Entwürfe auch geometrisch prüfen; Abgeschlossenes bleibt lesbar.
+  if (!(draft.finalizedAt ? isFrontsComplete(draft.fronts) : isFrontsCompleteFuerEntwurf(draft))) return '/fronts'
   return '/summary'
 }
 

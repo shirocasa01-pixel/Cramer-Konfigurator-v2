@@ -245,3 +245,14 @@
   display: inline-flex;
   align-items: center;
 }
+
+/* Überarbeitung 9 – Segment nach Korpusänderung ungültig */
+.geometrieHinweis {
+  padding: var(--space-3) var(--space-4);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-danger);
+  background: rgba(178, 59, 59, 0.08);
+  border: 1px solid rgba(178, 59, 59, 0.3);
+  border-radius: var(--radius-sm);
+}

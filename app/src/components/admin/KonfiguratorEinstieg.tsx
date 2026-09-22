@@ -28,8 +28,9 @@ import styles from './KonfiguratorEinstieg.module.css'
  * Die Schritte prüfen der Reihe nach, ob der vorherige vollständig ist — ohne Maße keine
  * Materialauswahl, ohne Material keine Fronten. Der Administrator will aber alle sieben
  * Schritte ansehen, nicht erst einen Schrank konfigurieren. Deshalb startet die Vorschau
- * mit dem kleinsten vollständigen Möbel: ein 100er Korpus, 18 Raster, Decoboard, eine
- * Drehtür.
+ * mit dem kleinsten vollständigen Möbel: ein 100er Korpus, 18 Raster, Decoboard, ein
+ * Drehtürpaar. Seit Überarbeitung 9 müssen die Fronten einer Ebene den Frontbereich füllen
+ * (100er: 98 cm) — eine einzelne 49-cm-Tür wäre eine halb offene Ebene.
  */
 function vorschauEntwurf(): Partial<Draft> {
   const decoboard: MaterialSelection = {
@@ -67,6 +68,18 @@ function vorschauEntwurf(): Partial<Draft> {
               hoeheModus: 'raster',
               hoeheRaster: '18',
               tuerAnschlag: 'links',
+              styleLineId: 'glatt',
+              fieldValues: { material: { material: { ...decoboard } } },
+            },
+            {
+              id: 'vorschau-t2',
+              typeId: 'drehtuer',
+              label: 'D2',
+              widthCm: '49',
+              heightCm: '230,1',
+              hoeheModus: 'raster',
+              hoeheRaster: '18',
+              tuerAnschlag: 'rechts',
               styleLineId: 'glatt',
               fieldValues: { material: { material: { ...decoboard } } },
             },

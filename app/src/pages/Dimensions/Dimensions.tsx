@@ -13,12 +13,14 @@ import {
   validateDimensions,
   type DimensionsErrors,
 } from '../../lib/dimensionsValidation'
-import { syncColumns } from '../../lib/frontsHelpers'
+import { hasZweilaeufigeSchiebetuer, syncColumns } from '../../lib/frontsHelpers'
 import {
+  aussenmassOptionen,
   computeKorpusMasse,
   deriveDimensions,
   formatKorpusMass,
   isKorpusGrunddatenComplete,
+  normalisiereVerblendung,
 } from '../../lib/korpusMass'
 import type { Draft, KorpusGrunddaten } from '../../types'
 import { AbschnittKopf } from '../../components/schema/AbschnittKopf'
@@ -77,7 +79,11 @@ export default function DimensionsPage() {
     updateDraft({ dimensions: { ...dimensions, ...patch } })
   }
   function updateGrunddaten(next: KorpusGrunddaten) {
-    updateDraft({ korpusGrunddaten: next, dimensions: deriveDimensions(next) })
+    // Die errechneten Verblendungs-Laufmeter folgen Höhe und Korpusbreiten. Die Fronten
+    // gleicht der Fronten-Schritt an (`normalisiereFrontenFuerEntwurf`): Er kennt die
+    // Korpusbreite, für die sie eingestellt wurden.
+    const g = normalisiereVerblendung(next)
+    updateDraft({ korpusGrunddaten: g, dimensions: deriveDimensions(g) })
   }
   function markTouched(field: string) {
     setTouched((prev) => ({ ...prev, [field]: true }))
@@ -137,7 +143,12 @@ export default function DimensionsPage() {
 
         {useRaster ? (
           grunddaten ? (
-            <KorpusMasseSection value={grunddaten} onChange={updateGrunddaten} />
+            <KorpusMasseSection
+              value={grunddaten}
+              onChange={updateGrunddaten}
+              beleuchtung={aussenmassOptionen(draft).beleuchtung}
+              nurSeitlicheVerblendung={hasZweilaeufigeSchiebetuer(draft.fronts)}
+            />
           ) : (
             <p className={styles.hint}>Maße werden vorbereitet …</p>
           )

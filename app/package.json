@@ -29,7 +29,9 @@
     "data:migrate-testberater": "node scripts/migrate-testberater.js",
     "data:migrate-zuschlaege": "node scripts/migrate-zuschlag-raumteiler-sichtrueckwand.js",
     "praxis:test": "node scripts/check-praxistest.js",
-    "sync:test": "node scripts/check-system-sync.js"
+    "sync:test": "node scripts/check-system-sync.js",
+    "data:migrate-ue89": "node scripts/migrate-ueberarbeitung-8-9.js",
+    "ue89:test": "node scripts/check-ueberarbeitung-8-9.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

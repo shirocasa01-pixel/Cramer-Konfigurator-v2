@@ -303,3 +303,15 @@
   accent-color: var(--color-ink);
   cursor: pointer;
 }
+
+/* Überarbeitung 8 – zwei Teile auf derselben Rasterposition */
+.kollisionen {
+  margin: 0 0 var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-3) var(--space-6);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--color-danger);
+  background: rgba(178, 59, 59, 0.08);
+  border: 1px solid rgba(178, 59, 59, 0.3);
+  border-radius: var(--radius-sm);
+}

@@ -16,7 +16,7 @@ import { isFrontFieldVisible } from './frontsHelpers'
 import { describeAusstattungAuswahl, describeColumnEquipment } from './ausstattungFormat'
 import { formatVkPreis } from './pricing'
 import { caPrefix, formatDimensions } from './massFormat'
-import { describeKorpusGrunddatenZeilen } from './korpusMass'
+import { aussenmassOptionen, describeKorpusGrunddatenZeilen } from './korpusMass'
 import { felderFuer, getAbschnitt } from './schemaStore'
 import { anzeigeWert, zeigeFeld } from './schemaWerte'
 
@@ -127,7 +127,7 @@ export function buildPdf(draft: Draft): jsPDF {
 
   if (draft.korpusGrunddaten) {
     section('Korpus-Grunddaten')
-    describeKorpusGrunddatenZeilen(draft.korpusGrunddaten).forEach((z) => kv(z.label, z.value))
+    describeKorpusGrunddatenZeilen(draft.korpusGrunddaten, aussenmassOptionen(draft)).forEach((z) => kv(z.label, z.value))
   }
 
   section('Material')

@@ -31,6 +31,12 @@ export interface KorpusArea {
   istAussenkorpus?: boolean
   /** Pflichtbereich (sofern sichtbar) – erzwungene Progression. */
   required: boolean
+  /**
+   * Materialgruppen, die dieser Bereich bei einer bestimmten Serie NICHT anbietet — eine
+   * Verwendungsregel, keine Löschung: Die Gruppe bleibt in den Stammdaten und an allen
+   * anderen Stellen wählbar. Ausgewertet in `getVisibleKorpusAreas`.
+   */
+  ausgeschlosseneGruppenJeSerie?: Record<string, string[]>
 }
 
 /** Außenkorpus-Modus (Phase 9b). */
@@ -65,6 +71,9 @@ const innenArea: KorpusArea = {
   allowCustom: true,
   requiresInnenSeries: true,
   required: true,
+  // Überarbeitung 8, S. 3: „Bei Innen bitte ‚Xtreme Plus' entfernen." — für Refugium. Xtreme
+  // Plus bleibt als Material bestehen (Fronten, Abschlussset); nur innen wird es nicht angeboten.
+  ausgeschlosseneGruppenJeSerie: { refugium: ['xtreme-plus'] },
 }
 const aussenArea: KorpusArea = {
   id: 'aussen',
@@ -173,7 +182,13 @@ export function getVisibleKorpusAreas(
   mode: KorpusMode = 'komplett',
 ): KorpusArea[] {
   const aussen = mode === 'getrennt' ? [aussenLinksArea, aussenRechtsArea] : [aussenArea]
-  const all = [innenArea, ...aussen, abdeckplatteArea]
+  const all = [innenArea, ...aussen, abdeckplatteArea].map((area) => {
+    // Serienbezogene Verwendungsregel (z. B. kein Xtreme Plus innen bei Refugium): Der
+    // Bereich kommt hier schon mit der gefilterten Liste heraus — Material-Schritt,
+    // Pflichtprüfung, Zusammenfassung und AV-PDF sehen damit alle dieselbe Auswahl.
+    const weg = series?.id ? area.ausgeschlosseneGruppenJeSerie?.[series.id] : undefined
+    return weg?.length ? { ...area, materialGroupIds: area.materialGroupIds.filter((g) => !weg.includes(g)) } : area
+  })
   return all.filter((area) => {
     // „Innen" nur bei Serien mit Innenausführung (Velare/Refugium).
     if (area.requiresInnenSeries && !series?.korpusInnen) return false

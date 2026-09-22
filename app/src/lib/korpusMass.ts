@@ -1,4 +1,6 @@
-import type { Draft, KorpusEinheit, KorpusGrunddaten } from '../types/index.ts'
+import type { Draft, KorpusEinheit, KorpusGrunddaten, Verblendung } from '../types/index.ts'
+import { hatBeleuchtung } from '../config/equipment.ts'
+import { meta } from '../data/stammdaten.generated.ts'
 import { formatMassZahl } from './format.ts'
 import { caPrefix } from './massFormat.ts'
 import {
@@ -157,13 +159,43 @@ export function isKorpusGrunddatenComplete(g: KorpusGrunddaten | undefined): boo
 // Außenmaß
 // ---------------------------------------------------------------------------
 
+/**
+ * Tiefenzugabe für die Kabelführung bei Beleuchtung, in cm — Satz aus „50 Meta".
+ *
+ * Überarbeitung 8, S. 1: „Sobald bei der Ausstattung eine Beleuchtung (LED-Band oder
+ * Syncro-Licht) gewählt wird, erhöht sich die Tiefe um + 1 cm. (Diesen größeren Abstand
+ * zwischen Möbelrückwand und Mauer nutzen wir zur Kabelführung)."
+ *
+ * Das ist ein PLANUNGSMASS: Der Korpus selbst bleibt ein 60er und wird mit der 60er-Preiszeile
+ * bepreist — die Kalkulation liest die Tiefe über `resolveDepthCm`, nicht von hier.
+ */
+export const BELEUCHTUNG_TIEFENZUGABE_CM = meta.beleuchtungTiefenzugabeMm / 10
+
+/** Wovon das Außenmaß außer den Grunddaten abhängt. */
+export interface AussenmassOptionen {
+  /** In der Ausstattungs-Vorauswahl ist eine Beleuchtung mit Kabelführung gewählt. */
+  beleuchtung?: boolean
+}
+
+/** Optionen des Außenmaßes aus einem Entwurf. */
+export function aussenmassOptionen(draft: Pick<Draft, 'ausstattung'>): AussenmassOptionen {
+  return { beleuchtung: hatBeleuchtung(draft.ausstattung?.selected) }
+}
+
 export interface KorpusMasse {
   /** Gesamthöhe (cm). */
   gesamthoeheCm?: number
   /** Außenbreite (cm) – aus den Frontbreiten, inkl. Fugen und Abschlusssets. */
   gesamtbreiteCm?: number
-  /** Korpustiefe ohne Fronten (cm). */
+  /**
+   * Korpustiefe ohne Fronten (cm) als PLANUNGSMASS — bei Beleuchtung inklusive der
+   * Tiefenzugabe für die Kabelführung (Überarbeitung 8).
+   */
   korpustiefeCm?: number
+  /** Die gewählte Korpustiefe ohne Zugabe (cm) — zugleich die Preisachse. */
+  korpustiefeNennCm?: number
+  /** Tiefenzugabe für die Kabelführung (cm); nur gesetzt, wenn eine Beleuchtung gewählt ist. */
+  beleuchtungZugabeCm?: number
   /** Gesamttiefe inkl. Fußleistenausschnitt (cm) – nur gesetzt, wenn ein Ausschnitt konfiguriert ist. */
   gesamttiefeCm?: number
   /** Rechenweg der Breite im Klartext. */
@@ -181,7 +213,7 @@ export interface KorpusMasse {
 }
 
 /** Außenmaß aus den Korpus-Grunddaten. */
-export function berechneAussenmass(g: KorpusGrunddaten | undefined): KorpusMasse {
+export function berechneAussenmass(g: KorpusGrunddaten | undefined, optionen: AussenmassOptionen = {}): KorpusMasse {
   const leer: KorpusMasse = {
     anzahlFronten: 0,
     anzahlFugen: 0,
@@ -210,13 +242,17 @@ export function berechneAussenmass(g: KorpusGrunddaten | undefined): KorpusMasse
   const breite = aussenbreiteMm(frontenMm, anzahlSets)
 
   const hoehe = resolveHeightCm(g)
-  const tiefe = resolveDepthCm(g)
+  const nennTiefe = resolveDepthCm(g)
+  const zugabe = optionen.beleuchtung && BELEUCHTUNG_TIEFENZUGABE_CM > 0 ? BELEUCHTUNG_TIEFENZUGABE_CM : undefined
+  const tiefe = nennTiefe != null ? Math.round((nennTiefe + (zugabe ?? 0)) * 10) / 10 : undefined
   const ausschnittTiefe = g.fussleiste?.enabled ? parseNum(g.fussleiste.tiefeCm) : undefined
 
   return {
     gesamthoeheCm: hoehe,
     gesamtbreiteCm: vollstaendig && frontenMm.length > 0 ? mmZuCm(breite.gesamtMm) : undefined,
     korpustiefeCm: tiefe,
+    korpustiefeNennCm: nennTiefe,
+    beleuchtungZugabeCm: zugabe,
     gesamttiefeCm:
       tiefe != null && ausschnittTiefe != null ? Math.round((tiefe + ausschnittTiefe) * 10) / 10 : undefined,
     rechenweg: frontenMm.length > 0 ? breite.rechenweg : undefined,
@@ -234,7 +270,7 @@ export function berechneAussenmass(g: KorpusGrunddaten | undefined): KorpusMasse
  */
 export function computeKorpusMasse(draft: Draft): KorpusMasse {
   const g = draft.korpusGrunddaten
-  if (g) return berechneAussenmass(g)
+  if (g) return berechneAussenmass(g, aussenmassOptionen(draft))
 
   const dim = draft.dimensions
   const zahl = (v: string | undefined) => parseNum(v)
@@ -270,16 +306,24 @@ export interface KorpusGrunddatenZeile {
  * Höhe/Tiefe, Nennbreite und abgeleitete Frontbreiten je Korpus, Abschlussset,
  * Fußleistenausschnitt, Sonderformen und die Fixmaß-/Sondermaß-Notiz.
  */
-export function describeKorpusGrunddatenZeilen(g: KorpusGrunddaten): KorpusGrunddatenZeile[] {
+export function describeKorpusGrunddatenZeilen(
+  g: KorpusGrunddaten,
+  optionen: AussenmassOptionen = {},
+): KorpusGrunddatenZeile[] {
   const rows: KorpusGrunddatenZeile[] = []
   const h = resolveHeightCm(g)
   const heightLabel = g.heightMode === '18R' ? '18 Raster' : g.heightMode === '21R' ? '21 Raster' : 'Sondermaß'
   rows.push({ label: 'Höhe', value: `${heightLabel}${h != null ? ` (ca. ${formatMassZahl(h)} cm)` : ''}` })
 
   const t = resolveDepthCm(g)
+  const zugabe = optionen.beleuchtung && BELEUCHTUNG_TIEFENZUGABE_CM > 0 ? BELEUCHTUNG_TIEFENZUGABE_CM : 0
   rows.push({
     label: 'Tiefe',
-    value: `${g.depthMode === '60' ? 'Standard' : 'Sondermaß'}${t != null ? ` (ca. ${formatMassZahl(t)} cm)` : ''}`,
+    value:
+      `${g.depthMode === '60' ? 'Standard' : 'Sondermaß'}${t != null ? ` (ca. ${formatMassZahl(t)} cm)` : ''}` +
+      (t != null && zugabe > 0
+        ? ` · Planungstiefe ca. ${formatMassZahl(Math.round((t + zugabe) * 10) / 10)} cm inkl. ${formatMassZahl(zugabe)} cm Kabelführung (Beleuchtung)`
+        : ''),
   })
 
   g.korpusse.forEach((k, i) => {
@@ -310,7 +354,10 @@ export function describeKorpusGrunddatenZeilen(g: KorpusGrunddaten): KorpusGrund
   const v = g.verblendung
   if (v && v.art !== 'keine') {
     const teile = [v.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig']
-    if (v.lfm?.trim()) teile.push(`${v.lfm.trim()} lfm`)
+    const seiten = verblendungSeitenText(v)
+    if (seiten) teile.push(seiten)
+    const lfm = verblendungLfm(g)
+    if (lfm != null) teile.push(`${formatLfm(lfm)} lfm${v.lfmManuell ? ' (manuell)' : ''}`)
     if (v.positionNote?.trim()) teile.push(v.positionNote.trim())
     rows.push({ label: 'Verblendung', value: teile.join(' · ') })
   }
@@ -324,4 +371,115 @@ export function describeKorpusGrunddatenZeilen(g: KorpusGrunddaten): KorpusGrund
   if (g.sonderformen?.trim()) rows.push({ label: 'Sonderformen', value: g.sonderformen.trim() })
   if (g.sondermasse?.trim()) rows.push({ label: 'Fixmaße / Sondermaße', value: g.sondermasse.trim() })
   return rows
+}
+
+// ---------------------------------------------------------------------------
+// Verblendung — Laufmeter aus Position und Schrankmaßen
+// ---------------------------------------------------------------------------
+
+/**
+ * Seiten der Verblendung in der Reihenfolge, in der sie im Möbel liegen.
+ *
+ * Überarbeitung 8, S. 1: „Man könnte natürlich auch überlegen, dass der Verkäufer nur einen
+ * Haken bei links, rechts oder oben setzen kann. Daraus könnte sich das System selbst die lfm
+ * errechnen und daraus den VK-Preis errechnen."
+ */
+export const VERBLENDUNG_SEITEN = [
+  { key: 'links', label: 'Links', mass: 'hoehe' },
+  { key: 'oben', label: 'Oben', mass: 'breite' },
+  { key: 'rechts', label: 'Rechts', mass: 'hoehe' },
+] as const
+
+export type VerblendungSeite = (typeof VERBLENDUNG_SEITEN)[number]['key']
+
+function runde2(n: number): number {
+  return Math.round(n * 100) / 100
+}
+
+/**
+ * Die beiden Bezugsmaße in Metern:
+ *   Schrankhöhe  — aus den gewählten Rastern bzw. Zentimetern (18 R → 2,35 m),
+ *   Schrankbreite — Summe aller Korpusbreiten (3 × 100er → 3,00 m).
+ */
+export function verblendungBezugsmasse(g: KorpusGrunddaten | undefined): { hoeheM?: number; breiteM?: number } {
+  const h = resolveHeightCm(g)
+  const b = totalKorpusBreiteCm(g)
+  return {
+    hoeheM: h != null ? runde2(h / 100) : undefined,
+    breiteM: b != null ? runde2(b / 100) : undefined,
+  }
+}
+
+/** Sind Seiten angehakt? (Sonst ist der Entwurf von vor den Haken und `lfm` ist Freitext.) */
+function hatSeiten(v: Verblendung | undefined): boolean {
+  return Boolean(v?.seiten && (v.seiten.links || v.seiten.oben || v.seiten.rechts))
+}
+
+/** Errechnete Laufmeter: links/rechts je Schrankhöhe, oben Schrankbreite. */
+export function verblendungAutoLfm(g: KorpusGrunddaten | undefined): number | undefined {
+  const v = g?.verblendung
+  if (!v || !hatSeiten(v)) return undefined
+  const { hoeheM, breiteM } = verblendungBezugsmasse(g)
+  let summe = 0
+  for (const seite of VERBLENDUNG_SEITEN) {
+    if (!v.seiten?.[seite.key]) continue
+    const mass = seite.mass === 'hoehe' ? hoeheM : breiteM
+    if (mass == null) return undefined
+    summe += mass
+  }
+  return runde2(summe)
+}
+
+function parseLfm(text: string | undefined): number | undefined {
+  if (!text || !text.trim()) return undefined
+  const n = Number(text.trim().replace(',', '.'))
+  return Number.isFinite(n) && n > 0 ? n : undefined
+}
+
+/**
+ * Die Laufmeter, die gelten: manuell überschrieben → der eingetragene Wert; Seiten angehakt →
+ * die errechneten; sonst (Altbestand) der Freitext.
+ */
+export function verblendungLfm(g: KorpusGrunddaten | undefined): number | undefined {
+  const v = g?.verblendung
+  if (!v || v.art === 'keine') return undefined
+  if (v.lfmManuell) return parseLfm(v.lfm)
+  return hatSeiten(v) ? verblendungAutoLfm(g) : parseLfm(v.lfm)
+}
+
+/** „Links, Oben" — oder `undefined` ohne Haken. */
+export function verblendungSeitenText(v: Verblendung | undefined): string | undefined {
+  if (!v?.seiten) return undefined
+  const teile = VERBLENDUNG_SEITEN.filter((s) => v.seiten?.[s.key]).map((s) => s.label)
+  return teile.length ? teile.join(', ') : undefined
+}
+
+/** Rechenweg der automatischen Laufmeter: „2,35 m (links) + 3,00 m (oben)". */
+export function verblendungRechenweg(g: KorpusGrunddaten | undefined): string | undefined {
+  const v = g?.verblendung
+  if (!v || !hatSeiten(v)) return undefined
+  const { hoeheM, breiteM } = verblendungBezugsmasse(g)
+  const teile = VERBLENDUNG_SEITEN.filter((s) => v.seiten?.[s.key]).map((s) => {
+    const mass = s.mass === 'hoehe' ? hoeheM : breiteM
+    return `${mass != null ? formatLfm(mass) : '?'} m (${s.label.toLowerCase()})`
+  })
+  return teile.join(' + ')
+}
+
+/** Laufmeter in deutscher Schreibweise mit zwei Nachkommastellen („5,35"). */
+export function formatLfm(n: number): string {
+  return n.toFixed(2).replace('.', ',')
+}
+
+/**
+ * Hält den gespeicherten Laufmeter-Text an der Rechnung, solange er nicht manuell
+ * überschrieben ist — ältere Leser (und Menschen, die das JSON ansehen) finden dort
+ * denselben Wert wie die Kalkulation.
+ */
+export function normalisiereVerblendung(g: KorpusGrunddaten): KorpusGrunddaten {
+  const v = g.verblendung
+  if (!v || v.lfmManuell || !hatSeiten(v)) return g
+  const auto = verblendungAutoLfm(g)
+  const text = auto != null ? formatLfm(auto) : ''
+  return (v.lfm ?? '') === text ? g : { ...g, verblendung: { ...v, lfm: text } }
 }

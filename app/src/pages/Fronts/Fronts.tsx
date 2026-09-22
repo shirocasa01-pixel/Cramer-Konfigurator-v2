@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { StepIndicator } from '../../components/layout/StepIndicator'
@@ -17,12 +18,25 @@ import {
   resolveHeightCm,
   resolveKorpusBreiteCm,
 } from '../../lib/korpusMass'
-import { frontAufteilung, mmZuCm } from '../../lib/frontbreiten'
 import { korpusOffsetMm, rasterFuerHoehe } from '../../lib/raster'
 import { formatDimensions } from '../../lib/massFormat'
 import { KLEIDERSCHRANK_GROUP_ID, getAvailableFrontTypes } from '../../config/frontCatalog'
 import type { SegmentMasse } from '../../config/equipment'
 import { getFrontsIssues, isFrontsComplete } from '../../lib/frontsValidation'
+import {
+  ebenenDerSpalte,
+  entwurfsGeometrie,
+  maxFronthoeheMm,
+  maxFrontRaster,
+  mmText,
+  normalisiereFrontenFuerEntwurf,
+  resthoeheBisOberkante,
+  setzeFrontbreite,
+  standardbreiteNeuerFront,
+  vorgegebenerTuerAnschlag,
+  type SegmentGeometrie,
+} from '../../lib/frontGeometrie'
+import type { FrontKartenGeometrie } from '../../components/fronts/FrontElementCard'
 import {
   canAddFrontType,
   copyableFrontValues,
@@ -30,7 +44,6 @@ import {
   hasZweilaeufigeSchiebetuer,
   isColumnEquipmentEligible,
   makeElement,
-  restRasterBisKorpusoberkante,
   pruefeSchiebetuerAnzahl,
   schiebetuerAnzahlOptions,
   SCHIEBETUER_MAX_CM,
@@ -70,6 +83,18 @@ export default function FrontsPage() {
   const navigate = useNavigate()
   const t = useTexte('fronten')
 
+  /*
+    Überarbeitung 9: Was aus der Geometrie FOLGT — Höhe „bis Korpusoberkante", erkannte
+    Rasterzahl, Anschlag eines Türpaars — steht nicht nur auf dem Bildschirm, sondern im
+    Entwurf; Zusammenfassung, AV-PDF und Kalkulation lesen es von dort. Ändert sich ein
+    Nachbar oder der Korpus, zieht dieser Effekt die abgeleiteten Werte nach.
+  */
+  useEffect(() => {
+    if (!draft?.fronts) return
+    const normal = normalisiereFrontenFuerEntwurf(draft)
+    if (normal !== draft.fronts) updateDraft({ fronts: normal })
+  }, [draft, updateDraft])
+
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
   const series = getSeries(draft.productGroupId, draft.seriesId)
@@ -79,22 +104,18 @@ export default function FrontsPage() {
   if (!draft.fronts || draft.fronts.columns.length === 0) return <Navigate to="/dimensions" replace />
 
   const fronts: FrontsData = draft.fronts
-  const issues = getFrontsIssues(fronts)
-  const complete = isFrontsComplete(fronts)
+  // Überarbeitung 9: Breite, Höhe und Anschlag hängen am Korpus des Segments.
+  const geometrie: Array<SegmentGeometrie | undefined> = entwurfsGeometrie(draft)
+  const issues = getFrontsIssues(fronts, geometrie)
+  const complete = isFrontsComplete(fronts, geometrie)
   const isRefugium = series.id === 'refugium'
   const sondertiefe = isSondertiefeDepth(draft)
   const hasZwei = hasZweilaeufigeSchiebetuer(fronts)
   const anzahlOptions = schiebetuerAnzahlOptions(fronts.columns.length)
   // Punkt 7.5: Die Frontbreite wird aus der Korpusbreite abgeleitet, damit der
-  // Verkäufer sie nicht schätzen muss. Punkt 7.7 prüft die Schiebetür-Anzahl
-  // gegen die zulässige Türbreite.
+  // Verkäufer sie nicht schätzen muss (seit Überarbeitung 9: den Rest der Ebene, sonst
+  // Flügel- bzw. volle Breite). Punkt 7.7 prüft die Schiebetür-Anzahl gegen die Türbreite.
   const grunddaten = draft.korpusGrunddaten
-  const frontbreiteFuerSpalte = (index: number): number | undefined => {
-    const korpus = grunddaten?.korpusse[index]
-    if (!korpus) return undefined
-    const aufteilung = frontAufteilung(resolveKorpusBreiteCm(korpus))
-    return aufteilung ? mmZuCm(aufteilung.frontMm) : undefined
-  }
   const aussenbreiteCm = grunddaten ? berechneAussenmass(grunddaten).gesamtbreiteCm : undefined
   const anzahlPruefung = pruefeSchiebetuerAnzahl(aussenbreiteCm, anzahlOptions)
 
@@ -140,9 +161,11 @@ export default function FrontsPage() {
       if (!canAddFrontType(stand, typeId)) return {}
       const spaltenIndex = stand.columns.findIndex((col) => col.id === columnId)
       if (spaltenIndex < 0) return {}
-      const neu = makeElement(typeId, stand, frontbreiteFuerSpalte(spaltenIndex))
+      const spalte = stand.columns[spaltenIndex]
+      const breite = standardbreiteNeuerFront(spalte, typeId, entwurfsGeometrie(aktuell)[spaltenIndex])
+      const neu = makeElement(typeId, stand, breite)
       const columns = stand.columns.map((col) =>
-        col.id === columnId ? { ...col, elements: [...col.elements, neu] } : col,
+        col.id === columnId ? { ...col, geometrieHinweis: undefined, elements: [...col.elements, neu] } : col,
       )
       const next: FrontsData = { ...stand, columns }
       // Zweiläufige Schiebetür: Anzahl-Schiebetüren vorbelegen (erste zulässige Option).
@@ -154,19 +177,46 @@ export default function FrontsPage() {
   }
   function removeElement(columnId: string, elementId: string) {
     const columns = fronts.columns.map((col) =>
-      col.id === columnId ? { ...col, elements: col.elements.filter((el) => el.id !== elementId) } : col,
+      col.id === columnId
+        ? { ...col, geometrieHinweis: undefined, elements: col.elements.filter((el) => el.id !== elementId) }
+        : col,
     )
     const stillHasZwei = columns.some((col) => col.elements.some((el) => el.typeId === ZWEILAEUFIG_TYPE_ID))
     updateFronts({ columns, schiebetuerAnzahl: stillHasZwei ? fronts.schiebetuerAnzahl : undefined })
   }
   function updateElement(columnId: string, elementId: string, patch: Partial<FrontElement>) {
     updateFronts({
-      columns: fronts.columns.map((col) =>
-        col.id === columnId
-          ? { ...col, elements: col.elements.map((el) => (el.id === elementId ? { ...el, ...patch } : el)) }
-          : col,
-      ),
+      columns: fronts.columns.map((col, index) => {
+        if (col.id !== columnId) return col
+        // Überarbeitung 9: Eine neue Breite gleicht den Nachbarn derselben Ebene an
+        // (100er Korpus: D1 59 → D2 39) — die Regel steht in `setzeFrontbreite`.
+        const { widthCm, ...rest } = patch
+        const basis = widthCm !== undefined ? setzeFrontbreite(col, elementId, widthCm, geometrie[index]) : col
+        return {
+          ...basis,
+          geometrieHinweis: undefined,
+          elements: basis.elements.map((el) => (el.id === elementId ? { ...el, ...rest } : el)),
+        }
+      }),
     })
+  }
+
+  /** Was die Karte einer Front aus der Geometrie ihres Segments wissen muss. */
+  function kartenGeometrie(column: FrontColumn, element: FrontElement, index: number): FrontKartenGeometrie {
+    const geo = geometrie[index]
+    const maxHoehe = maxFronthoeheMm(column, element.id, geo)
+    const ebene = geo ? ebenenDerSpalte(column, geo).find((e) => e.elemente.some((el) => el.id === element.id)) : undefined
+    const nachbarn = (ebene?.elemente.length ?? 1) - 1
+    return {
+      resthoehe: element.hoeheModus === 'korpusoberkante' ? resthoeheBisOberkante(column, element.id, geo) : undefined,
+      maxRaster: maxFrontRaster(column, element.id, geo),
+      maxHoeheCm: maxHoehe != null ? Number(mmText(maxHoehe).replace(',', '.')) : undefined,
+      korpusRaster: geo?.korpusRaster,
+      anschlagVorgabe: vorgegebenerTuerAnschlag(column, element.id, geo),
+      breitenHinweis: geo
+        ? `Frontbereich ${mmText(geo.frontbereichMm)} cm${nachbarn === 1 ? ' — die Front daneben passt sich automatisch an' : ''}`
+        : undefined,
+    }
   }
   function updateColumnEquipment(columnId: string, items: SegmentEquipmentItem[]) {
     updateFronts({
@@ -297,6 +347,12 @@ export default function FrontsPage() {
               </span>
             </div>
 
+            {column.geometrieHinweis ? (
+              <p className={styles.geometrieHinweis} role="alert">
+                {column.geometrieHinweis}
+              </p>
+            ) : null}
+
             {column.elements.length === 0 ? (
               <p className={styles.empty}>{t('spalte.leer', SPALTE_LEER)}</p>
             ) : (
@@ -314,11 +370,7 @@ export default function FrontsPage() {
                       onRemove={() => removeElement(column.id, element.id)}
                       onCopyValues={canCopy ? () => applyCopyFromFirst(column.id, element.id) : undefined}
                       copyFromLabel="Front 1"
-                      restRasterBisOberkante={
-                        element.hoeheModus === 'korpusoberkante'
-                          ? restRasterBisKorpusoberkante(column, element.id, korpusRaster)
-                          : undefined
-                      }
+                      geometrie={kartenGeometrie(column, element, index)}
                     />
                   )
                 })}

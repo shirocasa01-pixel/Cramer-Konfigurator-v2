@@ -246,3 +246,15 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Überarbeitung 9 – vorgegebener Türanschlag und Hinweise aus der Front-Geometrie */
+.vorgabe {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--color-ink);
+}
+
+.vorgabeHinweis {
+  font-weight: 500;
+  color: var(--color-ink-muted);
+}

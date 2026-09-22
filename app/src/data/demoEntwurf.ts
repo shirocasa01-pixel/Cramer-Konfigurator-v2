@@ -54,7 +54,7 @@ export const demoEntwurf: Draft = {
         id: 'c1',
         elements: [
           {
-            id: 'e1', typeId: 'drehtuer', label: 'D1', widthCm: '60', heightCm: '195',
+            id: 'e1', typeId: 'drehtuer', label: 'D1', widthCm: '59', heightCm: '195',
             hoeheModus: 'cm', tuerAnschlag: 'links',
             styleLineId: 'glatt', pto: true,
             fieldValues: { material: { material: mattlackSchwarzgrau } },
@@ -69,7 +69,7 @@ export const demoEntwurf: Draft = {
         id: 'c2',
         elements: [
           {
-            id: 'e2', typeId: 'drehtuer', label: 'D2', widthCm: '60', heightCm: '195',
+            id: 'e2', typeId: 'drehtuer', label: 'D2', widthCm: '59', heightCm: '195',
             hoeheModus: 'cm', tuerAnschlag: 'rechts',
             styleLineId: 'glatt', pto: true,
             fieldValues: { material: { material: mattlackSchwarzgrau } },
@@ -83,14 +83,16 @@ export const demoEntwurf: Draft = {
         id: 'c3',
         elements: [
           {
-            id: 'e3', typeId: 'schuebe', label: 'S1', widthCm: '60', heightCm: '20',
+            id: 'e3', typeId: 'schuebe', label: 'S1', widthCm: '59', heightCm: '20',
             styleLineId: 'curve', fieldValues: { material: { material: mattlackSchwarzgrau } },
           },
           {
-            id: 'e4', typeId: 'schuebe', label: 'S2', widthCm: '60', heightCm: '20',
+            id: 'e4', typeId: 'schuebe', label: 'S2', widthCm: '59', heightCm: '20',
             styleLineId: 'curve', fieldValues: { material: { material: mattlackSchwarzgrau } },
           },
-          { id: 'e5', typeId: 'offen', label: 'R1', widthCm: '60', heightCm: '155' },
+          // Überarbeitung 9: Frontbreiten laut Korpus-Tabelle (60er → 59 cm) und die drei Fronten
+          // übereinander genau in der Frontzone des 200-cm-Korpus (195,4 cm).
+          { id: 'e5', typeId: 'offen', label: 'R1', widthCm: '59', heightCm: '154,5' },
         ],
         equipment: [{ id: 'q4', optionId: 'innenschublade', qty: 2, variant: '1,5R', heightNote: '18' }],
       },
@@ -98,7 +100,7 @@ export const demoEntwurf: Draft = {
         id: 'c4',
         elements: [
           {
-            id: 'e6', typeId: 'drehtuer', label: 'D3', widthCm: '70', heightCm: '195',
+            id: 'e6', typeId: 'drehtuer', label: 'D3', widthCm: '68', heightCm: '195',
             hoeheModus: 'cm', tuerAnschlag: 'rechts',
             // Nr. 127 ist seit Überarbeitung 3 auf Glossy/Less beschränkt (klebt nur auf Glas).
             styleLineId: 'glatt', griff: true, griffId: 'nr121',

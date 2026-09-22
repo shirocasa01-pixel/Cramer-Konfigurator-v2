@@ -137,7 +137,9 @@ export interface FeldHerkunft {
 
 /** Beide Artikel eines Lookups: der Standard und der bei angehakter Ausführung. */
 function artikelVon(...lookups: Array<BauteilLookup | undefined>): string[] {
-  const liste = lookups.flatMap((l) => (l ? [l.artikel, l.artikelBeiAuswahl] : []))
+  const liste = lookups.flatMap((l) =>
+    l ? [l.artikel, l.artikelBeiAuswahl, ...(l.komponenten ?? []).map((k) => k.artikel)] : [],
+  )
   return [...new Set(liste.filter((nr): nr is string => Boolean(nr)))]
 }
 
@@ -179,14 +181,20 @@ const HERKUNFT: Record<string, FeldHerkunft> = {
     modul: 'mass',
     artikel: artikelVon(refugium?.korpus),
     werte: '60 cm oder freies Maß (31–60 cm)',
-    regeln: ['Unter 60 cm (Sondertiefe) sind als Ausstattung nur Einlegeböden möglich.'],
-    preis: 'Die Tiefe geht als eigene Preisachse in den Korpus-Artikel ein.',
+    regeln: [
+      'Unter 60 cm (Sondertiefe) sind nur die dafür freigegebenen Ausstattungen möglich (Katalog: „bei Sondertiefe").',
+      'Mit Beleuchtung (LED-Band/Syncro) wächst die Korpustiefe im Außenmaß um die Kabelführung (50 Meta) — die Preisachse bleibt.',
+    ],
+    preis: 'Die Tiefe geht als eigene Preisachse in Korpus, Mittelseite und Einlegeboden ein (31 · 41 · 60 cm).',
   },
   'masse.breite': {
     modul: 'korpus',
     artikel: artikelVon(refugium?.korpus, refugium?.mittelseite),
     werte: 'Nennbreiten 50/60/100 oder freies Maß (15–100 cm)',
-    regeln: ['Aus der Korpusbreite folgt die Frontaufteilung (Anzahl und Breite der Türen).'],
+    regeln: [
+      'Aus der Korpusbreite folgt die Frontaufteilung (Anzahl und Breite der Türen).',
+      'Wird die Breite nach der Frontplanung geändert, werden die Fronten neu gerechnet oder das Segment als ungültig markiert.',
+    ],
     preis: 'Die Breite ist die erste Preisachse des Korpus-Artikels.',
   },
   'masse.lochreihe': {
@@ -207,9 +215,10 @@ const HERKUNFT: Record<string, FeldHerkunft> = {
     werte: 'keine / korpusbündig / frontbündig',
     regeln: [
       'Korpusbündig und frontbündig schließen einander aus.',
+      'Position per Haken: links/rechts je Schrankhöhe, oben Schrankbreite (Summe der Korpusbreiten) — Laufmeter überschreibbar.',
       'Bei Schiebetürschränken ist die Verblendung nur seitlich möglich.',
     ],
-    preis: 'Abgerechnet nach Laufmeter (lfm).',
+    preis: 'Abgerechnet nach Laufmeter (lfm) × Preis je Meter aus der Preiszeile.',
   },
   'masse.fussleiste': {
     modul: 'korpus',
@@ -243,7 +252,9 @@ const HERKUNFT: Record<string, FeldHerkunft> = {
     werte: 'Zentrale Farbmatrix (`config/materialMatrix.ts`), gepflegt im Reiter „Oberflächen"',
     regeln: [
       'Je Bereich sind nur die dort freigegebenen Materialgruppen wählbar.',
+      'Refugium innen: kein Xtreme Plus.',
       'Bei der Abdeckplatte ist Rauchglas ausgeschlossen.',
+      'Sonderfarben (Sikkens, NCS, RAL Design, RAL Classic) verlangen den Farbcode als Pflichtfeld.',
     ],
     preis:
       'Kein eigener Artikel: Die Auswahl bestimmt die Preisgruppe (PG1–PG4), und die ist eine Preisachse von Korpus, Fronten und Ausstattung.',
@@ -257,7 +268,10 @@ const HERKUNFT: Record<string, FeldHerkunft> = {
     modul: 'oberflaeche',
     artikel: artikelVon(refugium?.aussenset),
     werte: 'Zentrale Farbmatrix, ohne Glas',
-    regeln: ['Die Position kommt aus dem Schritt „Maße" und ist hier nicht änderbar.'],
+    regeln: [
+      'Die Position kommt aus dem Schritt „Maße" und ist hier nicht änderbar.',
+      'Links und rechts verschieden: gerechnet wird die teuerste Preisgruppe.',
+    ],
   },
   'material.rueckwandAussen': {
     modul: 'oberflaeche',
@@ -274,18 +288,29 @@ const HERKUNFT: Record<string, FeldHerkunft> = {
   'fronten.anschlag': {
     modul: 'fronten',
     werte: 'links oder rechts',
-    regeln: ['Unabhängig von der Position der Tür im Schrank — immer anzugeben.'],
+    regeln: [
+      'Nur bei Einzeltüren abgefragt.',
+      'Türpaar nebeneinander: linke Tür links, rechte Tür rechts angeschlagen — vorgegeben.',
+    ],
     preis: 'Ohne Preiswirkung — Ausführungsmerkmal für die Arbeitsvorbereitung.',
   },
   'fronten.hoehe': {
     modul: 'fronten',
     werte: 'Rasterstufe, Höhe bis Korpusoberkante oder freies cm-Maß',
-    regeln: ['1 Raster = 12,5 cm, dazwischen je 0,3 cm Fuge — errechnet, nicht editierbar.'],
+    regeln: [
+      '1 Raster = 12,5 cm, dazwischen je 0,3 cm Fuge — errechnet, nicht editierbar.',
+      'Höchstens die freie Korpushöhe (Korpusraster minus Fronten darüber/darunter).',
+      'Volle Raster werden erkannt und eingetragen; sonst Sondermaß (nächste Rasterstufe).',
+    ],
     preis: 'Die Fronthöhe ist eine Preisachse des Front-Artikels.',
   },
   'fronten.breite': {
     modul: 'fronten',
     werte: 'Aus der Korpusbreite abgeleitet, überschreibbar',
+    regeln: [
+      'Fronten nebeneinander füllen genau den Frontbereich (100er: 98 cm) — der Nachbarflügel passt sich an.',
+      'Keine Front breiter als der Frontbereich.',
+    ],
   },
   'fronten.schiebetuerAnzahl': {
     modul: 'fronten',
@@ -343,7 +368,11 @@ export function herkunftFuer(schluessel: string): FeldHerkunft | undefined {
       modul: 'ausstattung',
       artikel,
       werte: 'Ausstattungs-Katalog (`config/equipment.ts`)',
-      regeln: ['Bei Sondertiefe (< 60 cm Korpustiefe) sind nur Einlegeböden möglich.'],
+      regeln: [
+        'Bei Sondertiefe (< 60 cm) nur, wenn im Katalog „bei Sondertiefe" freigegeben.',
+        'Keine zwei Teile auf derselben Rasterposition; Container belegen ihre ganze Höhe.',
+        'Material wie Korpus innen — Preisgruppe und Tiefe wählen die Preiszeile.',
+      ],
     }
   }
 
