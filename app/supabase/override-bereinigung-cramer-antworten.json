@@ -1,0 +1,263 @@
+{
+ "laeufe": [
+  {
+   "am": "2026-09-22T22:21:18.011Z",
+   "entfernt": [
+    {
+     "bereich": "artikel",
+     "schluessel": "30-012-0001",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "AVPROCSTU",
+      "achsen": [
+       "LAENGE"
+      ],
+      "quelle": "S. 3",
+      "status": "aktiv",
+      "einheit": "Meter",
+      "dropdown": "GRIFF",
+      "teileart": "FRONTAUSSTATTUNG",
+      "bemerkung": "Bei Schiebetüren volle Türhöhe; bei Drehtüren kürzbar",
+      "achsenText": "LAENGE",
+      "preislogik": "MATRIX",
+      "sortierung": 10,
+      "bezeichnung": "Griff Edge (Kantengriff)",
+      "kurzzeichen": "GRF-001",
+      "oberflaeche": false,
+      "preiszellen": 1,
+      "bezeichnung2": "Griffe/Schlösser"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Edge-Griff: Cramer 23.09.2026 — 40 €/lfm laut Preisliste S. 3 statt Staffel je angefangenem Meter. Override führte Preislogik MATRIX nur mit Achse LAENGE; die Mappe trägt Matrix – Maßgenau (LAENGE × PREISART)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "30-012-0001#|200 cm||||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "200 cm",
+       "",
+       "",
+       "",
+       ""
+      ],
+      "ref": null,
+      "preis": 80,
+      "seite": "3",
+      "status": "fixed",
+      "artikel": "30-012-0001",
+      "_localId": "neu-1"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Edge-Griff: Cramer 23.09.2026 — 40 €/lfm laut Preisliste S. 3 statt Staffel je angefangenem Meter. Staffelzeile 200 cm → 80 €."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "30-012-0001#|300 cm||||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "300 cm",
+       "",
+       "",
+       "",
+       ""
+      ],
+      "ref": null,
+      "preis": 120,
+      "seite": "3",
+      "status": "fixed",
+      "artikel": "30-012-0001",
+      "_localId": "neu-2"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Edge-Griff: Cramer 23.09.2026 — 40 €/lfm laut Preisliste S. 3 statt Staffel je angefangenem Meter. Staffelzeile 300 cm → 120 €."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "30-012-0001#16|100 cm|€/m|||",
+     "aktion": "neu",
+     "daten": {
+      "a": [
+       "100 cm",
+       "€/m",
+       "",
+       "",
+       ""
+      ],
+      "ref": 16,
+      "preis": 40,
+      "seite": "3",
+      "status": "fixed",
+      "artikel": "30-012-0001",
+      "_localId": "zeile-0"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Edge-Griff: Cramer 23.09.2026 — 40 €/lfm laut Preisliste S. 3 statt Staffel je angefangenem Meter. Staffelzeile 100 cm → 40 €."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "30-012-0001#16||€/m|||",
+     "aktion": "geloescht",
+     "daten": null,
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Edge-Griff: Cramer 23.09.2026 — 40 €/lfm laut Preisliste S. 3 statt Staffel je angefangenem Meter. Blendete die Mappenzeile „40 €/m\" aus — ohne diese Zeile gilt sie wieder."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "40-020-0003",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "AVPR",
+      "achsen": [
+       "LAENGE",
+       "PREISART"
+      ],
+      "quelle": "S. 33",
+      "status": "aktiv",
+      "einheit": "Stück",
+      "dropdown": "WANDELEMENT",
+      "teileart": "INNENAUSSTATTUNG",
+      "bemerkung": "",
+      "achsenText": "LAENGE × PREISART",
+      "preislogik": "FESTPREIS",
+      "sortierung": 30,
+      "bezeichnung": "KMK-Wandtablar",
+      "kurzzeichen": "WND-003",
+      "oberflaeche": false,
+      "preiszellen": 2,
+      "bezeichnung2": "Ausstattung + Extras"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "KMK-Wandtablar: Cramer 23.09.2026 — Festpreis + Matrix laut Preisliste S. 33 (75 € + 180 €/lfm) statt Festpreis 255 €. Override führte Preislogik FESTPREIS."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "40-020-0003#1250||Fixpreis|||",
+     "aktion": "geaendert",
+     "daten": {
+      "a": [
+       "",
+       "Fixpreis",
+       "",
+       "",
+       ""
+      ],
+      "ref": 1250,
+      "preis": 255,
+      "seite": "33",
+      "status": "fixed",
+      "artikel": "40-020-0003",
+      "_localId": "zeile-0"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "KMK-Wandtablar: Cramer 23.09.2026 — Festpreis + Matrix laut Preisliste S. 33 (75 € + 180 €/lfm) statt Festpreis 255 €. Grundpreis war auf 255 € gesetzt (Mappe: 75 €)."
+    },
+    {
+     "bereich": "preise",
+     "schluessel": "40-020-0003#||€/m|||",
+     "aktion": "geloescht",
+     "daten": null,
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "KMK-Wandtablar: Cramer 23.09.2026 — Festpreis + Matrix laut Preisliste S. 33 (75 € + 180 €/lfm) statt Festpreis 255 €. Blendete die Mappenzeile „180 €/m\" aus — ohne diese Zeile gilt sie wieder."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "50-027-0001",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "AVPR",
+      "achsen": [],
+      "quelle": "S. 32",
+      "status": "aktiv",
+      "einheit": "m",
+      "dropdown": "KABELFUEHRUNG",
+      "teileart": "TECHNIK",
+      "bemerkung": "",
+      "achsenText": "—",
+      "preislogik": "FESTPREIS",
+      "sortierung": 10,
+      "bezeichnung": "Hintere Aufkantung",
+      "kurzzeichen": "KAB-001",
+      "oberflaeche": false,
+      "preiszellen": 1,
+      "bezeichnung2": "Ausstattung + Extras"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Hintere Aufkantung: Cramer 23.09.2026 — 45 €/lfd. m laut Preisliste S. 32 statt 45 € je Stück (Override: FESTPREIS ohne Achsen)."
+    },
+    {
+     "bereich": "artikel",
+     "schluessel": "40-017-0029",
+     "aktion": "geaendert",
+     "daten": {
+      "modus": "R",
+      "achsen": [
+       "BREITE",
+       "HOEHE"
+      ],
+      "quelle": "S. 26",
+      "status": "gesperrt",
+      "einheit": "Stück",
+      "dropdown": "CONTAINER",
+      "teileart": "INNENAUSSTATTUNG",
+      "bemerkung": "Fertigungsmaße: 50er = 49,5cm · 60er = 59,5cm · 100er = 98,8cm. · Ausführung „Deckplatte Rauchglas grau\" enthält den früheren Aufpreis aus 40-40-20-0018.",
+      "achsenText": "BREITE × HOEHE",
+      "preislogik": "MATRIX",
+      "sortierung": 191,
+      "bezeichnung": "Container - B47,5/57,5 – Deckplatte Rauchglas grau",
+      "kurzzeichen": "CON-029",
+      "oberflaeche": false,
+      "preiszellen": 6,
+      "bezeichnung2": "Refugium Ausstattung"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "grund": "Container 4,5 R / 6 R mit Rauchglas-Deckplatte: Cramer 23.09.2026 — Sperre aufheben, Artikel ist gültig (Mappe: aktiv)."
+    }
+   ],
+   "umgeschluesselt": [
+    {
+     "bereich": "mitarbeiter",
+     "schluessel": "M-004",
+     "aktion": "neu",
+     "daten": {
+      "name": "Dietmar Kerschbaummayr",
+      "email": "kerschbaummayr@cramer-moebel.de",
+      "rolle": "berater",
+      "status": "aktiv",
+      "filiale": "F-003",
+      "bemerkung": "",
+      "personalnr": "M-004"
+     },
+     "version": 1,
+     "updated_at": "2026-09-22T19:07:55.112+00:00",
+     "updated_by": "admin (admin@cramer.de)",
+     "neuerSchluessel": "M-104",
+     "grund": "Personalnummer M-004 war doppelt (Mappe: Sarib Test-Berater). Cramer 23.09.2026: Herr Kerschbaummayr bekommt M-104, Sarib behält M-004."
+    }
+   ]
+  }
+ ],
+ "zweck": "Antworten Cramer vom 23.09.2026 auf die Rückfragen der Preisarten-Überarbeitung: Overrides entfernt bzw. umgeschlüsselt. Wiederherstellen: Zeilen unverändert in stammdaten_overrides einfügen (bei M-104 vorher die neue Zeile löschen)."
+}

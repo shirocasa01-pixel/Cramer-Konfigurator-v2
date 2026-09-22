@@ -33,7 +33,8 @@
     "data:migrate-ue89": "node scripts/migrate-ueberarbeitung-8-9.js",
     "ue89:test": "node scripts/check-ueberarbeitung-8-9.js",
     "data:migrate-preisarten": "node scripts/migrate-preisarten.js",
-    "preisart:test": "node scripts/check-preisarten.js"
+    "preisart:test": "node scripts/check-preisarten.js",
+    "data:migrate-cramer-antworten": "node scripts/migrate-cramer-antworten.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

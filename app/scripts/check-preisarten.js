@@ -18,6 +18,8 @@
  *   J  Supabase-Stand wirkt auf die Kalkulation
  *   K  Abschluss, Snapshot und PDF zeigen dieselben Zahlen
  *   L  Preisprobe der Verwaltung = Position der Kalkulation
+ *   M  Antworten Cramer (23.09.2026): Edge-Länge, Wandtablar, Aufkantung, Container,
+ *      Tavolo, Personalnummer M-104
  *
  *   npm run preisart:test
  */
@@ -26,6 +28,7 @@ import { artikel as stammArtikel, preise as stammPreise } from '../src/data/stam
 import {
   aendereArtikel,
   getArtikelListe,
+  getMitarbeiterListe,
   setzeAllesZurueck,
   uebernehmeServerStand,
 } from '../src/lib/stammdatenStore.ts'
@@ -83,15 +86,13 @@ const umgedeutet = stammArtikel.filter(
   (a) => a.preislogik.startsWith('MATRIX') || a.preislogik === 'FEST_PLUS_MATRIX',
 ).filter((a) => leitePreisartAb(a, zeilenJe.get(a.artikelnummer) ?? []) !== a.preislogik)
 pruefe(umgedeutet.length === 0, 'Jede Matrix-Preisart entspricht der bisherigen Rechenweise (keine Umdeutung)', umgedeutet.map((a) => a.artikelnummer))
+// Ohne Ausnahme: Die Tavolo-Massivplatten (vier €/m²-Zeilen ohne unterscheidende Achse)
+// stehen seit dem 23.09.2026 auf „entwurf" / „Auf Anfrage" und fallen damit heraus.
 const unstimmig = stammArtikel
   .filter((a) => a.status === 'aktiv' && a.preislogik !== 'AUF_ANFRAGE')
   .map((a) => [a, pruefePreisart(a, zeilenJe.get(a.artikelnummer) ?? [])])
   .filter(([, p]) => p.length > 0)
-// Bekannt aus der Achsen-Reform: Tavolo-Massivplatten führen vier €/m²-Zeilen ohne
-// unterscheidende Achse (Stärke 3/4 cm, andere Formen) — Tavolo ist nicht konfiguriert.
-const bekannt = new Set(['80-034-0001', '80-034-0002'])
-const neu = unstimmig.filter(([a]) => !bekannt.has(a.artikelnummer))
-pruefe(neu.length === 0, 'Preiszeilen passen zur Preisart (aktive Artikel)', neu.map(([a, p]) => `${a.artikelnummer}: ${p[0]}`))
+pruefe(unstimmig.length === 0, 'Preiszeilen passen zur Preisart (aktive Artikel)', unstimmig.map(([a, p]) => `${a.artikelnummer}: ${p[0]}`))
 
 // ---------------------------------------------------------------------------
 console.log(c.bold('\nB — Lookup-Audit: jede Zuordnung des Konfigurators'))
@@ -345,6 +346,88 @@ for (const pos of demo.positionen.filter((p) => p.artikelnummer === '10-001-0003
   const p = probe('10-001-0003', { breiteCm: cm(achse('BREITE')), hoeheCm: cm(achse('HOEHE')), tiefeCm: cm(achse('TIEFE')), pg: achse('PG') })
   pruefe(p.gesamt === pos.gesamt, `${pos.label}: Preisprobe ${eur(p.gesamt)} € = Kalkulation ${eur(pos.gesamt)} €`)
 }
+
+// ---------------------------------------------------------------------------
+console.log(c.bold('\nM — Antworten Cramer auf die Rückfragen (23.09.2026)'))
+const mitFront = (spaltenIndex, elementIndex, patch) => {
+  const columns = structuredClone(demoEntwurf.fronts.columns)
+  Object.assign(columns[spaltenIndex].elements[elementIndex], patch)
+  return { ...demoEntwurf, fronts: { ...demoEntwurf.fronts, columns } }
+}
+const griffPos = (e) => e.positionen.filter((p) => p.dropdown === 'GRIFF')
+
+// 1 · Edge-Griff: 40 €/lfm, Länge = Türhöhe — ohne eigene Längeneingabe.
+const edgeDreh = griffPos(berechneEntwurf(mitFront(3, 0, { griffId: 'edge' })))
+pruefe(
+  edgeDreh.length === 1 && edgeDreh[0].status === 'berechnet' && edgeDreh[0].gesamt === 78 && edgeDreh[0].preisart === 'MATRIX_MASS',
+  `Edge an Drehtür „D3" (195 cm): 1,95 m × 40 €/m = ${eur(edgeDreh[0]?.gesamt)} € (78 €)`,
+  edgeDreh,
+)
+pruefe(
+  edgeDreh[0]?.teile?.[0]?.mengeText === '1,95 m' && /Türhöhe 195 cm/.test(edgeDreh[0]?.hinweis ?? ''),
+  `Menge und Herkunft der Länge ausgewiesen („${edgeDreh[0]?.teile?.[0]?.mengeText}", „${edgeDreh[0]?.hinweis}")`,
+  edgeDreh[0],
+)
+const edgeSchiebe = griffPos(
+  berechneEntwurf(mitFront(3, 0, { typeId: 'schiebetuer', heightCm: '230', hoeheModus: undefined, tuerAnschlag: undefined, griffId: 'edge' })),
+)
+pruefe(edgeSchiebe[0]?.status === 'berechnet' && edgeSchiebe[0].gesamt === 92, `Edge an Schiebetür 230 cm (volle Türhöhe): ${eur(edgeSchiebe[0]?.gesamt)} € (92 €)`, edgeSchiebe)
+const edgeSchub = griffPos(berechneEntwurf(mitFront(2, 0, { styleLineId: 'glatt', griff: true, griffId: 'edge' })))
+pruefe(
+  edgeSchub[0]?.status === 'auf-anfrage' && /Schüben und Klappen/.test(edgeSchub[0].hinweis ?? ''),
+  'Edge an einem Schub: keine Länge festgelegt → auf Anfrage mit Begründung, nichts geraten',
+  edgeSchub,
+)
+pruefe(griffPos(berechneEntwurf(demoEntwurf)).length === 0, 'Stückgriff Nr. 121 bleibt im Türpreis enthalten (keine eigene Position)')
+
+// 2 · KMK-Wandtablar laut Preisliste: Festpreis + Matrix, 75 € + 180 €/lfm.
+const wt = probe('40-020-0003', { laengeCm: 150 })
+pruefe(
+  wt.status === 'berechnet' && wt.preisart === 'FEST_PLUS_MATRIX' && wt.gesamt === 345 && wt.teile?.[0]?.gesamt === 75 && wt.teile?.[1]?.gesamt === 270,
+  `KMK-Wandtablar 40-020-0003 · 1,5 m: 75 € + 1,5 m × 180 €/m = ${eur(wt.gesamt)} € (statt Festpreis 255 €)`,
+  wt,
+)
+
+// 3 · Hintere Aufkantung laut Preisliste: 45 €/lfm.
+const ak = probe('50-027-0001', { laengeCm: 200 })
+pruefe(ak.status === 'berechnet' && ak.preisart === 'MATRIX_MASS' && ak.gesamt === 90, `Hintere Aufkantung 50-027-0001 · 2 m × 45 €/m = ${eur(ak.gesamt)} € (statt 45 € je Stück)`, ak)
+
+// 4 · Container 4,5 R / 6 R mit Rauchglas-Deckplatte: freigegeben, regulär berechnet.
+pruefe(getArtikelNr('40-017-0029')?.status === 'aktiv', 'Container mit Rauchglas-Deckplatte 40-017-0029 ist aktiv')
+const mitContainer = (rauchglas) => {
+  const columns = structuredClone(demoEntwurf.fronts.columns)
+  columns[0].equipment.push({ id: 'qc', optionId: 'container', variant: '4,5R', rauchglas, qty: 1 })
+  return berechneEntwurf({ ...demoEntwurf, fronts: { ...demoEntwurf.fronts, columns } })
+}
+const con = mitContainer(true).positionen.filter((p) => p.artikelnummer === '40-017-0029')
+pruefe(con.length === 1 && con[0].status === 'berechnet' && con[0].gesamt === 967, `Rauchglas-Häkchen · 60er · 4,5 R: ${eur(con[0]?.gesamt)} € (Preisliste S. 26: 967 €), nicht auf Anfrage`, con)
+const conDeco = mitContainer(false).positionen.filter((p) => p.artikelnummer === '40-017-0019')
+pruefe(conDeco[0]?.gesamt === 747, `Ohne Häkchen weiter die Decoboard-Deckplatte: ${eur(conDeco[0]?.gesamt)} € (747 €)`, conDeco)
+
+// 5 · Tavolo-Massivplatten: nicht verbaut → entwurf / Auf Anfrage.
+for (const nr of ['80-034-0001', '80-034-0002']) {
+  const a = getArtikelNr(nr)
+  pruefe(
+    a?.status === 'entwurf' && preisartVon(a) === 'AUF_ANFRAGE' && findePreis({ artikelnummer: nr, breiteCm: 200, tiefeCm: 100 }).status === 'auf-anfrage',
+    `${nr} ${a?.bezeichnung}: Status „entwurf", Preisart „Auf Anfrage"`,
+  )
+}
+
+// 6 · Personalnummer: Herr Kerschbaummayr bekommt M-104, Sarib behält M-004.
+const kerschbaummayr = {
+  bereich: 'mitarbeiter', schluessel: 'M-104', aktion: 'neu', version: 1,
+  daten: { personalnr: 'M-104', name: 'Dietmar Kerschbaummayr', email: 'kerschbaummayr@cramer-moebel.de', rolle: 'berater', filiale: 'F-003', status: 'aktiv', bemerkung: '' },
+}
+uebernehmeServerStand([kerschbaummayr])
+const ma = getMitarbeiterListe()
+const nrDoppelt = ma.map((m) => m.personalnr).filter((nr, i, alle) => alle.indexOf(nr) !== i)
+pruefe(
+  ma.filter((m) => m.personalnr === 'M-004').map((m) => m.name).join() === 'Sarib Test-Berater' &&
+    ma.filter((m) => m.personalnr === 'M-104').map((m) => m.name).join() === 'Dietmar Kerschbaummayr',
+  'M-004 = Sarib Test-Berater, M-104 = Dietmar Kerschbaummayr (Stand aus Supabase)',
+)
+pruefe(nrDoppelt.length === 0, 'Keine Personalnummer doppelt vergeben', nrDoppelt)
+uebernehmeServerStand([])
 
 console.log(fehler === 0 ? c.green(c.bold('\nAlle Prüfungen bestanden.\n')) : c.red(c.bold(`\n${fehler} Prüfung(en) fehlgeschlagen.\n`)))
 process.exit(fehler === 0 ? 0 : 1)

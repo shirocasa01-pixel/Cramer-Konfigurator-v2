@@ -297,6 +297,23 @@ export function griffImFrontpreisEnthalten(artikel: { preislogik: string; einhei
 }
 
 /**
+ * GRIFFLÄNGE EINES GRIFFS NACH LAUFENDEM METER (Edge-Kantengriff, 40 €/lfm).
+ *
+ * Rückmeldung Cramer vom 23.09.2026: Die Grifflänge ist die Höhe der Tür — bei
+ * Schiebetüren die volle Türhöhe, bei Drehtüren die Türhöhe. Der Berater gibt keine
+ * eigene Länge ein; sie kommt aus der erfassten Fronthöhe.
+ *
+ * Für Schübe und Klappen hat Cramer keine Länge festgelegt (dort läge ein Kantengriff
+ * waagerecht an der Frontkante). Ohne Vorgabe wird nichts geraten: Die Griffposition
+ * bleibt dort „auf Anfrage".
+ */
+const GRIFFLAENGE_AUS_TUERHOEHE = new Set(['drehtuer', 'schiebetuer'])
+
+export function grifflaengeCm(frontTypId: string, hoeheCm: number | undefined): number | undefined {
+  return GRIFFLAENGE_AUS_TUERHOEHE.has(frontTypId) ? hoeheCm : undefined
+}
+
+/**
  * Schubhöhe für den Preis-Lookup.
  *
  * Vor der Achsen-Reform musste die Fronthöhe hier in eine Rasterstufe (1 · 1,5 · 2)

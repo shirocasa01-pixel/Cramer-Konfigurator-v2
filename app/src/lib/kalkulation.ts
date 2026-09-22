@@ -43,6 +43,7 @@ import {
   frontLookups,
   getSerienRegel,
   griffImFrontpreisEnthalten,
+  grifflaengeCm,
   liniePgAchsenwert,
   schubHoeheCm,
   serviceZuschlaege,
@@ -296,6 +297,11 @@ interface PositionsEingabe {
   liniePg?: string
   pg?: PriceGroup
   hinweis?: string
+  /**
+   * Begründung, wenn das Maß einer Bezugsgröße fehlt — ersetzt „bitte im Entwurf
+   * erfassen" dort, wo es im Entwurf nichts zu erfassen gibt.
+   */
+  grundOhneMass?: string
 }
 
 /**
@@ -400,7 +406,8 @@ function bauePosition(eingabe: PositionsEingabe): KalkPosition {
     const menge = mengeFuerPreisart(teil.preisart, eingabe, ergebnis.mengenachsen)
     if (!menge) {
       return offen(
-        `Für die Bezugsgröße ${teil.preisart} fehlt das zugehörige Maß — bitte im Entwurf erfassen.`,
+        eingabe.grundOhneMass ??
+          `Für die Bezugsgröße ${teil.preisart} fehlt das zugehörige Maß — bitte im Entwurf erfassen.`,
       )
     }
     teile.push({
@@ -1081,6 +1088,9 @@ function baueFrontPositionen(
         const griffArtikel = griffArtikelnummer(el.griffId)
         const stamm = griffArtikel ? getArtikelNr(griffArtikel) : undefined
         if (griffArtikel && !griffImFrontpreisEnthalten(stamm)) {
+          // Edge (€ je laufendem Meter): Länge = Türhöhe, Vorgabe Cramer vom 23.09.2026
+          // (`grifflaengeCm`). Ein Stückpreis-Griff braucht keine Länge und ignoriert sie.
+          const laengeCm = grifflaengeCm(el.typeId, hoeheCm)
           positionen.push(
             bauePosition({
               lookup: { artikel: griffArtikel },
@@ -1088,10 +1098,16 @@ function baueFrontPositionen(
               bucket: 'upgrade',
               herkunft: 'gewaehlt',
               segment,
-              // Die Grifflänge (Edge: € je laufendem Meter) erfasst der Entwurf nicht. Sie
-              // wird bewusst NICHT aus der Fronthöhe geraten — die Preisliste sagt „bei
-              // Drehtüren kürzbar". Ohne Länge bleibt die Position „auf Anfrage".
-              hinweis: el.label ? `zu „${el.label}"` : undefined,
+              laengeCm,
+              hinweis:
+                [
+                  el.label ? `zu „${el.label}"` : null,
+                  laengeCm != null ? `Grifflänge = Türhöhe ${cmText(laengeCm)} cm.` : null,
+                ]
+                  .filter(Boolean)
+                  .join(' · ') || undefined,
+              grundOhneMass:
+                'Grifflänge nur für Dreh- und Schiebetüren festgelegt (= Türhöhe) — an Schüben und Klappen auf Anfrage.',
             }),
           )
         }

@@ -1,6 +1,7 @@
 # Stammdatenverwaltung und Preislogik — Überarbeitung 09/2026
 
-Stand: 22.09.2026 · Grundlage: Preisliste 06.2026 · Prüfung: `npm run preisart:test`
+Stand: 23.09.2026 (Antworten von Cramer auf die sechs Rückfragen eingearbeitet) · Grundlage:
+Preisliste 06.2026 · Prüfung: `npm run preisart:test`
 
 Kennzeichnung wie gewohnt: **[GEFIXT]** umgesetzt und geprüft · **[OFFEN]** Rückfrage an Cramer.
 
@@ -26,7 +27,7 @@ die beim Abgleich aufgefallen sind:
 | Excel-Import-Prüfung | altes Muster | jeder importierte Artikel wäre als fehlerhaft markiert worden |
 
 Stückgriffe bleiben wie bisher im Türpreis enthalten. Der Edge-Griff erscheint jetzt als
-eigene Position — mangels erfasster Grifflänge „auf Anfrage" statt still 0 € (siehe Rückfrage).
+eigene Position und wird seit dem 23.09. mit 40 €/lfm × Türhöhe berechnet (siehe Rückfrage 1).
 
 **[GEFIXT] Preiszeilen gegen die Preisliste geprüft.** Alle 22 Kombinationspreise
 („EUR/Stk zzgl. … EUR/m²" u. ä.) wurden mit der Preislisten-Extraktion verglichen. Eine
@@ -47,7 +48,8 @@ verglichen. Was den neuen Regeln widersprach oder nichts mehr änderte, ist entf
 | 80 Drehtür-Preiszeilen | „102,1 / 114,9 / 191,2 / 230,1 cm" — Betrag für Betrag gleich den Mappenzeilen derselben Rasterstufe | entfernt (Duplikate mit abweichender Stufengrenze) |
 
 Bewusst gepflegte Änderungen sind **nicht** angetastet (17 Zeilen bleiben), auch wenn sie
-der Preisliste widersprechen — dazu die Rückfragen unten. Gewollte Sperrungen bleiben:
+der Preisliste widersprechen — dazu die Rückfragen unten. Nach den Antworten von Cramer
+(23.09.) sind davon noch **7 Zeilen** übrig. Gewollte Sperrungen bleiben:
 Überhöhe (gesperrt — der 20-%-Aufschlag steckt bereits in den 21-Raster-Preisen),
 wandhängende Kastenmöbel und Sonderprogrammierungen („entwurf", Preisart „Auf Anfrage"),
 Anlehnleiter („entwurf", „in arbeit").
@@ -65,10 +67,13 @@ Preisart, Aufschlagsätze und Preislisten-Nr. sind Felder des Artikels, laufen �
 |---|---|---:|
 | Festpreis | Ein fest hinterlegter Preis. | 74 |
 | Matrix – Stufenpreis | Matrix – Lookup über die Achsen. Maße gehen auf die nächste hinterlegte Stufe. | 110 |
-| Matrix – Maßgenau | Matrix – Lookup über die Achsen. Betrag je Einheit × tatsächliches Maß, ohne Stufen. | 8 |
+| Matrix – Maßgenau | Matrix – Lookup über die Achsen. Betrag je Einheit × tatsächliches Maß, ohne Stufen. | 6 |
 | Festpreis + Matrix | Fester Grundpreis plus variabler Matrixpreis, z. B. je laufendem Meter. | 10 |
 | Aufschlag | Prozentsatz oder Betrag auf eine festgelegte Preisbasis. | 4 |
-| Auf Anfrage | Bewusst ohne automatischen Preis. | 10 |
+| Auf Anfrage | Bewusst ohne automatischen Preis. | 12 |
+
+Stand der Mappe am 23.09.: Die beiden Tavolo-Massivplatten sind von „Maßgenau" nach
+„Auf Anfrage" gewechselt (Rückfrage 5).
 
 **[GEFIXT] Bestehende Ergebnisse beibehalten.** Die bisherige Preislogik MATRIX wurde nicht
 pauschal umbenannt, sondern je Artikel so eingeordnet, wie die Engine ihn tatsächlich
@@ -159,30 +164,51 @@ Preisstand; auch ältere Snapshots werden zweistufig angezeigt.
 | Gesperrte Artikel | Korpus, Raumteiler, Montage gesperrt bzw. Entwurf | jeweils „auf Anfrage", nicht verbindlich ✓ |
 | Supabase | Laden eines Satzes aus Supabase, Alt-Override, Speichern/Laden-Logik (`sync:test`) | ✓ |
 | Bestand | `data:test` `kalk:test` `preis:test` `pg:test` `achsen:test` `praxis:test` (372 Teilbeträge) `sync:test` `ue89:test` `format:test` `mass:test` | ✓ · `tsc` ✓ · `vite build` ✓ |
+| Antworten Cramer (23.09.) | Abschnitt M von `preisart:test` (14 Prüfungen) und Nachrechnung mit dem Live-Stand aus Supabase | ✓ — Einzelheiten unten |
 
 ---
 
-## Rückfragen
+## Rückfragen — beantwortet von Cramer am 23.09.2026
 
-1. **[OFFEN] Edge-Griff.** In Supabase ist eine Staffel gepflegt (100/200/300 cm → 40/80/120 €,
-   also je angefangenem Meter); die Preisliste S. 3 nennt 40 €/lfm maßgenau. Welche Rechnung
-   soll gelten? Und woher soll die Grifflänge kommen — sollen wir sie im Konfigurator abfragen,
-   oder gilt die Fronthöhe („bei Schiebetüren volle Türhöhe, bei Drehtüren kürzbar")? Bis dahin
-   steht der Edge-Griff sichtbar „auf Anfrage" statt wie bisher unbemerkt ohne Preis.
-2. **[OFFEN] KMK-Wandtablar** ist in Supabase als Festpreis 255 € gepflegt; die Preisliste S. 33
-   nennt 75 € + 180 €/lfm (Festpreis + Matrix). Sollen wir auf die Preisliste zurückstellen?
-3. **[OFFEN] Hintere Aufkantung** ist in Supabase als Festpreis 45 € je Stück gepflegt; die
-   Preisliste S. 32 nennt 45 €/lfd.m. Ist der Stückpreis gewollt?
-4. **[OFFEN] Container 4,5 R / 6 R mit Rauchglas-Deckplatte** (40-017-0029) ist gesperrt. Der
-   Konfigurator bietet das Rauchglas-Häkchen weiter an; die Position steht dann „auf Anfrage".
-   Ist die Sperre gewollt, oder sollen wir sie aufheben?
-5. **[OFFEN] Tavolo-Massivplatten** (80-034-0001/-0002) führen vier €/m²-Zeilen ohne
-   unterscheidende Achse (3 cm / 4 cm / andere Formen); die Preisliste nennt zusätzlich einen
-   Grundpreis von 115 €. Tavolo ist noch nicht konfiguriert — wir ergänzen das, sobald die
-   Zuordnung bestätigt ist.
-6. **[OFFEN] Personalnummer M-004** ist doppelt vergeben (Mappe: Sarib Test-Berater, Supabase:
-   Dietmar Kerschbaummayr). Außerhalb dieser Überarbeitung — bitte kurz bestätigen, welche
-   Nummer Herr Kerschbaummayr bekommen soll.
+Die Supabase-Overrides zu 1–4 und 6 sind entfernt bzw. umgeschlüsselt (17 → 7 Zeilen),
+vollständig gesichert in `supabase/override-bereinigung-cramer-antworten.json`
+(`scripts/bereinige-overrides-cramer-antworten.js`). Die Mappe trug bei 1–4 bereits den Stand
+der Preisliste; Punkt 5 ist eine Mappen-Migration (`npm run data:migrate-cramer-antworten`).
+
+1. **[GEFIXT] Edge-Griff — 40 €/lfm, Länge = Türhöhe.** Die Staffel (100/200/300 cm →
+   40/80/120 €) ist aus Supabase entfernt; es gilt „Matrix – Maßgenau" mit 40 €/m laut
+   Preisliste S. 3. Die Grifflänge kommt automatisch aus der Front — bei Schiebetüren die volle
+   Türhöhe, bei Drehtüren die Türhöhe; eine eigene Längeneingabe gibt es nicht. Die Position
+   zeigt die Herleitung: Drehtür 195 cm → „1,95 m × 40 €/m = 78,00 €, Grifflänge = Türhöhe
+   195 cm". Bisher nutzt kein gespeicherter Entwurf den Edge-Griff.
+2. **[GEFIXT] KMK-Wandtablar** (40-020-0003) rechnet wieder laut Preisliste S. 33:
+   Festpreis + Matrix, 75 € Grundpreis + 180 €/lfm (1,5 m → 345,00 €). Hinweis: Bei genau 1 m
+   ergibt das ebenfalls 255 € — der bisherige Festpreis entsprach einem 1-m-Tablar.
+3. **[GEFIXT] Hintere Aufkantung** (50-027-0001) rechnet wieder laut Preisliste S. 32 mit
+   45 €/lfd. m (2 m → 90,00 €) statt 45 € je Stück. Wandtablar und Aufkantung sind im
+   Konfigurator nicht verbaut — kein Entwurf ändert sich.
+4. **[GEFIXT] Container 4,5 R / 6 R mit Rauchglas-Deckplatte** (40-017-0029) ist freigegeben.
+   Mit Rauchglas-Häkchen wird er regulär berechnet (60er · 4,5 R: 967,00 €; 60er · 6 R:
+   1.162,00 €), nicht mehr „auf Anfrage". Betrifft einen offenen Testentwurf
+   (CRAMER-2026-TEST-0002), der jetzt einen Preis zeigt.
+5. **[GEFIXT] Tavolo-Massivplatten** (80-034-0001 Nussbaum / -0002 Wildeiche) stehen auf Status
+   „entwurf" und Preisart „Auf Anfrage", weil Tavolo im Konfigurator nicht verbaut wird. Die
+   Preiszeilen bleiben für die spätere Zuordnung in der Mappe stehen.
+6. **[GEFIXT] Personalnummer:** Herr Dietmar Kerschbaummayr hat jetzt **M-104**, Sarib
+   Test-Berater behält M-004 — keine Nummer ist mehr doppelt vergeben. An M-004 hing für Herrn
+   Kerschbaummayr nichts: kein eigenes Passwort, und alle 20 Entwürfe unter M-004 sind
+   Praxistest-Entwürfe von Sarib. Bisher hat der Sitzungsabgleich eine Anmeldung von Herrn
+   Kerschbaummayr stillschweigend auf Sarib umgeschrieben (erster Treffer unter M-004); das
+   ist damit behoben. War er auf einem Gerät angemeldet, bitte einmal ab- und wieder anmelden.
+
+### Neue Rückfrage
+
+7. **[OFFEN] Edge-Griff an Schüben und Klappen.** Die Griff-Auswahl bietet Edge auch bei
+   Schüben und Klappen (Stil-Linie Glatt) an. Die Vorgabe „Grifflänge = Türhöhe" gilt für
+   Türen; an einem Schub läge der Kantengriff eher waagerecht an der Frontkante. Soll dort die
+   **Frontbreite** als Grifflänge gelten, oder soll Edge bei Schüben und Klappen aus der Auswahl
+   verschwinden? Bis dahin steht die Position dort sichtbar „auf Anfrage" — es wird nichts
+   geraten.
 
 ## Technischer Überblick
 
@@ -192,8 +218,9 @@ Preisstand; auch ältere Snapshots werden zweistufig angezeigt.
 | Lookup je Preisart (Stufe / exakt, Bezugsgrößen) | `src/lib/preisLookup.ts` |
 | Zweistufige Kalkulation, Preisprobe, Griff-Lookup | `src/lib/kalkulation.ts` |
 | Häkchen → Aufschlag-Artikel | `src/config/preisMapping.ts` (`artikelAufschlaege`, `serviceZuschlaege`) |
+| Grifflänge Edge (= Türhöhe) | `src/config/preisMapping.ts` (`grifflaengeCm`) |
 | Übersicht für Abschluss und PDF | `src/lib/kalkulationsUebersicht.ts`, `KalkulationsPanel.tsx`, `generatePdf.ts` |
 | Artikelverwaltung | `ArtikelDetailModal.tsx`, `PreisartEditor.tsx`, Spalte „Preisart" im Gitter |
-| Mappe | `scripts/migrate-preisarten.js` (idempotent) · neue Spalten „Aufschlag", „Aufschlag-Einheit", „Aufschlag-Basis", „Preislisten-Nr." |
-| Supabase | `scripts/bereinige-overrides-preisarten.js` · Sicherung `supabase/override-bereinigung-preisarten.json` |
+| Mappe | `scripts/migrate-preisarten.js` (idempotent) · neue Spalten „Aufschlag", „Aufschlag-Einheit", „Aufschlag-Basis", „Preislisten-Nr." · `scripts/migrate-cramer-antworten.js` (Tavolo, Edge-Bemerkung) |
+| Supabase | `scripts/bereinige-overrides-preisarten.js` · Sicherung `supabase/override-bereinigung-preisarten.json` · `scripts/bereinige-overrides-cramer-antworten.js` · Sicherung `supabase/override-bereinigung-cramer-antworten.json` |
 | Tests | `scripts/check-preisarten.js` (`npm run preisart:test`) |

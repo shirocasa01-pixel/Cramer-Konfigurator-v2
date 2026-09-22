@@ -59,7 +59,9 @@ const refugium = artikelFuerSerie('refugium')
 // Conero A–F, Craft A–C, Basis-Container). Die Preisarten-Überarbeitung (09/2026) bringt
 // Montage und Lieferung regional als eigene Aufschlag-Artikel für alle Serien (+2).
 ok(`Refugium: ${refugium.length} Artikel freigegeben`, refugium.length === 119)
-ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 44)
+// 42 statt 44: Die Massivplatten Nussbaum/Wildeiche stehen seit der Rückmeldung von
+// Cramer (23.09.2026) auf „entwurf" — Tavolo wird im Konfigurator derzeit nicht verbaut.
+ok(`Tavolo: ${artikelFuerSerie('tavolo').length} Artikel freigegeben`, artikelFuerSerie('tavolo').length === 42)
 ok('kein Refugium-Artikel ohne "R" im Modus', refugium.every((a) => a.modus.toUpperCase().includes('R')))
 ok('Abdeckplatten sind für Refugium gesperrt', !refugium.some((a) => a.dropdown === 'ABDECKPLATTE'))
 ok('Abdeckplatten sind für Atrium frei', artikelFuerSerie('atrium').some((a) => a.dropdown === 'ABDECKPLATTE'))
