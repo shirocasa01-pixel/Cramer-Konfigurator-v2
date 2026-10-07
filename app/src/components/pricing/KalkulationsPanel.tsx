@@ -1,10 +1,13 @@
-import { useMemo } from 'react'
-import { preisOptionen, type Schwere } from '../../lib/kalkulation'
+import { useEffect, useMemo, useState } from 'react'
+import { gueltigerSatz, preisOptionen, type Schwere } from '../../lib/kalkulation'
+import { serviceZuschlaege } from '../../config/preisMapping'
+import { getArtikelNr } from '../../lib/preisLookup'
 import { kalkulationsUebersicht, uebersichtBetrag } from '../../lib/kalkulationsUebersicht'
 import { preisartTitel } from '../../lib/preisartAnzeige'
 import { aufgeloestePreise } from '../../lib/pricingSnapshot'
 import { formatEuro } from '../../lib/pricing'
 import { useStammdaten } from '../../lib/useStammdaten'
+import { zaehleAusstehendeAenderungen } from '../../lib/stammdatenStore'
 import { Button } from '../ui/Button'
 import type { Draft, PricingSnapshotPosition } from '../../types'
 import styles from './KalkulationsPanel.module.css'
@@ -46,7 +49,7 @@ export interface KalkulationsPanelProps {
    * Schaltet Montage / Lieferung regional. Ohne diesen Callback (oder bei einem
    * abgeschlossenen Auftrag) sind die Checkboxen nur Anzeige.
    */
-  onPreisOptionenAendern?: (optionen: { montage: boolean; lieferungRegional: boolean }) => void
+  onPreisOptionenAendern?: (optionen: NonNullable<Draft['pricingOptions']>) => void
 }
 
 /** Artikel-Kontext einer Position: Nummer, Kurzzeichen, Teileart, Produktgruppe, Preisart. */
@@ -114,7 +117,7 @@ function Betragsspalten({ position }: { position: PricingSnapshotPosition }) {
   if (teile.length < 2 && !einzelMitEinheit) {
     return (
       <>
-        <td className={styles.tdNum}>{position.menge}×</td>
+        <td className={styles.tdNum}>{String(position.menge).replace('.', ',')}×</td>
         <td className={styles.tdNum}>
           {position.einzelpreis == null ? '—' : formatEuro(position.einzelpreis)}
         </td>
@@ -181,6 +184,7 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAe
   const stand = useStammdaten()
   const ergebnis = useMemo(() => aufgeloestePreise(draft), [draft, stand.version])
   const eingefroren = ergebnis.herkunft === 'snapshot'
+  const ungespeichert = useMemo(() => zaehleAusstehendeAenderungen(), [stand.version])
   const optionen = preisOptionen(draft)
 
   /*
@@ -226,6 +230,17 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAe
           </span>
         </div>
       </header>
+
+      {/* Überarbeitung 9: Rechnet diese Kalkulation mit Stammdaten, die nur in diesem Browser
+          geändert und noch nicht gespeichert sind, muss das sichtbar sein — Berater und andere
+          Geräte sähen sonst andere Preise. */}
+      {!eingefroren && ungespeichert > 0 ? (
+        <p className={styles.frozenWarn} role="status">
+          Diese Kalkulation enthält {ungespeichert} Stammdaten-Änderung(en), die nur in diesem Browser
+          vorgemerkt und noch nicht gespeichert sind. Für Berater, andere Geräte und das AV-PDF eines
+          anderen Arbeitsplatzes gelten sie erst nach „Speichern" in der Stammdatenverwaltung.
+        </p>
+      ) : null}
 
       {ergebnis.positionen.length === 0 ? (
         <p className={styles.empty}>
@@ -297,6 +312,14 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAe
                           <span>{z.label}</span>
                           {detail}
                         </label>
+                      ) : null}
+                      {z.art === 'service' && z.option ? (
+                        <SatzFeld
+                          option={z.option}
+                          optionen={optionen}
+                          gesperrt={!onPreisOptionenAendern || eingefroren}
+                          onAendern={onPreisOptionenAendern}
+                        />
                       ) : (
                         <>
                           {z.label}
@@ -355,5 +378,69 @@ export function KalkulationsPanel({ draft, onSummeUebernehmen, onPreisOptionenAe
         </div>
       ) : null}
     </section>
+  )
+}
+
+/**
+ * SATZ VON MONTAGE / LIEFERUNG FÜR DIESEN ENTWURF.
+ *
+ * Überarbeitung 9: „Prozentsatz für Montage und Lieferung änderbar machen … weil verschiedene
+ * Berater für verschiedene Kunden verschiedenes verkaufen." Leer = Vorgabe aus der
+ * Artikelverwaltung; ein eingetragener Satz gilt nur für diesen Entwurf.
+ */
+function SatzFeld({
+  option,
+  optionen,
+  gesperrt,
+  onAendern,
+}: {
+  option: 'montage' | 'lieferungRegional'
+  optionen: NonNullable<Draft['pricingOptions']>
+  gesperrt: boolean
+  onAendern?: (optionen: NonNullable<Draft['pricingOptions']>) => void
+}) {
+  const eintrag = serviceZuschlaege.find((z) => z.option === option)
+  const feld = eintrag?.prozentFeld
+  const vorgabe = eintrag ? getArtikelNr(eintrag.artikel)?.aufschlag : undefined
+  const gesetzt = feld ? gueltigerSatz(optionen[feld]) : undefined
+  const alsText = (n: number | undefined) => (n == null ? '' : String(n).replace('.', ','))
+  const [text, setText] = useState(alsText(gesetzt))
+  useEffect(() => setText(alsText(gesetzt)), [gesetzt])
+  if (!feld) return null
+
+  function uebernehmen() {
+    const roh = text.trim().replace(',', '.')
+    const { [feld!]: _alt, ...rest } = optionen
+    if (roh === '') {
+      onAendern?.(rest)
+      return
+    }
+    const zahl = gueltigerSatz(Number(roh))
+    if (zahl == null) {
+      setText(alsText(gesetzt))
+      return
+    }
+    onAendern?.({ ...rest, [feld!]: zahl })
+  }
+
+  return (
+    <label className={styles.satzFeld} title="Leer lassen = Satz aus der Artikelverwaltung">
+      Satz
+      <input
+        type="text"
+        inputMode="decimal"
+        className={styles.satzInput}
+        value={text}
+        placeholder={alsText(vorgabe ?? undefined)}
+        disabled={gesperrt}
+        onChange={(event) => setText(event.target.value)}
+        onBlur={uebernehmen}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter') (event.target as HTMLInputElement).blur()
+        }}
+        aria-label={`Satz in Prozent (Vorgabe ${alsText(vorgabe ?? undefined)} %)`}
+      />
+      %{gesetzt != null && vorgabe != null && gesetzt !== vorgabe ? <span className={styles.satzVorgabe}>Vorgabe {alsText(vorgabe)} %</span> : null}
+    </label>
   )
 }

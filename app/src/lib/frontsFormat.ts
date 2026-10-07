@@ -2,6 +2,7 @@ import type { FrontField } from '../config/frontCatalog'
 import { EDGE_HANDLE_ID, EDGE_KUERZBAR_FRONT_TYPE_IDS, getHandle } from '../config/handles'
 import type { AbschlussOben, FrontElement, FrontFieldValue } from '../types'
 import { PRICE_GROUP_LABEL, describeMaterialSelection } from './materialFormat'
+import { GLAS_LACKIERUNG_LABEL, brauchtGlasLackierung } from './frontsHelpers'
 
 /** Anzeige-Labels für „Abschluss unten“ (Sockel-Typen). */
 export const ABSCHLUSS_UNTEN_LABEL: Record<string, string> = {
@@ -81,6 +82,9 @@ export function describeFrontExtras(element: FrontElement): string {
   if (element.hoeheModus) {
     const raster = element.hoeheModus === 'raster' && element.hoeheRaster?.trim()
     parts.push(HOEHE_MODUS_LABEL[element.hoeheModus] + (raster ? ` (${element.hoeheRaster} Raster)` : ''))
+  }
+  if (brauchtGlasLackierung(element)) {
+    parts.push(`Hinterlackierung: ${element.glasLackierung ? GLAS_LACKIERUNG_LABEL[element.glasLackierung] : 'offen'}`)
   }
   if (element.lineAufkantungGleich === false) parts.push('Frontscheibe und Aufkantung unterschiedlich')
   else if (element.lineAufkantungGleich === true) parts.push('Frontscheibe und Aufkantung gleich')

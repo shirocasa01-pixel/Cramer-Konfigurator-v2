@@ -1,6 +1,7 @@
 import type { EquipmentHoehe, FrontColumn, SegmentEquipmentItem } from '../types'
 import {
   equipmentCategories,
+  equipmentChoiceGilt,
   getEquipmentOption,
   type EquipmentDetailField,
   type EquipmentOption,
@@ -23,9 +24,16 @@ export function beschreibeHoehe(hoehe: EquipmentHoehe): string {
   return hoehe.raster != null ? `${hoehe.raster} Raster` : 'Rasterhöhe offen'
 }
 
-/** Alle Einbauhöhen eines Teils — bei Böden je Stück eine, sonst genau eine. */
+/**
+ * Alle Einbauhöhen eines Teils — bei Böden je Stück eine, sonst genau eine. Führt die Option
+ * gar keine Einbauhöhe (mehr), wird auch keine gedruckt: Überarbeitung 9, S. 4 hat sie beim
+ * Kleiderbügelhalter gestrichen — ein älterer Entwurf zeigte sonst weiter „Rasterhöhe offen".
+ */
 function beschreibeHoehen(item: SegmentEquipmentItem): string | undefined {
-  const liste = (item.hoehen ?? []).filter(Boolean)
+  const option = getEquipmentOption(item.optionId)
+  if (option && (!option.heightMode || option.heightMode === 'keine')) return undefined
+  const stueck = option?.heightPerPiece ? Math.max(1, item.qty ?? 1) : 1
+  const liste = (item.hoehen ?? []).slice(0, stueck).filter(Boolean)
   if (liste.length === 0) return undefined
   if (liste.length === 1) return beschreibeHoehe(liste[0])
   return liste.map((h, i) => `${i + 1}. ${beschreibeHoehe(h)}`).join(', ')
@@ -77,7 +85,7 @@ export function describeEquipmentItem(item: SegmentEquipmentItem, alle: SegmentE
   else if (item.heightNote?.trim()) parts.push(`ca. ${item.heightNote.trim()}`)
 
   // Zusatz-Auswahlen in Katalog-Reihenfolge, mit ihrem Klartext-Label.
-  for (const choice of option?.choices ?? []) {
+  for (const choice of (option?.choices ?? []).filter((ch) => equipmentChoiceGilt(ch, item.variant))) {
     const wert = item.choices?.[choice.id] ?? choice.standard
     if (!wert) continue
     const label = choice.options.find((o) => o.value === wert)?.label ?? wert

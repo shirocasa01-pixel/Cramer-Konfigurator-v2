@@ -34,7 +34,10 @@
     "ue89:test": "node scripts/check-ueberarbeitung-8-9.js",
     "data:migrate-preisarten": "node scripts/migrate-preisarten.js",
     "preisart:test": "node scripts/check-preisarten.js",
-    "data:migrate-cramer-antworten": "node scripts/migrate-cramer-antworten.js"
+    "data:migrate-cramer-antworten": "node scripts/migrate-cramer-antworten.js",
+    "data:migrate-ue9-nachtrag": "node scripts/migrate-ueberarbeitung-9-nachtrag.js",
+    "ue9b:test": "node scripts/check-ueberarbeitung-9-nachtrag.js",
+    "durchgriff:test": "node scripts/check-stammdaten-durchgriff.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.4",

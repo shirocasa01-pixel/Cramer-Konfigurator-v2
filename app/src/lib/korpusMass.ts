@@ -177,6 +177,20 @@ export interface AussenmassOptionen {
   beleuchtung?: boolean
 }
 
+/**
+ * TIEFENZUGABE FÜR DIE KABELFÜHRUNG — oder keine.
+ *
+ * Überarbeitung 9, S. 1: „Sobald wir eine Beleuchtung haben, vertieft sich der Korpus immer um
+ * 1 cm. Ausnahme: Wenn wir einen Fußleistenausschnitt machen, vertieft sich der Korpus auch.
+ * Dann wird diese Vertiefung für die Verkabelung verwendet und es ist kein zusätzlicher cm
+ * notwendig."
+ */
+export function beleuchtungsZugabeCm(g: Pick<KorpusGrunddaten, 'fussleiste'>, optionen: AussenmassOptionen): number {
+  if (!optionen.beleuchtung || BELEUCHTUNG_TIEFENZUGABE_CM <= 0) return 0
+  if (g.fussleiste?.enabled) return 0
+  return BELEUCHTUNG_TIEFENZUGABE_CM
+}
+
 /** Optionen des Außenmaßes aus einem Entwurf. */
 export function aussenmassOptionen(draft: Pick<Draft, 'ausstattung'>): AussenmassOptionen {
   return { beleuchtung: hatBeleuchtung(draft.ausstattung?.selected) }
@@ -243,7 +257,7 @@ export function berechneAussenmass(g: KorpusGrunddaten | undefined, optionen: Au
 
   const hoehe = resolveHeightCm(g)
   const nennTiefe = resolveDepthCm(g)
-  const zugabe = optionen.beleuchtung && BELEUCHTUNG_TIEFENZUGABE_CM > 0 ? BELEUCHTUNG_TIEFENZUGABE_CM : undefined
+  const zugabe = beleuchtungsZugabeCm(g, optionen) || undefined
   const tiefe = nennTiefe != null ? Math.round((nennTiefe + (zugabe ?? 0)) * 10) / 10 : undefined
   const ausschnittTiefe = g.fussleiste?.enabled ? parseNum(g.fussleiste.tiefeCm) : undefined
 
@@ -316,14 +330,16 @@ export function describeKorpusGrunddatenZeilen(
   rows.push({ label: 'Höhe', value: `${heightLabel}${h != null ? ` (ca. ${formatMassZahl(h)} cm)` : ''}` })
 
   const t = resolveDepthCm(g)
-  const zugabe = optionen.beleuchtung && BELEUCHTUNG_TIEFENZUGABE_CM > 0 ? BELEUCHTUNG_TIEFENZUGABE_CM : 0
+  const zugabe = beleuchtungsZugabeCm(g, optionen)
+  const kabelImAusschnitt = Boolean(optionen.beleuchtung && g.fussleiste?.enabled)
   rows.push({
     label: 'Tiefe',
     value:
       `${g.depthMode === '60' ? 'Standard' : 'Sondermaß'}${t != null ? ` (ca. ${formatMassZahl(t)} cm)` : ''}` +
       (t != null && zugabe > 0
         ? ` · Planungstiefe ca. ${formatMassZahl(Math.round((t + zugabe) * 10) / 10)} cm inkl. ${formatMassZahl(zugabe)} cm Kabelführung (Beleuchtung)`
-        : ''),
+        : '') +
+      (t != null && kabelImAusschnitt ? ' · Kabelführung der Beleuchtung im Fußleistenausschnitt (keine Zusatztiefe)' : ''),
   })
 
   g.korpusse.forEach((k, i) => {

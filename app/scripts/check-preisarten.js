@@ -20,6 +20,7 @@
  *   L  Preisprobe der Verwaltung = Position der Kalkulation
  *   M  Antworten Cramer (23.09.2026): Edge-Länge, Wandtablar, Aufkantung, Container,
  *      Tavolo, Personalnummer M-104
+ *   N  Preiszeilen in der Artikelverwaltung: anlegen, ändern, erneut ändern, löschen
  *
  *   npm run preisart:test
  */
@@ -27,11 +28,19 @@
 import { artikel as stammArtikel, preise as stammPreise } from '../src/data/stammdaten.generated.ts'
 import {
   aendereArtikel,
+  aenderePreiszeile,
   getArtikelListe,
   getMitarbeiterListe,
+  getPreisListe,
+  legeArtikelAn,
+  legePreiszeileAn,
+  loeschePreiszeile,
+  preisSchluessel,
   setzeAllesZurueck,
+  speichereArtikelSofort,
   uebernehmeServerStand,
 } from '../src/lib/stammdatenStore.ts'
+import { doppelteAchsenwerte, doppelteZeilenMeldung } from '../src/lib/preiszeilenPruefung.ts'
 import { findePreis, getArtikelNr, preisartVon, preiszeilenVon } from '../src/lib/preisLookup.ts'
 import { berechneEntwurf, bepreiseProbe } from '../src/lib/kalkulation.ts'
 import { PREISART_CODES, leitePreisartAb, pruefePreisart } from '../src/lib/preisarten.ts'
@@ -127,7 +136,14 @@ for (const [was, nr, rolle] of zuordnungen) {
 }
 pruefe(fehlend.length === 0, `${zuordnungen.length} Zuordnungen, jede trifft einen Artikel im Stamm`, fehlend)
 pruefe(falscheArt.length === 0, 'Bauteile rechnen als Festpreis/Matrix, Zuschläge als Aufschlag', falscheArt)
-pruefe(nichtAktiv.length === 0, 'Alle zugeordneten Artikel sind aktiv (Excel-Stand)', nichtAktiv)
+// Raumteiler und Sichtrückwand stehen seit Überarbeitung 9 bewusst auf „entwurf" (selten genutzt).
+const bewusstEntwurf = artikelAufschlaege.map((z) => z.artikel)
+const nichtAktivUngewollt = nichtAktiv.filter((t) => !bewusstEntwurf.some((nr) => t.includes(nr)))
+pruefe(nichtAktivUngewollt.length === 0, 'Alle zugeordneten Artikel sind aktiv (Excel-Stand) — außer Raumteiler/Sichtrückwand', nichtAktivUngewollt)
+pruefe(
+  artikelAufschlaege.every((z) => getArtikelNr(z.artikel)?.status === 'entwurf'),
+  'Raumteiler und Sichtrückwand stehen auf „entwurf" (Überarbeitung 9: selten genutzt)',
+)
 // Griffe: jede Griff-Option des Konfigurators muss einen Griff-Artikel finden.
 const griffArtikel = getArtikelListe().filter((a) => a.dropdown === 'GRIFF')
 const ohneArtikel = handles
@@ -201,6 +217,17 @@ pruefe(ohneGrund.status === 'auf-anfrage' && /Grundpreis/.test(ohneGrund.grund),
 // ---------------------------------------------------------------------------
 console.log(c.bold('\nG — Zweistufige Kalkulation: Beispiel aus der Vorgabe'))
 /*
+ * Überarbeitung 9: Raumteiler und Sichtrückwand stehen auf „entwurf", und beim Kleiderschrank
+ * gibt es keinen Raumteiler. Die Aufschlag-MECHANIK wird deshalb mit freigeschalteten
+ * Artikeln an einem Möbel geprüft, das kein Kleiderschrank ist (Produktgruppe Sideboards).
+ */
+const aufschlaegeFrei = () => {
+  aendereArtikel('90-037-0001', { status: 'aktiv' })
+  aendereArtikel('90-037-0004', { status: 'aktiv' })
+}
+const keinSchrank = (d) => ({ ...d, productGroupId: 'sideboards' })
+aufschlaegeFrei()
+/*
  * Artikel und Ausstattung 3.000 € (Verblendung korpusbündig, 40 lfm × 75 €), Raumteiler als
  * Betrag 200 € (Aufschlag in € auf den Möbelpreis), Montage 10 %, Lieferung 3 %.
  */
@@ -211,7 +238,7 @@ const beispiel = {
   orderNumber: '',
   customerName: 'Beispiel',
   branchId: 'F-001',
-  productGroupId: 'kleiderschraenke',
+  productGroupId: 'sideboards',
   seriesId: 'refugium',
   korpusGrunddaten: {
     heightMode: '18R',
@@ -225,6 +252,7 @@ const beispiel = {
 aendereArtikel('90-037-0001', { aufschlag: 200, aufschlagEinheit: '€' })
 const g = berechneEntwurf(beispiel)
 setzeAllesZurueck()
+aufschlaegeFrei()
 const zeile = (e, art) => e.zuschlaege.find((z) => z.zuschlagArt === art)
 pruefe(g.moebelpreis === 3000, `Artikel und Ausstattung        ${eur(g.moebelpreis)} €`)
 pruefe(g.summeArtikelAufschlaege === 200, `Artikelbezogene Aufschläge       ${eur(g.summeArtikelAufschlaege)} €`)
@@ -234,7 +262,7 @@ pruefe(zeile(g, 'lieferung')?.gesamt === 96, `Lieferung (3 %)                   
 pruefe(g.gesamt === 3616, `Gesamtpreis inkl. Montage und Lieferung ${eur(g.gesamt)} €`)
 
 console.log(c.bold('\n  … und mit Prozent-Aufschlägen am Demo-Entwurf'))
-const d = berechneEntwurf({ ...demoEntwurf, raumteiler: true, sichtRueckwandAussen: true, pricingOptions: { montage: true, lieferungRegional: true } })
+const d = berechneEntwurf(keinSchrank({ ...demoEntwurf, raumteiler: true, sichtRueckwandAussen: true, pricingOptions: { montage: true, lieferungRegional: true } }))
 const rt = zeile(d, 'raumteiler')?.gesamt, srw = zeile(d, 'sichtrueckwand')?.gesamt
 pruefe(rt === r2(d.moebelpreis * 0.05), `Raumteiler 5 % auf den Möbelpreis ${eur(d.moebelpreis)} € = ${eur(rt)} €`)
 pruefe(srw === r2(d.moebelpreis * 0.1), `Sichtrückwand 10 % auf den Möbelpreis = ${eur(srw)} € (nicht auf Möbelpreis + Raumteiler)`)
@@ -271,7 +299,7 @@ const korpusPos = gk.positionen.filter((p) => p.artikelnummer === '10-001-0003')
 pruefe(korpusPos.length > 0 && korpusPos.every((p) => p.status === 'auf-anfrage') && !gk.vollstaendig, 'Korpus gesperrt → Korpuspositionen „auf Anfrage", Kalkulation nicht verbindlich')
 setzeAllesZurueck()
 aendereArtikel('90-037-0001', { status: 'gesperrt' })
-const gr = berechneEntwurf({ ...demoEntwurf, raumteiler: true })
+const gr = berechneEntwurf(keinSchrank({ ...demoEntwurf, raumteiler: true }))
 pruefe(zeile(gr, 'raumteiler')?.status === 'auf-anfrage' && gr.summeArtikelAufschlaege === 0 && !gr.vollstaendig, 'Raumteiler gesperrt → Aufschlag „auf Anfrage", nicht geschätzt, nicht verbindlich')
 setzeAllesZurueck()
 aendereArtikel('90-039-0001', { status: 'entwurf' })
@@ -296,13 +324,14 @@ pruefe(zeile(j, 'montage')?.gesamt === r2(j.gesamtmoebelpreis * 0.08), `Montage-
 uebernehmeServerStand([
   { bereich: 'artikel', schluessel: '90-037-0001', aktion: 'geaendert', daten: { status: 'entwurf', preislogik: 'AUF_ANFRAGE' }, version: 1 },
 ])
-const alt = berechneEntwurf({ ...demoEntwurf, raumteiler: true })
+const alt = berechneEntwurf(keinSchrank({ ...demoEntwurf, raumteiler: true }))
 pruefe(zeile(alt, 'raumteiler')?.status === 'auf-anfrage', 'Alt-Override „Raumteiler entwurf/AUF_ANFRAGE" blockiert den Aufschlag sichtbar (deshalb bereinigt)')
 uebernehmeServerStand([])
 
 // ---------------------------------------------------------------------------
 console.log(c.bold('\nK — Abschluss, Snapshot und PDF zeigen dieselben Zahlen'))
-const draftK = { ...demoEntwurf, raumteiler: true, pricingOptions: { montage: true, lieferungRegional: true } }
+aufschlaegeFrei()
+const draftK = keinSchrank({ ...demoEntwurf, raumteiler: true, pricingOptions: { montage: true, lieferungRegional: true } })
 const live = aufgeloestePreise(draftK)
 const ue = kalkulationsUebersicht(live)
 const betrag = (art) => ue.find((z) => z.art === art)?.betrag
@@ -475,6 +504,58 @@ pruefe(
 )
 pruefe(nrDoppelt.length === 0, 'Keine Personalnummer doppelt vergeben', nrDoppelt)
 uebernehmeServerStand([])
+
+// ---------------------------------------------------------------------------
+console.log(c.bold('\nN — Preiszeilen in der Artikelverwaltung: anlegen, ändern, löschen'))
+setzeAllesZurueck()
+const cNr = '40-017-0019'
+const cZeilen = () => getPreisListe().filter((p) => p.artikel === cNr)
+const erste = cZeilen()[0]
+const cAnzahl = cZeilen().length
+// Achsenwert ändern, dann ERNEUT ändern, dann löschen — früher ging ab dem zweiten Schritt alles verloren.
+aenderePreiszeile(preisSchluessel(erste), { ...erste, a: ['55 cm | 50er', ...erste.a.slice(1)] })
+const nachEins = cZeilen()
+pruefe(nachEins.length === cAnzahl && nachEins[0].a[0] === '55 cm | 50er', 'Achsenwert einer Zeile geändert → dieselbe Zeile, keine zusätzliche', nachEins.map((p) => p.a[0]))
+aenderePreiszeile(preisSchluessel(nachEins[0]), { ...nachEins[0], a: ['57 cm | 50er', ...nachEins[0].a.slice(1)], preis: 700 })
+const nachZwei = cZeilen()
+pruefe(nachZwei.length === cAnzahl && nachZwei[0].a[0] === '57 cm | 50er' && nachZwei[0].preis === 700, 'Dieselbe Zeile ein zweites Mal geändert → Änderung kommt an', nachZwei.map((p) => `${p.a[0]}=${p.preis}`))
+loeschePreiszeile(preisSchluessel(nachZwei[0]))
+pruefe(cZeilen().length === cAnzahl - 1 && !cZeilen().some((p) => p.a[0].startsWith('57 cm')), 'Geänderte Zeile gelöscht → sie ist weg', cZeilen().map((p) => p.a[0]))
+setzeAllesZurueck()
+pruefe(cZeilen().length === cAnzahl, 'Zurücksetzen stellt den Grundstand wieder her')
+
+// Neuer Artikel mit Preiszeile (Festpreis ohne Achsen).
+const neuNr = '90-039-0099'
+const neuProblem = legeArtikelAn({ ...getArtikelNr('50-027-0007'), artikelnummer: neuNr, bezeichnung: 'Testartikel', quelle: 'Test' })
+const zProblem = legePreiszeileAn({ artikel: neuNr, a: ['', '', '', '', ''], preis: 99, status: 'fixed', seite: '', ref: null })
+pruefe(!neuProblem && !zProblem && getPreisListe().filter((p) => p.artikel === neuNr).map((p) => p.preis).join() === '99', 'Neuer Artikel mit Preiszeile 99 € angelegt', { neuProblem, zProblem })
+pruefe(probe(neuNr, {}).gesamt === 99, 'Die neue Preiszeile rechnet (Preisprobe 99 €)')
+setzeAllesZurueck()
+
+// Speichern ohne echte Änderung darf nichts schreiben (Überarbeitung 9: „Speichern" ist sofort zentral).
+{
+  setzeAllesZurueck()
+  const led = getArtikelNr('50-024-0008')
+  aendereArtikel(led.artikelnummer, { ...led })
+  const z100 = getPreisListe().find((p) => p.artikel === led.artikelnummer && p.a[0].startsWith('100'))
+  aenderePreiszeile(preisSchluessel(z100), { ...z100 })
+  const ohne = await speichereArtikelSofort(led.artikelnummer)
+  aendereArtikel(led.artikelnummer, { bemerkung: 'geändert' })
+  const mit = await speichereArtikelSofort(led.artikelnummer)
+  pruefe(ohne.gespeichert === 0 && mit.gespeichert === 1, `Speichern ohne Änderung schreibt nichts (${ohne.gespeichert}), mit Änderung genau den Artikel (${mit.gespeichert})`)
+  setzeAllesZurueck()
+}
+
+// Doppelte Achsenwerte — was der Dialog anzeigt und vor dem Speichern prüft.
+const ohneAchsen = doppelteAchsenwerte([{ a: ['', '', '', '', ''], neuOderGeaendert: false }, { a: ['', '', '', '', ''], neuOderGeaendert: true }], 0)
+pruefe(ohneAchsen.length === 1 && /genau eine Preiszeile/.test(doppelteZeilenMeldung(ohneAchsen, 0)), 'Festpreis ohne Achsen + zweite Zeile → Meldung „genau eine Preiszeile"')
+const mitAchsen = doppelteAchsenwerte(
+  [{ a: ['60 cm | 60er', 'PG1'], neuOderGeaendert: false }, { a: ['50 cm | 50er', 'PG1'], neuOderGeaendert: false }, { a: ['60 cm | 60er', 'pg1 '], neuOderGeaendert: true }],
+  2,
+)
+pruefe(/Zeilen 1 und 3 haben dieselben Achsenwerte \(60 cm \| 60er · PG1\)/.test(doppelteZeilenMeldung(mitAchsen, 2) ?? ''), `Doppelte Achsenwerte benannt: „${doppelteZeilenMeldung(mitAchsen, 2)?.slice(0, 70)}…"`)
+pruefe(doppelteAchsenwerte([{ a: ['x'], neuOderGeaendert: false }, { a: ['x'], neuOderGeaendert: false }], 1).length === 0, 'Bestehende Mehrdeutigkeit aus der Mappe blockiert das Bearbeiten nicht')
+pruefe(doppelteAchsenwerte([{ a: ['60er', 'PG1'], neuOderGeaendert: true }, { a: ['60er', 'PG2'], neuOderGeaendert: true }], 2).length === 0, 'Unterschiedliche Achsenwerte sind in Ordnung')
 
 console.log(fehler === 0 ? c.green(c.bold('\nAlle Prüfungen bestanden.\n')) : c.red(c.bold(`\n${fehler} Prüfung(en) fehlgeschlagen.\n`)))
 process.exit(fehler === 0 ? 0 : 1)

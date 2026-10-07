@@ -532,6 +532,17 @@ select.zellInput:-moz-focusring {
   color: var(--color-ink-muted);
 }
 
+.zeilenWarnung {
+  margin: 0;
+  padding: 9px 12px;
+  border: 1px solid color-mix(in srgb, var(--color-danger) 35%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--color-danger) 10%, transparent);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+  color: var(--color-ink);
+}
+
 .zeileHinzu {
   align-self: flex-start;
   padding: 7px 13px;

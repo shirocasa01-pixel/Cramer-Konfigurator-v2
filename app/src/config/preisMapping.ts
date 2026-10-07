@@ -71,6 +71,22 @@ export interface BauteilLookup {
   komponenten?: Array<{ artikel: string; label: string }>
   /** Name der Teilposition des Hauptartikels, wenn `komponenten` gesetzt sind. */
   teilLabel?: string
+  /**
+   * Immer diese Preisgruppe, egal was innen gewählt ist. Überarbeitung 9, S. 4: „Bitte bei
+   * der Schubladenunterteilung immer mit Preisgruppe 1 rechnen. Wir machen die Unterteilung
+   * immer in Dekoboard Anthrazitgrau, da diese zum Farbton der Schublade passt."
+   */
+  festePg?: PriceGroup
+  /**
+   * Die Ausführung (eine Zusatz-Auswahl des Ausstattungsteils) wählt den Artikel.
+   * Überarbeitung 9, S. 5: Conero G und H — „zum Anhaken, welche Variante geliefert werden
+   * soll": 12 Hosenhalter · 6 Hosenhalter / 1 Wäschesack · 2 Wäschesäcke. Jede Ausführung
+   * ist ein eigener Artikel (je mit Decoboard- und Rauchglas-Deckplatte).
+   */
+  artikelJeAuswahl?: {
+    auswahl: string
+    artikel: Record<string, { artikel: string; artikelBeiAuswahl?: string }>
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -380,7 +396,8 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
     komponenten: [{ artikel: '40-015-0002', label: 'Kleiderstange' }],
   },
   innenschublade: { artikel: '40-016-0001', nutztHoehe: true, nutztPg: true },
-  rollkorb: { artikel: '40-016-0002' },
+  // Überarbeitung 9, S. 3: Rollkörbe mit Preisgruppe (Innenkorpus, +30/40/50 %).
+  rollkorb: { artikel: '40-016-0002', nutztPg: true },
   'innenspiegel-drehtuer': { artikel: '40-018-0001' },
   krawattenspange: { artikel: '40-023-0012' },
   'led-syncro': { artikel: '50-024-0008' },
@@ -388,7 +405,8 @@ export const ausstattungLookups: Record<string, BauteilLookup> = {
   'kleiderlift-conero': { artikel: '40-023-0006' },
   'guertel-krawattenauszug-conero': { artikel: '40-023-0005' },
   'schuhablage-conero': { artikel: '40-023-0007' },
-  'schubladenunterteilung-craft': { artikel: '40-023-0011', nutztPg: true },
+  // Überarbeitung 9, S. 4: immer PG 1 (Decoboard Anthrazitgrau), unabhängig vom Innenkorpus.
+  'schubladenunterteilung-craft': { artikel: '40-023-0011', nutztPg: true, festePg: 'PG1' },
   'hemdeinsatz-craft': { artikel: '40-023-0008', nutztPg: true },
   'rollboden-schuhablage-craft': { artikel: '40-023-0010', nutztPg: true },
   kleiderbuegelhalter: { artikel: '40-023-0009' },
@@ -422,26 +440,53 @@ export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
     D: { artikel: '40-017-0004', artikelBeiAuswahl: '40-017-0023', nutztPg: true },
     E: { artikel: '40-017-0005', artikelBeiAuswahl: '40-017-0024', nutztPg: true },
     F: { artikel: '40-017-0006', artikelBeiAuswahl: '40-017-0025', nutztPg: true },
-    // G und H sind Festpreis-Container und nur im 100er Korpus lieferbar (S. 30); sie
-    // führen deshalb keine Preisgruppen-Achse. Das Preisblatt kennt DREI G-Ausführungen
-    // — 12 Hosenhalter (-0007), 2 Wäschesäcke (-0009), 6 Hosenhalter + 1 Wäschesack
-    // (-0011) — zum identischen Preis. Der Katalog bietet bisher nur ein „G" an; bis er
-    // die drei unterscheidet, steht hier die erste Ausführung, der Betrag stimmt für alle.
-    G: { artikel: '40-017-0007', artikelBeiAuswahl: '40-017-0008' },
-    H: { artikel: '40-017-0013', artikelBeiAuswahl: '40-017-0014' },
+    // G und H gibt es nur im 100er Korpus (S. 30). Das Preisblatt kennt je drei Ausführungen
+    // des Funktionsauszugs zum identischen Preis; für H wurden zwei davon mit Überarbeitung 9
+    // nach dem Muster von G angelegt (-0030…-0033).
+    // Überarbeitung 9, S. 5: G und H mit Preisgruppe (Innenkorpus, +30/40/50 %) und mit der
+    // Ausführung des Funktionsauszugs als Auswahl. Alle Ausführungen sind preisgleich, aber
+    // eigene Artikel — die AV sieht in der Kalkulation, WELCHE geliefert wird.
+    G: {
+      artikel: '40-017-0007',
+      artikelBeiAuswahl: '40-017-0008',
+      nutztPg: true,
+      artikelJeAuswahl: {
+        auswahl: 'funktionsauszug',
+        artikel: {
+          '12-hosenhalter': { artikel: '40-017-0007', artikelBeiAuswahl: '40-017-0008' },
+          '6-hosenhalter-1-waeschesack': { artikel: '40-017-0011', artikelBeiAuswahl: '40-017-0012' },
+          '2-waeschesaecke': { artikel: '40-017-0009', artikelBeiAuswahl: '40-017-0010' },
+        },
+      },
+    },
+    H: {
+      artikel: '40-017-0013',
+      artikelBeiAuswahl: '40-017-0014',
+      nutztPg: true,
+      artikelJeAuswahl: {
+        auswahl: 'funktionsauszug',
+        artikel: {
+          '12-hosenhalter': { artikel: '40-017-0013', artikelBeiAuswahl: '40-017-0014' },
+          '6-hosenhalter-1-waeschesack': { artikel: '40-017-0030', artikelBeiAuswahl: '40-017-0031' },
+          '2-waeschesaecke': { artikel: '40-017-0032', artikelBeiAuswahl: '40-017-0033' },
+        },
+      },
+    },
   },
   'container-craft': {
     A: { artikel: '40-017-0015', artikelBeiAuswahl: '40-017-0026', nutztPg: true },
     B: { artikel: '40-017-0016', artikelBeiAuswahl: '40-017-0027', nutztPg: true },
     C: { artikel: '40-017-0017', artikelBeiAuswahl: '40-017-0028', nutztPg: true },
   },
-  // Der Basis-Container führt seine Höhe als Rasterachse (4,5 R und 6 R) statt als
-  // eigenen Artikel — die Variante wird deshalb in eine Rasterstufe übersetzt.
-  // OHNE `nutztPg`: Er ist in Überarbeitung 6 nicht annotiert und trägt im Preisblatt
-  // weiterhin nur einen Preis (offene Rückfrage, siehe scripts/lib/refugium-pg.js).
+  // Der Basis-Container führt seine Höhe als Rasterachse statt als eigenen Artikel — die
+  // Variante wird deshalb in eine Rasterstufe übersetzt.
+  // Überarbeitung 9, S. 2: zusätzlich 3 R und 7,5 R, und die Preisgruppe kommt jetzt immer
+  // vom Innenkorpus (PG 2/3/4 = +30/40/50 % auf Container und Deckplatte).
   container: {
-    '4,5R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true },
-    '6R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true },
+    '3R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true, nutztPg: true },
+    '4,5R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true, nutztPg: true },
+    '6R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true, nutztPg: true },
+    '7,5R': { artikel: '40-017-0019', artikelBeiAuswahl: '40-017-0029', nutztHoehe: true, nutztPg: true },
   },
 }
 
@@ -452,7 +497,7 @@ export const containerLookups: Record<string, Record<string, BauteilLookup>> = {
  * Der Lookup löst das Etikett über die Preiszeilen des Artikels auf. Damit ändert eine
  * neue Containerhöhe in der Mappe nichts am Code.
  */
-export const containerRaster: Record<string, number> = { '4,5R': 4.5, '6R': 6 }
+export const containerRaster: Record<string, number> = { '3R': 3, '4,5R': 4.5, '6R': 6, '7,5R': 7.5 }
 
 /**
  * Rasterstufe aus einer Varianten-Bezeichnung („1,5R" ⇒ 1,5).
@@ -495,10 +540,36 @@ export const artikelAufschlaege: ReadonlyArray<{
   artikel: string
   /** Häkchen im Entwurf, das den Aufschlag auslöst. */
   ausloeser: 'raumteiler' | 'sichtRueckwandAussen'
+  /**
+   * Produktgruppen, bei denen es die Abfrage gar nicht gibt. Überarbeitung 9, S. 1: „Die
+   * Abfrage Raumteiler beim Kleiderschrank bitte ausblenden. Ist beim Kleiderschrank nicht
+   * relevant." Dort wird auch ein alter Haken nicht mehr berechnet.
+   */
+  nichtBeiProduktgruppen?: readonly string[]
 }> = [
-  { art: 'raumteiler', artikel: '90-037-0001', ausloeser: 'raumteiler' },
+  { art: 'raumteiler', artikel: '90-037-0001', ausloeser: 'raumteiler', nichtBeiProduktgruppen: ['kleiderschraenke'] },
   { art: 'sichtrueckwand', artikel: '90-037-0004', ausloeser: 'sichtRueckwandAussen' },
 ]
+
+/**
+ * Wird die Abfrage zu einem artikelbezogenen Aufschlag im Konfigurator angeboten?
+ *
+ * Überarbeitung 9: „Raumteiler und Sichtrückwand … auf Entwurf setzen in der Stammdaten-
+ * verwaltung, weil es selten genutzt wird." Die Abfrage erscheint deshalb nur, solange der
+ * Artikel AKTIV ist — wer sie braucht, schaltet ihn in der Artikelverwaltung frei. Ein schon
+ * gesetzter Haken bleibt sichtbar, damit er sich wieder abwählen lässt.
+ */
+export function aufschlagAbfrageSichtbar(
+  art: 'raumteiler' | 'sichtrueckwand',
+  produktgruppeId: string | undefined,
+  artikelStatus: string | undefined,
+  bereitsGesetzt: boolean,
+): boolean {
+  const eintrag = artikelAufschlaege.find((e) => e.art === art)
+  if (!eintrag) return false
+  if (produktgruppeId && eintrag.nichtBeiProduktgruppen?.includes(produktgruppeId)) return false
+  return artikelStatus === 'aktiv' || bereitsGesetzt
+}
 
 /**
  * NACHGELAGERTE ZUSCHLÄGE — Stufe 2 der Kalkulation (Preisliste 06.2026).
@@ -512,9 +583,11 @@ export const serviceZuschlaege: ReadonlyArray<{
   artikel: string
   /** Schalter in `Draft.pricingOptions`. */
   option: 'montage' | 'lieferungRegional'
+  /** Vom Berater überschriebener Satz in `Draft.pricingOptions` (Überarbeitung 9). */
+  prozentFeld: 'montageProzent' | 'lieferungProzent'
 }> = [
-  { art: 'montage', artikel: '90-039-0001', option: 'montage' },
-  { art: 'lieferung', artikel: '90-039-0002', option: 'lieferungRegional' },
+  { art: 'montage', artikel: '90-039-0001', option: 'montage', prozentFeld: 'montageProzent' },
+  { art: 'lieferung', artikel: '90-039-0002', option: 'lieferungRegional', prozentFeld: 'lieferungProzent' },
 ]
 
 /**

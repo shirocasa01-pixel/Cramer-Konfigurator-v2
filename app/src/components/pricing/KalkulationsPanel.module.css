@@ -393,3 +393,34 @@
 .table tfoot .tdNum {
   border-bottom: none;
 }
+
+/* Überarbeitung 9: Satz von Montage/Lieferung je Entwurf. */
+.satzFeld {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 14px;
+  font-size: 0.8rem;
+  color: var(--color-ink-secondary);
+}
+
+.satzInput {
+  width: 56px;
+  padding: 3px 6px;
+  border: 1px solid var(--color-line-strong);
+  border-radius: 6px;
+  font: inherit;
+  text-align: right;
+  background: var(--color-surface);
+  color: var(--color-ink);
+}
+
+.satzInput:disabled {
+  opacity: 0.6;
+}
+
+.satzVorgabe {
+  margin-left: 4px;
+  font-size: 0.75rem;
+  color: var(--color-ink-muted);
+}

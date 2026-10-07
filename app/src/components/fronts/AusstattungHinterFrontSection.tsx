@@ -3,8 +3,10 @@ import { Select } from '../ui/Select'
 import { TextField } from '../ui/TextField'
 import { makeEquipmentItem } from '../../lib/frontsHelpers'
 import {
+  equipmentChoiceGilt,
   equipmentMaxRaster,
   equipmentSperrgrund,
+  equipmentVariantenSperrgrund,
   getEquipmentOption,
   isEquipmentAvailableInSondertiefe,
   type EquipmentChoice,
@@ -191,18 +193,29 @@ export function AusstattungHinterFrontSection({
                         <div className={styles.variants}>
                           <span className={styles.variantLabel}>{option.variantLabel ?? 'Variante'}</span>
                           <div className={styles.chips}>
-                            {option.variants.map((v) => (
-                              <button
-                                key={v.value}
-                                type="button"
-                                className={item.variant === v.value ? styles.chipActive : styles.chip}
-                                onClick={() => patchItem(item.id, { variant: v.value })}
-                                aria-pressed={item.variant === v.value}
-                              >
-                                {v.label}
-                              </button>
-                            ))}
+                            {option.variants.map((v) => {
+                              // Überarbeitung 9, S. 5: Conero G/H nur im 100er Korpus.
+                              const variantenSperre = equipmentVariantenSperrgrund(option, v.value, masse.korpusBreiteCm)
+                              return (
+                                <button
+                                  key={v.value}
+                                  type="button"
+                                  className={item.variant === v.value ? styles.chipActive : styles.chip}
+                                  onClick={() => patchItem(item.id, { variant: v.value })}
+                                  aria-pressed={item.variant === v.value}
+                                  disabled={Boolean(variantenSperre) && item.variant !== v.value}
+                                  title={variantenSperre ?? undefined}
+                                >
+                                  {v.label}
+                                </button>
+                              )
+                            })}
                           </div>
+                          {equipmentVariantenSperrgrund(option, item.variant, masse.korpusBreiteCm) ? (
+                            <span className={styles.optionSperre}>
+                              {equipmentVariantenSperrgrund(option, item.variant, masse.korpusBreiteCm)}
+                            </span>
+                          ) : null}
                         </div>
                       ) : null}
 
@@ -312,7 +325,7 @@ export function AusstattungHinterFrontSection({
                       ) : null}
 
                       {/* Zusatz-Auswahlen aus dem Katalog (Kleiderstange, Glasart, Seite, Breite). */}
-                      {option.choices?.map((choice) => {
+                      {option.choices?.filter((choice) => equipmentChoiceGilt(choice, item.variant)).map((choice) => {
                         const wert = item.choices?.[choice.id] ?? choice.standard ?? ''
                         return (
                           <div key={choice.id} className={styles.fields}>
@@ -460,6 +473,8 @@ function HoehenZeile({
     }
     return null
   }
+  // Überarbeitung 9, S. 3: Der Korpusboden ist eine eigene Position (0), nicht Raster 1.
+  const bodenSperre = mitBoden ? sperre(0) : null
   const modi: { wert: EquipmentHoehe['modus']; label: string }[] = [
     { wert: 'raster', label: 'Rasterhöhe' },
     { wert: 'cm', label: 'Sonderhöhe (cm)' },
@@ -470,17 +485,22 @@ function HoehenZeile({
     <div className={styles.hoehenZeile}>
       {nummer ? <span className={styles.hoehenNummer}>{nummer}.</span> : null}
       <div className={styles.chips}>
-        {modi.map((m) => (
-          <button
-            key={m.wert}
-            type="button"
-            className={hoehe.modus === m.wert ? styles.chipActive : styles.chip}
-            onClick={() => onChange({ modus: m.wert })}
-            aria-pressed={hoehe.modus === m.wert}
-          >
-            {m.label}
-          </button>
-        ))}
+        {modi.map((m) => {
+          const gesperrt = m.wert === 'boden' && Boolean(bodenSperre) && hoehe.modus !== 'boden'
+          return (
+            <button
+              key={m.wert}
+              type="button"
+              className={hoehe.modus === m.wert ? styles.chipActive : styles.chip}
+              onClick={() => onChange({ modus: m.wert })}
+              aria-pressed={hoehe.modus === m.wert}
+              disabled={gesperrt}
+              title={m.wert === 'boden' && bodenSperre ? bodenSperre : undefined}
+            >
+              {m.label}
+            </button>
+          )
+        })}
       </div>
       {hoehe.modus === 'raster' ? (
         <select

@@ -137,6 +137,12 @@ export interface FrontType {
    */
   ohneHoehe?: boolean
   /**
+   * Höhe zusätzlich als Rasterstufe wählbar (Schaltflächen neben dem cm-Feld). Überarbeitung 9,
+   * S. 8 (Schübe): „Die Höhe der Schubladen soll auch in Rastern gewählt werden können:
+   * 1 Raster, 1,5 Raster, 2 Raster."
+   */
+  hoeheRasterStufen?: number[]
+  /**
    * Punkt 7.7: Zulässige Türbreite in cm. Bei Decoboard und Xtreme Plus gilt das
    * erweiterte Maximum, weil diese Türblätter nicht hängen.
    */
@@ -359,7 +365,9 @@ export const frontTypes: FrontType[] = [
     tuerbreiteCm: { min: 80, max: 120, maxDecoboardXp: 150 },
   },
   // Schübe: exakt die Baumstruktur der Drehtüren (laut Doku).
-  { id: 'schuebe', label: 'Schübe', styleLines: drehStyleLines },
+  // Überarbeitung 9, S. 8: Höhe auch in Rastern; „Maximale Höhe von Schubladen in cm ist
+  // 40 cm! Höher geht nicht."
+  { id: 'schuebe', label: 'Schübe', styleLines: drehStyleLines, maxHeightCm: 40, hoeheRasterStufen: [1, 1.5, 2] },
   // Klappen (Phase 9b) – Stil-Linien wie Drehtüren; bei Kleiderschränken ausgeblendet.
   { id: 'stauraumklappe', label: 'Stauraumklappe', styleLines: drehStyleLines, maxHeightCm: 45, nichtBeiKleiderschrank: true },
   { id: 'hochstellklappe', label: 'Hochstellklappe', styleLines: drehStyleLines, nichtBeiKleiderschrank: true },

@@ -63,6 +63,8 @@ export interface EquipmentChoice {
   standard?: string
   /** Bei dieser Auswahl zusätzlich ein Freitextfeld einblenden (z. B. „Wunschbreite"). */
   freitextBei?: { wert: string; label: string; platzhalter: string }
+  /** Nur bei diesen Varianten abfragen (Conero: Funktionsauszug nur bei G und H). */
+  nurBeiVarianten?: string[]
 }
 
 /**
@@ -135,6 +137,19 @@ export interface EquipmentOption {
   korpusBreitenCm?: number[]
   /** Mindest-Korpusbreite (cm) — „Bei Korpus kleiner 45er ist kein Kleiderlift möglich." */
   minKorpusBreiteCm?: number
+  /**
+   * Einzelne VARIANTEN nur bei bestimmten Korpus-Nennbreiten. Überarbeitung 9, S. 5:
+   * „Conero Container G + H dürfen nur bei Korpussen mit 100er Breite freigeschaltet werden.
+   * Bei anderen Breiten nicht möglich."
+   */
+  variantenKorpusBreitenCm?: Record<string, number[]>
+  /**
+   * Mindestabstand (cm) zwischen zwei Stück derselben Option im Segment. Überarbeitung 9,
+   * S. 4 + Ergänzung: Rollboden mit Schuhablage Craft — „Grundsätzlich soll der Höhen-
+   * unterschied zwischen 2 Auszügen immer ca. 3 Raster betragen"; näher als 35 cm ist nicht
+   * machbar. Ausgewertet in `lib/rasterBelegung.ts`.
+   */
+  mindestAbstandCm?: number
   /** Mindest-Frontbreite (cm) — Innenspiegel: „Nicht bei Fronten kleiner als 47 cm." */
   minFrontBreiteCm?: number
   /** Höchstzahl im Segment — „Je Korpus ist nur 1 Kleiderlift möglich." */
@@ -199,6 +214,19 @@ const CRAFT_MODELLE: EquipmentVariant[] = [
   { value: 'B', label: 'Craft B' },
   { value: 'C', label: 'Craft C' },
 ]
+/** Überarbeitung 9, S. 5: Ausführung des Funktionsauszugs bei Conero G und H — preisgleich. */
+const CONERO_FUNKTIONSAUSZUG: EquipmentChoice = {
+  id: 'funktionsauszug',
+  label: 'Funktionsauszug – Ausführung',
+  standard: '12-hosenhalter',
+  nurBeiVarianten: ['G', 'H'],
+  options: [
+    { value: '12-hosenhalter', label: 'mit 12 Hosenhaltern' },
+    { value: '6-hosenhalter-1-waeschesack', label: 'mit 6 Hosenhaltern / 1 Wäschesack' },
+    { value: '2-waeschesaecke', label: 'mit 2 Wäschesäcken' },
+  ],
+}
+
 const CONERO_MODELLE: EquipmentVariant[] = [
   { value: 'A', label: 'Conero A' },
   { value: 'B', label: 'Conero B' },
@@ -298,7 +326,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         heightMode: 'keine',
         rasterBelegung: 'variante',
         detailFields: ['rauchglas', 'note'],
-        hint: 'Steht immer am Schrankboden; Breite an Korpusbreite; Material wie Innenkorpus.',
+        hint: 'Steht immer am Schrankboden; Breite an Korpusbreite; Material und Preisgruppe wie Innenkorpus.',
       },
       {
         // Überarbeitung 6, S. 2: „Beim Rollboden muss auch für jeden der 4 Böden (Anzahl)
@@ -334,7 +362,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         heightPerPiece: true,
         rasterBelegung: 'punkt',
         korpusBreitenCm: ROLLKORB_BREITEN_CM,
-        hint: 'Nur im 50er, 60er und 100er Korpus — er wird nicht in Sondergrößen gefertigt. Je Korb eine eigene Einbauhöhe.',
+        hint: 'Nur im 50er, 60er und 100er Korpus — er wird nicht in Sondergrößen gefertigt. Je Korb eine eigene Einbauhöhe. Preisgruppe wie Innenkorpus.',
       },
       {
         id: 'innenspiegel-drehtuer',
@@ -380,12 +408,12 @@ export const equipmentCategories: EquipmentCategory[] = [
         hint: 'Nicht bei Fronten unter 47 cm.',
       },
       {
+        // Überarbeitung 9, S. 4: Einbauhöhe gestrichen — „Position besser nur als Text definieren."
         id: 'kleiderbuegelhalter',
         label: 'Kleiderbügelhalter ausziehbar',
         availableInSondertiefe: true,
         detailFields: ['qty', 'position'],
-        heightMode: 'raster',
-        positionPlaceholder: 'z. B. rechts',
+        positionPlaceholder: 'z. B. rechts, oben',
       },
       {
         // Format + Position als Freitext — die Vorlage zeigt hier weder Rasterhöhe
@@ -458,6 +486,7 @@ export const equipmentCategories: EquipmentCategory[] = [
         id: 'schubladenunterteilung-craft',
         label: 'Schubladenunterteilung Craft',
         detailFields: ['qty'],
+        hint: 'Immer Decoboard Anthrazitgrau (passt zum Farbton der Schublade) — gerechnet in Preisgruppe 1.',
         // „Darf sich nur auswählen lassen, wenn es Schubladen (Container oder
         // Innenschubladen) im Schrank gibt. Es muß immer gewählt werden, für welche
         // Schublade die Unterteilung gedacht ist."
@@ -489,7 +518,13 @@ export const equipmentCategories: EquipmentCategory[] = [
         preisAusKorpusbreite: true,
         heightMode: 'raster-oder-boden',
         // Überarbeitung 6, S. 10: „Benötigte Anzahl?" — der Preis ist ein Stückpreis.
-        detailFields: ['qty', 'position'],
+        // Überarbeitung 9, S. 4: Position gestrichen; „Hier müssen die Einbauhöhen verschiedener
+        // Auszüge planbar sein. Grundsätzlich soll der Höhenunterschied zwischen 2 Auszügen
+        // immer ca. 3 Raster betragen" — näher als 35 cm ist nicht machbar.
+        detailFields: ['qty'],
+        heightPerPiece: true,
+        mindestAbstandCm: 35,
+        hint: 'Je Auszug eine eigene Einbauhöhe; zwischen zwei Auszügen mindestens ca. 35 cm (3 Raster).',
       },
     ],
   },
@@ -505,7 +540,9 @@ export const equipmentCategories: EquipmentCategory[] = [
         // Überarbeitung 6, S. 11: „Notiz + Einbauhöhe löschen. Steht immer am Boden."
         detailFields: ['rauchglas'],
         heightMode: 'keine',
-        hint: 'Steht immer am Schrankboden. Material wie Innenkorpus. Modelle G/H nur für 100er Korpus.',
+        variantenKorpusBreitenCm: { G: [100], H: [100] },
+        choices: [CONERO_FUNKTIONSAUSZUG],
+        hint: 'Steht immer am Schrankboden. Material und Preisgruppe wie Innenkorpus. Modelle G/H nur im 100er Korpus.',
       },
       {
         id: 'kleiderlift-conero',
@@ -514,10 +551,13 @@ export const equipmentCategories: EquipmentCategory[] = [
         hint: 'Je Korpus ist immer nur ein Kleiderlift möglich.',
       },
       {
+        // Überarbeitung 9, S. 5: „Hier muss immer die Wunschhöhe ausgewählt werden können" —
+        // je Auszug eine eigene Höhe.
         id: 'guertel-krawattenauszug-conero',
         label: 'Gürtel-/Krawattenauszug Conero',
         detailFields: ['qty'],
         heightMode: 'raster',
+        heightPerPiece: true,
         choices: [MONTAGESEITE],
       },
       {
@@ -610,6 +650,26 @@ export function equipmentSperrgrund(
     return `Nicht bei Fronten unter ${option.minFrontBreiteCm} cm (hier: ${frontBreiteCm} cm).`
   }
   return null
+}
+
+/**
+ * Warum eine VARIANTE in diesem Segment nicht wählbar ist (Conero G/H nur im 100er) —
+ * oder `null`. Ohne bekannte Korpusbreite wird nichts gesperrt.
+ */
+export function equipmentVariantenSperrgrund(
+  option: EquipmentOption,
+  variante: string | undefined,
+  korpusBreiteCm: number | undefined,
+): string | null {
+  const erlaubt = variante ? option.variantenKorpusBreitenCm?.[variante] : undefined
+  if (!erlaubt || korpusBreiteCm == null || erlaubt.includes(korpusBreiteCm)) return null
+  const name = option.variants?.find((v) => v.value === variante)?.label.replace(/s*(.*)$/, '') ?? variante
+  return `${name} gibt es nur im ${erlaubt.map((b) => `${b}er`).join(', ')} Korpus (hier: ${korpusBreiteCm}er).`
+}
+
+/** Gilt eine Zusatz-Auswahl für die gewählte Variante? (`nurBeiVarianten`) */
+export function equipmentChoiceGilt(choice: EquipmentChoice, variante: string | undefined): boolean {
+  return !choice.nurBeiVarianten || (variante != null && choice.nurBeiVarianten.includes(variante))
 }
 
 /**

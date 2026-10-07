@@ -2,7 +2,7 @@ import type { Draft, FrontColumn, FrontElement, FrontsData } from '../types/inde
 import { ausgeschlosseneOptionIds, getFrontType, getStyleLine } from '../config/frontCatalog.ts'
 import { MATERIAL_CUSTOM_ID } from '../config/materialMatrix.ts'
 import { fehlenderFarbcode, isMaterialSelectionComplete } from './materialRules.ts'
-import { frontMaterialGroupId, hasZweilaeufigeSchiebetuer, isFrontFieldVisible } from './frontsHelpers.ts'
+import { brauchtGlasLackierung, frontMaterialGroupId, hasZweilaeufigeSchiebetuer, isFrontFieldVisible } from './frontsHelpers.ts'
 import {
   entwurfsGeometrie,
   pruefeSpalte,
@@ -71,9 +71,15 @@ export function unzulaessigeOberflaeche(element: FrontElement): string | null {
   return null
 }
 
+/** Überarbeitung 9, S. 6: Weißglas hinterlackiert an einer Drehtür braucht die Lackierart. */
+export function fehlendeGlasLackierung(element: FrontElement): boolean {
+  return brauchtGlasLackierung(element) && !element.glasLackierung
+}
+
 export function isFrontElementValid(element: FrontElement, vorgabeAnschlag?: 'links' | 'rechts'): boolean {
   if (!element.label.trim()) return false
   if (exceedsMaxHeight(element)) return false
+  if (fehlendeGlasLackierung(element)) return false
   if (fehlenderTuerAnschlag(element, vorgabeAnschlag)) return false
   const type = getFrontType(element.typeId)
   if (!type || type.styleLines.length === 0) return true
@@ -143,6 +149,8 @@ export function getFrontsIssues(
         issues.push(`${pos} · ${name}: ${oberflaeche}`)
       } else if (Object.values(element.fieldValues ?? {}).some((v) => fehlenderFarbcode(v?.material))) {
         issues.push(`${pos} · ${name}: Farbton / Farbnummer der Sonderfarbe eintragen.`)
+      } else if (fehlendeGlasLackierung(element)) {
+        issues.push(`${pos} · ${name}: Weißglas hinterlackiert — „vollflächig" oder „Passepartout (Rahmen)" wählen.`)
       } else if (!isFrontElementValid(element, vorgabe)) {
         issues.push(`${pos} · ${name}: Material auswählen.`)
       }

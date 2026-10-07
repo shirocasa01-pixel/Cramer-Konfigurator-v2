@@ -314,6 +314,37 @@ function kanonisch(wert: unknown): string {
 const zeilenGleich = (a: Zeile | undefined, b: Zeile | undefined) =>
   kanonisch(a ? [a.aktion, a.daten] : null) === kanonisch(b ? [b.aktion, b.daten] : null)
 
+/** Grundstand (Mappe) je Bereich und Schlüssel — für die Erkennung wirkungsloser Änderungen. */
+let grundstandIndex: Map<string, Record<string, unknown>> | null = null
+function grundstand(bereich: string, schluessel: string): Record<string, unknown> | undefined {
+  if (!grundstandIndex) {
+    grundstandIndex = new Map()
+    const rein = (b: string, liste: readonly unknown[], key: (e: never) => string) => {
+      for (const e of liste) grundstandIndex!.set(kartenSchluessel(b, key(e as never)), e as Record<string, unknown>)
+    }
+    rein('artikel', basisArtikel, (a: Artikel) => a.artikelnummer)
+    rein('preise', basisPreise, (p: Preiszeile) => preisSchluessel(p))
+    rein('mitarbeiter', basisMitarbeiter, (m: Mitarbeiter) => m.personalnr)
+    rein('filialen', basisFilialen, (f: Filiale) => f.filialnr)
+    rein('kategorien', basisOberflaechenkategorien, (k: Oberflaechenkategorie) => k.id)
+    rein('oberflaechen', basisOberflaechen, (o: Oberflaeche) => oberflaecheSchluessel(o))
+  }
+  return grundstandIndex.get(kartenSchluessel(bereich, schluessel))
+}
+
+/**
+ * Eine „Änderung", die Feld für Feld dem Grundstand entspricht, ändert nichts. Die Editoren
+ * schreiben den ganzen Datensatz zurück; seit „Speichern" in den Fenstern sofort zentral
+ * speichert (Überarbeitung 9), legte ein Speichern ohne Änderung sonst einen Override an —
+ * und der verdeckt künftige Pflege in der Mappe.
+ */
+function istWirkungslos(z: Zeile): boolean {
+  if (z.aktion !== 'geaendert' || !z.daten || typeof z.daten !== 'object') return false
+  const basis = grundstand(z.bereich, z.schluessel)
+  if (!basis) return false
+  return Object.entries(z.daten as Record<string, unknown>).every(([k, v]) => kanonisch(v ?? null) === kanonisch(basis[k] ?? null))
+}
+
 /**
  * Die ausstehenden Änderungen als Zeilen: Schlüssel → neuer Inhalt, oder `null` für
  * „in Supabase entfernen" (= zurück auf den Excel-Grundstand).
@@ -323,7 +354,8 @@ function ausstehendeZeilen(filter?: (bereich: string, schluessel: string) => boo
   const gespeichert = overlayZuZeilen(commitStand)
   const offen = new Map<string, Zeile | null>()
   for (const k of new Set([...lokal.keys(), ...gespeichert.keys()])) {
-    const neu = lokal.get(k)
+    const roh = lokal.get(k)
+    const neu = roh && istWirkungslos(roh) ? undefined : roh
     const alt = gespeichert.get(k)
     if (zeilenGleich(neu, alt)) continue
     const ref = neu ?? alt!
@@ -617,6 +649,42 @@ export function speichereDatensatzSofort(bereich: AenderungsBereich | 'mitarbeit
 }
 
 /**
+ * Speichert EINEN Artikel samt seiner Preiszeilen sofort nach Supabase.
+ *
+ * Überarbeitung 9 (10/2026): „In der Stammdatenverwaltung steht 400 €, die Kalkulation zeigt
+ * 405 €." Ursache: Der Knopf „Speichern" im Artikeldialog übernahm nur in den Bearbeitungs-
+ * stand DIESES Browsers; nach Supabase ging es erst mit dem zweiten „Speichern" oben im Kopf.
+ * Jeder Berater-Login und jedes andere Gerät rechnete deshalb weiter mit dem alten Preis.
+ * Seitdem schreibt der Artikeldialog direkt — was dort gespeichert ist, gilt überall.
+ */
+export function speichereArtikelSofort(artikelnummer: string): Promise<SpeicherErgebnis> {
+  return speichereAlleAenderungen(
+    (bereich, schluessel) =>
+      (bereich === 'artikel' && schluessel === artikelnummer) ||
+      (bereich === 'preise' && schluessel.startsWith(`${artikelnummer}#`)),
+  )
+}
+
+/**
+ * Speichert einzelne Datensätze sofort und liefert eine Fehlermeldung für den Dialog —
+ * oder `null`. Für die Dialoge von Oberflächen, Kategorien und Filialen: Die Preisgruppe
+ * einer Oberfläche geht direkt in die Front-Kalkulation ein und darf deshalb genauso wenig
+ * nur in einem Browser liegen wie ein Artikelpreis (Überarbeitung 9).
+ */
+export async function speichereDatensaetzeSofort(datensaetze: Array<[bereich: string, schluessel: string]>): Promise<string | null> {
+  const ziel = new Set(datensaetze.map(([b, s]) => kartenSchluessel(b, s)))
+  try {
+    const { konflikte } = await speichereAlleAenderungen((b, s) => ziel.has(kartenSchluessel(b, s)))
+    if (konflikte.length > 0) {
+      return `Nicht gespeichert: inzwischen von ${konflikte[0].von ?? 'einem anderen Administrator'} geändert — der aktuelle Stand ist geladen, bitte prüfen und erneut speichern.`
+    }
+    return null
+  } catch (error) {
+    return `Nicht gespeichert — Supabase meldet: ${(error as Error).message}. Die Änderung bleibt auf diesem Gerät vorgemerkt.`
+  }
+}
+
+/**
  * Lädt den gespeicherten Stand aus Supabase und legt die ausstehenden Eingaben dieses
  * Geräts wieder darüber. Liefert true, wenn sich dabei etwas geändert hat.
  */
@@ -823,6 +891,26 @@ export function dupliziereArtikel(artikelnummer: string): { nummer: string } | {
 // Preiszeilen
 // ---------------------------------------------------------------------------
 
+/**
+ * SCHLÜSSEL IM GRUNDSTAND zu einer Preiszeile, wie sie gerade angezeigt wird.
+ *
+ * Änderungen und Löschungen einer Grundstand-Zeile stehen unter IHREM ursprünglichen
+ * Schlüssel (Artikel + Achsenwerte der Mappe). Wurden die Achsenwerte schon einmal
+ * geändert, hat die angezeigte Zeile aber einen anderen Schlüssel. Bis 09/2026 landete
+ * jede weitere Änderung — und das Löschen — dann unter diesem neuen Schlüssel, passte zu
+ * keiner Grundstand-Zeile und ging still verloren.
+ */
+function grundSchluessel(ov: StammdatenOverlay, schluessel: string): string {
+  const [artikelnummer] = schluessel.split('#')
+  for (const basis of basisPreise) {
+    if (basis.artikel !== artikelnummer) continue
+    const k = preisSchluessel(basis)
+    const patch = ov.geaendertePreise[k]
+    if (patch && preisSchluessel({ ...basis, ...patch }) === schluessel) return k
+  }
+  return schluessel
+}
+
 export function aenderePreiszeile(schluessel: string, patch: Partial<Preiszeile>): void {
   anwenden((ov) => {
     const neuAngelegt = ov.neuePreise.find((p) => preisSchluessel(p) === schluessel)
@@ -830,7 +918,8 @@ export function aenderePreiszeile(schluessel: string, patch: Partial<Preiszeile>
       Object.assign(neuAngelegt, patch)
       return
     }
-    ov.geaendertePreise[schluessel] = { ...ov.geaendertePreise[schluessel], ...patch }
+    const k = grundSchluessel(ov, schluessel)
+    ov.geaendertePreise[k] = { ...ov.geaendertePreise[k], ...patch }
   })
 }
 
@@ -854,8 +943,9 @@ export function loeschePreiszeile(schluessel: string): void {
       ov.neuePreise.splice(index, 1)
       return
     }
-    delete ov.geaendertePreise[schluessel]
-    if (!ov.geloeschtePreise.includes(schluessel)) ov.geloeschtePreise.push(schluessel)
+    const k = grundSchluessel(ov, schluessel)
+    delete ov.geaendertePreise[k]
+    if (!ov.geloeschtePreise.includes(k)) ov.geloeschtePreise.push(k)
   })
 }
 

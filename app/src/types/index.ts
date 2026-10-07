@@ -252,6 +252,11 @@ export interface FrontElement {
    */
   griffProfilFarbe?: string
   /**
+   * Überarbeitung 9, S. 6: Weißglas hinterlackiert — vollflächig lackiert oder nur ein Rahmen
+   * (Passepartout, ca. 5 cm umlaufend, Mitte Klarglas = Vitrinentür). Nur bei Drehtüren.
+   */
+  glasLackierung?: 'vollflaechig' | 'passepartout'
+  /**
    * Phase A: Freitext-Farbe direkt nach der Griffwahl („Farbe nach Griffwahl"). Beim
    * Edge-Griff (Stahl) steht hier der RAL-Ton.
    */
@@ -868,6 +873,13 @@ export interface Draft {
   pricingOptions?: {
     montage: boolean
     lieferungRegional: boolean
+    /**
+     * Überarbeitung 9: Der Berater kann den Satz je Entwurf überschreiben („verschiedene
+     * Berater verkaufen für verschiedene Kunden verschieden"). Leer ⇒ der Satz aus der
+     * Artikelverwaltung (Vorgabe 10 % / 3 %). Prozentpunkte, 8 = 8 %.
+     */
+    montageProzent?: number
+    lieferungProzent?: number
   }
 
   // --- Phase 9 (Gesamtpreis: Korpus + Aussenset + Innen + Upgrades) ---

@@ -21,8 +21,10 @@ import {
   legePreiszeileAn,
   loeschePreiszeile,
   preisSchluessel,
+  speichereArtikelSofort,
   type Achsenwerte,
 } from '../../lib/stammdatenStore.ts'
+import { doppelteAchsenwerte, doppelteZeilenMeldung } from '../../lib/preiszeilenPruefung.ts'
 import { OHNE_AUTOFILL, ZellenFeld } from './ZellenFeld.tsx'
 import { AufschlagFelder, PreisartPruefung, PreisartWahl, Preisprobe } from './PreisartEditor.tsx'
 import styles from './ArtikelDetailModal.module.css'
@@ -101,6 +103,13 @@ const BEREICHE: { id: Bereich; titel: string }[] = [
   { id: 'preise', titel: 'Preisart & Preise' },
 ]
 
+/** Unterscheidet sich das Formular vom geöffneten Artikel? (Feldweise, Reihenfolge egal.) */
+function artikelGeaendert(original: Artikel | null, form: Artikel): boolean {
+  if (!original) return true
+  const felder = new Set([...Object.keys(original), ...Object.keys(form)]) as Set<keyof Artikel>
+  return [...felder].some((k) => JSON.stringify(original[k] ?? null) !== JSON.stringify(form[k] ?? null))
+}
+
 /** Leerer Artikel für den Anlegemodus. */
 function leererArtikel(): Artikel {
   return {
@@ -156,6 +165,7 @@ export function ArtikelDetailModal({
   const neueZeilenId = useRef(0)
   const [entfernt, setEntfernt] = useState<string[]>([])
   const [fehler, setFehler] = useState<string | null>(null)
+  const [speichert, setSpeichert] = useState(false)
 
   useEffect(() => {
     function beiEsc(e: KeyboardEvent) {
@@ -174,11 +184,43 @@ export function ArtikelDetailModal({
     return codes.map((c) => serien.find((s) => s.code === c)!).filter(Boolean)
   }, [form.modus])
 
-  function speichern() {
+  /*
+   * ZUORDNUNG ZEILE ↔ ORIGINAL über die `_localId`, nicht über die Achsenwerte.
+   *
+   * Bis 09/2026 wurde eine Zeile beim Speichern an ihrem Schlüssel (Artikel + Achsenwerte)
+   * wiedererkannt. Wer die Achsenwerte einer bestehenden Zeile änderte, bekam deshalb eine
+   * NEUE Zeile — und die alte blieb daneben stehen.
+   */
+  const originalVon = useMemo(
+    () => new Map<string, Preiszeile>(preiszeilen.map((z, i) => [`zeile-${i}`, z])),
+    [preiszeilen],
+  )
+
+  /** Doppelte Achsenwerte — live unter der Tabelle angezeigt und vor dem Speichern geprüft. */
+  const doppelMeldung = useMemo(() => {
+    const doppelt = doppelteAchsenwerte(
+      zeilen.map((z) => {
+        const original = originalVon.get(z._localId)
+        return { a: z.a, neuOderGeaendert: !original || original.a.join('|') !== z.a.join('|') }
+      }),
+      form.achsen.length,
+    )
+    return doppelteZeilenMeldung(doppelt, form.achsen.length)
+  }, [zeilen, originalVon, form.achsen.length])
+
+  async function speichern() {
+    if (speichert) return
     const nummer = form.artikelnummer.trim()
     if (!form.bezeichnung.trim()) {
       setFehler('Bitte eine Bezeichnung angeben.')
       setBereich('allgemein')
+      return
+    }
+    // Erst alles prüfen, dann schreiben: Ein Fehler mitten im Speichern ließ früher einen
+    // halb übernommenen Stand zurück, und der zweite Klick legte Zeilen doppelt an.
+    if (doppelMeldung) {
+      setFehler(doppelMeldung)
+      setBereich('preise')
       return
     }
 
@@ -189,21 +231,21 @@ export function ArtikelDetailModal({
         setBereich('allgemein')
         return
       }
-    } else {
+    } else if (artikelGeaendert(artikel, form)) {
+      // Nur bei echter Änderung: Seit „Speichern" sofort zentral schreibt, legte ein Speichern
+      // ohne Änderung sonst einen Override an, der künftige Pflege in der Mappe verdeckt.
       aendereArtikel(nummer, form)
     }
 
-    // Preiszeilen: entfernte zuerst, dann geänderte/neue.
+    // Preiszeilen: entfernte zuerst, dann geänderte, dann neue. Jede Zeile trägt die
+    // endgültige Artikelnummer — im Anlegemodus stand sie beim Hinzufügen evtl. noch nicht fest.
     for (const schluessel of entfernt) loeschePreiszeile(schluessel)
-    for (const zeile of zeilen) {
-      const original = preiszeilen.find((z) => preisSchluessel(z) === preisSchluessel(zeile))
+    const neue: Preiszeile[] = []
+    for (const { _localId, ...rest } of zeilen) {
+      const zeile: Preiszeile = { ...rest, artikel: nummer }
+      const original = originalVon.get(_localId)
       if (!original) {
-        const problem = legePreiszeileAn(zeile)
-        if (problem) {
-          setFehler(problem)
-          setBereich('preise')
-          return
-        }
+        neue.push(zeile)
         continue
       }
       const geaendert =
@@ -213,8 +255,37 @@ export function ArtikelDetailModal({
         original.a.join('|') !== zeile.a.join('|')
       if (geaendert) aenderePreiszeile(preisSchluessel(original), zeile)
     }
+    for (const zeile of neue) {
+      const problem = legePreiszeileAn(zeile)
+      if (problem) {
+        setFehler(problem)
+        setBereich('preise')
+        return
+      }
+    }
 
-    onClose()
+    // Sofort nach Supabase: Erst dann rechnen Konfigurator und Kalkulation auf JEDEM Gerät
+    // (auch bei jedem Berater) mit dem neuen Stand — siehe `speichereArtikelSofort`.
+    setSpeichert(true)
+    setFehler(null)
+    try {
+      const { konflikte } = await speichereArtikelSofort(nummer)
+      if (konflikte.length > 0) {
+        setFehler(
+          `Nicht gespeichert: ${konflikte[0].schluessel} wurde inzwischen von ${konflikte[0].von ?? 'einem anderen Administrator'} ` +
+            'geändert. Der aktuelle Stand ist geladen — bitte prüfen und erneut speichern.',
+        )
+        return
+      }
+      onClose()
+    } catch (error) {
+      setFehler(
+        `Nicht gespeichert — Supabase meldet: ${(error as Error).message}. Die Änderung bleibt auf diesem Gerät ` +
+          'vorgemerkt („Speichern" oben im Kopf versucht es erneut).',
+      )
+    } finally {
+      setSpeichert(false)
+    }
   }
 
   const achsenAnzahl = Math.max(form.achsen.length, 1)
@@ -275,16 +346,13 @@ export function ArtikelDetailModal({
 
   const entferneZeile = useCallback(
     (localId: string) => {
-      setZeilen((zs) => {
-        const zeile = zs.find((z) => z._localId === localId)
-        if (zeile) {
-          const original = preiszeilen.find((z) => preisSchluessel(z) === preisSchluessel(zeile))
-          if (original) setEntfernt((e) => [...e, preisSchluessel(original)])
-        }
-        return zs.filter((z) => z._localId !== localId)
-      })
+      // Über die `_localId` — auch eine Zeile, deren Achsenwerte vorher geändert wurden,
+      // entfernt so ihr Original.
+      const original = originalVon.get(localId)
+      if (original) setEntfernt((e) => [...e, preisSchluessel(original)])
+      setZeilen((zs) => zs.filter((z) => z._localId !== localId))
     },
-    [preiszeilen],
+    [originalVon],
   )
 
   return (
@@ -653,11 +721,17 @@ export function ArtikelDetailModal({
               </table>
               </div>
 
+              {doppelMeldung ? (
+                <p className={styles.zeilenWarnung} role="alert">
+                  {doppelMeldung}
+                </p>
+              ) : null}
+
+              {/* Auch beim Anlegen frei: „Artikel anlegen" legt erst den Artikel und dann die
+                  Zeilen an. Bis 09/2026 war der Knopf hier gesperrt — ohne sichtbaren Grund. */}
               <button
                 type="button"
                 className={styles.zeileHinzu}
-                disabled={anlegen}
-                title={anlegen ? 'Erst den Artikel speichern, dann Preiszeilen anlegen' : undefined}
                 onClick={() => {
                   neueZeilenId.current += 1
                   setZeilen((zs) => [
@@ -684,14 +758,14 @@ export function ArtikelDetailModal({
 
         <footer className={styles.fuss}>
           <span className={styles.fussHinweis}>
-            Übernimmt Artikel und Preiszeilen in den Bearbeitungsstand. Verbindlich werden sie
-            mit „Speichern" oben im Kopf.
+            Speichert Artikel und Preiszeilen sofort zentral — danach gelten sie auf allen Geräten,
+            im Konfigurator und in jeder Kalkulation.
           </span>
-          <button type="button" className={styles.abbrechen} onClick={onClose}>
+          <button type="button" className={styles.abbrechen} onClick={onClose} disabled={speichert}>
             Abbrechen
           </button>
-          <button type="button" className={styles.speichern} onClick={speichern}>
-            {anlegen ? 'Artikel anlegen' : 'Speichern'}
+          <button type="button" className={styles.speichern} onClick={() => void speichern()} disabled={speichert}>
+            {speichert ? 'Speichert …' : anlegen ? 'Artikel anlegen' : 'Speichern'}
           </button>
         </footer>
       </div>

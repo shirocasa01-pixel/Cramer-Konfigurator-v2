@@ -334,14 +334,21 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
             </tbody>
           </table>
 
-          <h4 className={styles.h3}>Zweistufiges Speichern</h4>
+          <h4 className={styles.h3}>Speichern</h4>
           <p>
-            Das Fenster übernimmt nur in den <strong>Bearbeitungsstand</strong>. Verbindlich wird
-            eine Änderung erst über den <strong>Speichern-Knopf oben im Kopf</strong> — er gilt für
-            alle Reiter gemeinsam und ist die einzige Stelle mit Rückfrage. Bis dahin zeigt der
-            Zähler im Kopf, wie viele Änderungen ausstehen; ein Klick darauf listet sie feldweise
-            auf (<span className={styles.mono}>preis: 372 → 410</span>) und springt auf Wunsch zur
-            betroffenen Zeile. „Abbrechen" im Fenster verwirft alles, was dort geändert wurde.
+            <strong>„Speichern" im Fenster speichert sofort zentral</strong> — Artikel samt
+            Preiszeilen, Oberflächen, Kategorien, Filialen und Berater. Danach gilt die Änderung auf
+            allen Geräten, bei jedem Berater, im Konfigurator und in jeder Kalkulation offener
+            Entwürfe (abgeschlossene Aufträge behalten ihren eingefrorenen Preisstand).
+          </p>
+          <p>
+            Was auf anderem Weg nur vorgemerkt ist (z. B. ein Excel-Import), zählt der Zähler im
+            Kopf; ein Klick darauf listet es feldweise auf (
+            <span className={styles.mono}>preis: 372 → 410</span>), und der{' '}
+            <strong>Speichern-Knopf oben im Kopf</strong> schreibt alles auf einmal. Wer die
+            Verwaltung mit vorgemerkten Änderungen schließt, wird gefragt — und die Kalkulation
+            zeigt einen Hinweis, solange sie mit nicht gespeicherten Stammdaten rechnet.
+            „Abbrechen" im Fenster verwirft alles, was dort geändert wurde.
           </p>
 
           <h4 className={styles.h3}>Beispiel 1 — Preis eines Artikels anpassen</h4>
@@ -358,12 +365,8 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
               Im Preisfeld den neuen Betrag eintragen. Deutsche Schreibweise: Komma trennt die Cent.
             </li>
             <li>
-              <strong>Änderungen speichern</strong> — das Fenster schließt, der Zähler im Kopf zählt
-              hoch.
-            </li>
-            <li>
-              Oben im Kopf auf <strong>Speichern</strong>. Erst jetzt gilt der neue Preis; ab dem
-              nächsten Rendern rechnet die Kalkulation damit.
+              <strong>Speichern</strong> — das Fenster speichert zentral und schließt. Ab jetzt
+              rechnet jede Kalkulation mit dem neuen Preis, auf allen Geräten.
             </li>
           </ol>
 
@@ -389,8 +392,8 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
               die abweichende Preisgruppe eintragen. Sie schlägt die Kategorie.
             </li>
             <li>
-              Speichern im Fenster, dann oben im Kopf. Die Front zieht ab sofort die neue Preisgruppe
-              in die Preiszeile — <strong>ohne</strong> dass am Front-Artikel selbst etwas geändert
+              Speichern im Fenster. Die Front zieht ab sofort die neue Preisgruppe in die Preiszeile
+              — auch in bereits angelegten, noch offenen Entwürfen — <strong>ohne</strong> dass am Front-Artikel selbst etwas geändert
               werden musste.
             </li>
           </ol>
@@ -632,11 +635,13 @@ Kategorie "Furnier"           trägt die Preisgruppe  →  PG 3
             <li>
               <strong>Preiszeilen anlegen</strong>, im selben Fenster unter „Preise &amp; Achsen".
               Je Breitenklasse eine Zeile mit ihrem Preis. Ohne passende Preiszeile ist der Artikel
-              zwar wählbar, erscheint in der Kalkulation aber als „auf Anfrage".
+              zwar wählbar, erscheint in der Kalkulation aber als „auf Anfrage". Zwei Zeilen mit
+              denselben Achsenwerten meldet das Fenster sofort — ein Festpreis ohne Achsen hat
+              deshalb genau eine Preiszeile.
             </li>
             <li>
-              <strong>Speichern</strong> — erst im Fenster, dann oben im Kopf über den
-              Speichern-Knopf. Der Artikel steht sofort im Auswahlfeld.
+              <strong>Speichern</strong> im Fenster — der Artikel ist damit zentral angelegt und steht
+              sofort im Auswahlfeld.
             </li>
           </ol>
           <p className={styles.hinweis}>

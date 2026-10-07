@@ -7,6 +7,9 @@ import { TextField } from '../../components/ui/TextField'
 import { KorpusInnenSection } from '../../components/korpus/KorpusInnenSection'
 import { useDraft } from '../../context/DraftContext'
 import { getProductGroup, getSeries } from '../../config/productCatalog'
+import { aufschlagAbfrageSichtbar } from '../../config/preisMapping'
+import { getArtikelNr } from '../../lib/preisLookup'
+import { useStammdaten } from '../../lib/useStammdaten'
 import {
   ABSCHLUSSSET_GROUPS,
   KORPUS_INNEN_SICHTBAR,
@@ -49,6 +52,9 @@ export default function KorpusPage() {
   const { draft, updateDraft } = useDraft()
   const navigate = useNavigate()
   const t = useTexte('material')
+  // Stammdaten abonnieren: Schaltet die Verwaltung Raumteiler/Sichtrückwand frei, erscheint
+  // die Abfrage sofort (Überarbeitung 9).
+  useStammdaten()
 
   if (!draft) return <Navigate to="/" replace />
   const group = getProductGroup(draft.productGroupId)
@@ -61,6 +67,15 @@ export default function KorpusPage() {
   if (!masseVollstaendig) return <Navigate to="/dimensions" replace />
 
   const korpus = draft.korpus
+  const zeigeSichtRueckwand =
+    series.hasSichtRueckwand !== false &&
+    aufschlagAbfrageSichtbar('sichtrueckwand', group.id, getArtikelNr('90-037-0004')?.status, Boolean(draft.sichtRueckwandAussen))
+  const zeigeRaumteiler = aufschlagAbfrageSichtbar(
+    'raumteiler',
+    group.id,
+    getArtikelNr('90-037-0001')?.status,
+    Boolean(draft.raumteiler),
+  )
   // Punkt 4c: Bei Serien ohne Außenkorpus-Modus gilt immer „komplett" – auch wenn ein
   // älterer Entwurf noch „getrennt" gespeichert hat.
   const zeigeModusUmschalter = series.hasAussenkorpusModus !== false
@@ -296,7 +311,7 @@ export default function KorpusPage() {
         })}
 
         {/* Phase B – Rückwand Außen; Serien-Filtering: nur bei Serien mit Sichtrückwand (nicht Refugium). */}
-        {series.hasSichtRueckwand !== false ? (
+        {zeigeSichtRueckwand ? (
           <section className={styles.area} aria-label={rueckwandAussenArea.label}>
             <div className={styles.areaHead}>
               <h2 className={styles.areaTitle}>
@@ -343,9 +358,11 @@ export default function KorpusPage() {
         ) : null}
 
         {/*
-          Raumteiler — das Möbel steht frei im Raum. Gilt für jede Serie und löst den
-          Raumteiler-Aufschlag auf den Möbelpreis aus (Satz in „50 Meta").
+          Raumteiler — das Möbel steht frei im Raum, Aufschlag auf den Möbelpreis (Satz im
+          Artikel 90-037-0001). Überarbeitung 9: nie beim Kleiderschrank, und nur solange der
+          Artikel in der Stammdatenverwaltung aktiv ist (Vorgabe: „entwurf", selten genutzt).
         */}
+        {zeigeRaumteiler ? (
         <section className={styles.area} aria-label="Raumteiler">
           <label className={styles.check}>
             <input
@@ -361,6 +378,7 @@ export default function KorpusPage() {
             />
           </label>
         </section>
+        ) : null}
 
         {/* Abschlussset-Material – Position kommt aus dem Schritt „Maße". */}
         {abschlussAktiv ? (

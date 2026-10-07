@@ -177,7 +177,8 @@ export function buildPdf(draft: Draft): jsPDF {
     const pg = sel?.priceGroup ? ` [${PRICE_GROUP_LABEL[sel.priceGroup]}]` : ''
     kv('d. Rückwand Außen (Sicht)', describeMaterialSelection(sel) + pg)
   }
-  if (draft.raumteiler) kv('Raumteiler', 'ja — Möbel steht frei im Raum')
+  // Überarbeitung 9: beim Kleiderschrank gibt es keinen Raumteiler (auch kein alter Haken).
+  if (draft.raumteiler && draft.productGroupId !== 'kleiderschraenke') kv('Raumteiler', 'ja — Möbel steht frei im Raum')
 
   // --- Korpus Innen (Phase B): Rückwand innen / Lochreihe / Einlegeböden / Kleiderstange ---
   const ki = draft.korpusInnen

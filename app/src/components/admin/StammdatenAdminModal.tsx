@@ -29,6 +29,8 @@ import {
   speichereDatensatzSofort,
   listeAenderungen,
   speichereAlleAenderungen,
+  speichereDatensaetzeSofort,
+  zaehleAusstehendeAenderungen,
   type AenderungsBereich,
   istArtikelGeaendert,
   istFilialeGeaendert,
@@ -453,7 +455,8 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
    * werden benannt, nicht überschrieben: Der fremde Stand ist nach dem Speichern bereits
    * geladen, die eigene Änderung steht weiter als ausstehend da.
    */
-  async function speichernNachSupabase() {
+  /** true, wenn alles gespeichert wurde (ohne Konflikt und ohne Fehler). */
+  async function speichernNachSupabase(): Promise<boolean> {
     setSpeichertGerade(true)
     try {
       const { gespeichert, konflikte } = await speichereAlleAenderungen()
@@ -468,14 +471,17 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               .join(', ')}${konflikte.length > 5 ? ' …' : ''}) — nicht überschrieben. Der aktuelle Stand ist geladen; ` +
             'Ihre Änderung steht weiter als ausstehend da und kann bewusst erneut gespeichert werden.',
         })
+        return false
       } else {
         setMeldung({
           art: 'info',
           text: `${gespeichert} Änderung(en) in Supabase gespeichert — sie gelten jetzt auf allen Geräten.`,
         })
+        return true
       }
     } catch (error) {
       setMeldung({ art: 'fehler', text: `Nicht gespeichert — Supabase meldet: ${(error as Error).message}` })
+      return false
     } finally {
       setSpeichertGerade(false)
       setSpeichernBestaetigt(false)
@@ -508,15 +514,39 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
     artikelEditor || beraterEditor || filialEditor || kategorieEditor || oberflaecheEditor,
   )
 
+  /*
+   * SCHLIESSEN MIT UNGESPEICHERTEN ÄNDERUNGEN.
+   *
+   * Was nur im Bearbeitungsstand steht, gilt nur in diesem Browser — Berater und andere
+   * Geräte rechnen weiter mit dem gespeicherten Stand (Überarbeitung 9: LED-Syncro 400 €
+   * stand in der Verwaltung, die Kalkulation zeigte 405 €). Deshalb wird beim Schließen
+   * gefragt, statt die Änderungen stillschweigend lokal liegen zu lassen.
+   */
+  const schliessenRef = useRef<() => void>(onClose)
+  async function schliessen() {
+    const offen = zaehleAusstehendeAenderungen()
+    if (offen > 0) {
+      const jetztSpeichern = window.confirm(
+        `${offen} Änderung(en) sind noch NICHT gespeichert. Sie gelten nur in diesem Browser — ` +
+          'Berater, andere Geräte und deren Kalkulationen rechnen weiter mit dem alten Stand.\n\n' +
+          'OK = jetzt speichern und schließen\nAbbrechen = Verwaltung offen lassen',
+      )
+      if (!jetztSpeichern) return
+      if (!(await speichernNachSupabase())) return
+    }
+    onClose()
+  }
+  schliessenRef.current = () => void schliessen()
+
   useEffect(() => {
     if (!open) return
     const beiEsc = (e: KeyboardEvent) => {
       // Nur schließen, wenn kein Editor darüber liegt – der fängt Escape selbst ab.
-      if (e.key === 'Escape' && !einEditorOffen) onClose()
+      if (e.key === 'Escape' && !einEditorOffen) schliessenRef.current()
     }
     document.addEventListener('keydown', beiEsc)
     return () => document.removeEventListener('keydown', beiEsc)
-  }, [open, onClose, einEditorOffen])
+  }, [open, einEditorOffen])
 
   useEffect(() => setMeldung(null), [bereich])
 
@@ -883,7 +913,7 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
             </button>
           ) : null}
 
-          <button type="button" className={styles.schliessen} onClick={onClose} aria-label="Schließen">
+          <button type="button" className={styles.schliessen} onClick={() => void schliessen()} aria-label="Schließen">
             ✕
           </button>
         </header>
@@ -1316,10 +1346,15 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               status: entwurf.status === 'gesperrt' ? 'gesperrt' : 'aktiv',
               bemerkung: entwurf.bemerkung,
             }
-            if (anlegen) return legeKategorieAn(datensatz)
-            aendereKategorie(datensatz.id, datensatz)
-            pruefeImportMarke('oberflaechen', `kat:${datensatz.id}`)
-            return null
+            if (anlegen) {
+              const problem = legeKategorieAn(datensatz)
+              if (problem) return problem
+            } else {
+              aendereKategorie(datensatz.id, datensatz)
+              pruefeImportMarke('oberflaechen', `kat:${datensatz.id}`)
+            }
+            // Sofort zentral: Die Preisgruppe der Kategorie wirkt auf jede Front-Kalkulation.
+            return speichereDatensaetzeSofort([['kategorien', datensatz.id]])
           }}
           onClose={() => setKategorieEditor(null)}
         />
@@ -1362,10 +1397,19 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
               status: entwurf.status === 'gesperrt' ? 'gesperrt' : 'aktiv',
               bemerkung: entwurf.bemerkung,
             }
-            if (anlegen) return legeOberflaecheAn(datensatz)
-            aendereOberflaeche(oberflaecheEditor.schluessel ?? oberflaecheSchluessel(datensatz), datensatz)
-            pruefeImportMarke('oberflaechen', `obf:${oberflaecheSchluessel(datensatz)}`)
-            return null
+            const alterSchluessel = oberflaecheEditor.schluessel ?? oberflaecheSchluessel(datensatz)
+            if (anlegen) {
+              const problem = legeOberflaecheAn(datensatz)
+              if (problem) return problem
+            } else {
+              aendereOberflaeche(alterSchluessel, datensatz)
+              pruefeImportMarke('oberflaechen', `obf:${oberflaecheSchluessel(datensatz)}`)
+            }
+            // Sofort zentral: Die Preisgruppe der Oberfläche wirkt auf jede Front-Kalkulation.
+            return speichereDatensaetzeSofort([
+              ['oberflaechen', alterSchluessel],
+              ['oberflaechen', oberflaecheSchluessel(datensatz)],
+            ])
           }}
           onClose={() => setOberflaecheEditor(null)}
         />
@@ -1379,10 +1423,14 @@ export function StammdatenAdminModal({ open, onClose }: StammdatenAdminModalProp
           untertitel={(e) => `${e.filialnr || 'neue Filialnummer'}${e.ort ? ` · ${e.ort}` : ''}`}
           felder={FILIAL_FELDER}
           onSpeichern={(entwurf, anlegen) => {
-            if (anlegen) return legeFilialeAn(entwurf)
-            aendereFiliale(entwurf.filialnr, entwurf)
-            pruefeImportMarke('filialen', entwurf.filialnr)
-            return null
+            if (anlegen) {
+              const problem = legeFilialeAn(entwurf)
+              if (problem) return problem
+            } else {
+              aendereFiliale(entwurf.filialnr, entwurf)
+              pruefeImportMarke('filialen', entwurf.filialnr)
+            }
+            return speichereDatensaetzeSofort([['filialen', entwurf.filialnr]])
           }}
           onClose={() => setFilialEditor(null)}
         />

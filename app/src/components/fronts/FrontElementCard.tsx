@@ -11,7 +11,7 @@ import {
 } from '../../config/frontCatalog'
 import { EDGE_HANDLE_ID, EDGE_KUERZBAR_FRONT_TYPE_IDS, getAvailableHandles } from '../../config/handles'
 import { grifflaenge } from '../../config/preisMapping'
-import { MATERIAL_CUSTOM_ID, aktuelleOptionId, getMaterialGroup } from '../../config/materialMatrix'
+import { MATERIAL_CUSTOM_ID, aktuelleOptionId, getMaterialGroup, getMaterialOption } from '../../config/materialMatrix'
 import { formatMassZahl } from '../../lib/format'
 import { resolvePriceGroup } from '../../lib/materialRules'
 import type { Resthoehe } from '../../lib/frontGeometrie'
@@ -19,12 +19,14 @@ import {
   DREHTUER_RASTER_MIN,
   aufkantungGroupIds,
   aufkantungOptions,
+  brauchtGlasLackierung,
   decodeAufkantungValue,
   encodeAufkantungValue,
   frontHoeheAusRaster,
   frontMaterialGroupId,
   isFrontFieldVisible,
   parseRasterEingabe,
+  GLAS_LACKIERUNG_LABEL,
 } from '../../lib/frontsHelpers'
 import { useStammdaten } from '../../lib/useStammdaten'
 import { Beschriftung, BeschriftungsGruppe, useTexte } from '../schema/Beschriftung'
@@ -286,6 +288,32 @@ export function FrontElementCard({
         )}
       </div>
 
+      {type?.hoeheRasterStufen ? (
+        <div className={styles.styleBlock}>
+          <span className={styles.blockLabel}>Höhe in Rastern</span>
+          <div className={styles.styleChips}>
+            {type.hoeheRasterStufen.map((r) => {
+              const cm = String(frontHoeheAusRaster(r)).replace('.', ',')
+              const aktiv = (element.heightCm ?? '').replace('.', ',') === cm
+              return (
+                <button
+                  key={r}
+                  type="button"
+                  className={[styles.chip, aktiv ? styles.chipActive : ''].filter(Boolean).join(' ')}
+                  onClick={() => onChange({ heightCm: cm })}
+                  aria-pressed={aktiv}
+                >
+                  {String(r).replace('.', ',')} Raster ({cm} cm)
+                </button>
+              )
+            })}
+          </div>
+          <p className={styles.handleHint}>
+            Oder die Höhe in cm eintragen — höchstens {type.maxHeightCm ?? 40} cm.
+          </p>
+        </div>
+      ) : null}
+
       {type?.ohneHoehe ? (
         <Beschriftung
           abschnittId="fronten"
@@ -501,6 +529,30 @@ export function FrontElementCard({
                 onLineGleich={setLineGleich}
               />
             ))}
+        </div>
+      ) : null}
+
+      {/* Überarbeitung 9, S. 6: Weißglas hinterlackiert — nur bei Drehtüren abgefragt. */}
+      {brauchtGlasLackierung(element) ? (
+        <div className={styles.handleBlock}>
+          <span className={styles.blockLabel}>Hinterlackierung</span>
+          <div className={styles.handleChecks} role="radiogroup" aria-label="Hinterlackierung">
+            {(['vollflaechig', 'passepartout'] as const).map((art) => (
+              <label key={art} className={styles.check}>
+                <input
+                  type="radio"
+                  className={styles.checkbox}
+                  name={`glaslack-${element.id}`}
+                  checked={element.glasLackierung === art}
+                  onChange={() => onChange({ glasLackierung: art })}
+                />
+                {GLAS_LACKIERUNG_LABEL[art]}
+              </label>
+            ))}
+          </div>
+          <p className={styles.handleHint}>
+            Beim Passepartout bleibt in der Mitte ein Sichtfenster in Klarglas — die Tür wird zur Vitrinentür.
+          </p>
         </div>
       ) : null}
 
@@ -826,6 +878,17 @@ function AufkantungField({
           })
         }}
       />
+      {/* Überarbeitung 9, S. 7: Aufkantung „in RAL lackiert" — bei einer Sonderfarbe gehört der
+          Farbcode dazu. Die Prüfung verlangte ihn schon, nur gab es bisher kein Feld dafür. */}
+      {material?.materialGroupId && material.optionId && getMaterialOption(material.materialGroupId, material.optionId)?.requiresFreeText ? (
+        <TextField
+          label="Farbton / Farbnummer der Aufkantung *"
+          placeholder="z. B. RAL 7016, NCS S 7010-B, Sikkens F6.28.66"
+          value={material.note ?? ''}
+          onChange={(event) => onChange({ ...value, material: { ...material, note: event.target.value } })}
+          error={material.note?.trim() ? undefined : 'Pflichtfeld – bitte den Farbton / die Farbnummer eintragen.'}
+        />
+      ) : null}
     </div>
   )
 }

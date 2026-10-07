@@ -32,7 +32,12 @@
  * └──────────────────────────────────────────────────────────────────────────┘
  */
 
-import { equipmentAnzeigename, getEquipmentOption, type EquipmentOption } from '../config/equipment.ts'
+import {
+  equipmentAnzeigename,
+  equipmentVariantenSperrgrund,
+  getEquipmentOption,
+  type EquipmentOption,
+} from '../config/equipment.ts'
 import { EDGE_HANDLE_ID } from '../config/handles.ts'
 import {
   anzahlMittelseiten,
@@ -53,6 +58,7 @@ import {
   type SerienRegel,
 } from '../config/preisMapping.ts'
 import { meta, type Artikel, type Preiszeile } from '../data/stammdaten.generated.ts'
+import { getMaterialGroup, getMaterialOption } from '../config/materialMatrix.ts'
 import { pruefeSpalte, segmentGeometrie } from './frontGeometrie.ts'
 import {
   formatLfm,
@@ -223,8 +229,22 @@ function zahl(v: string | undefined | null): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
+/**
+ * PREISGRUPPE EINER MATERIALAUSWAHL — aus dem AKTUELLEN Stand der Oberflächen.
+ *
+ * Bis 10/2026 galt die Preisgruppe, die beim Auswählen im Entwurf mitgespeichert wurde.
+ * Änderte die Verwaltung danach die Preisgruppe einer Farbe oder Kategorie (z. B. Mattlack
+ * PG 2 → PG 3), rechneten offene Entwürfe weiter mit der alten — die Stammdatenverwaltung
+ * griff nicht durch. Jetzt wird nachgeschlagen: Farbe → ihre PG, sonst die PG ihrer
+ * Kategorie. Der gespeicherte Wert bleibt der Rückfall für „anders" (Freitext mit eigener
+ * PG) und für Farben, die es nicht mehr gibt. Abgeschlossene Aufträge rechnen ohnehin aus
+ * ihrem eingefrorenen Preisstand.
+ */
 function pgVon(sel: MaterialSelection | undefined): PriceGroup | undefined {
-  return sel?.priceGroup
+  if (!sel) return undefined
+  const option = getMaterialOption(sel.materialGroupId, sel.optionId)
+  if (option) return option.priceGroup ?? getMaterialGroup(sel.materialGroupId)?.priceGroup ?? sel.priceGroup
+  return sel.priceGroup
 }
 
 /**
@@ -322,7 +342,7 @@ function mengeFuerPreisart(
   mengenachsen: readonly MassRichtung[],
 ): { menge: number; text: string } | null {
   if (preisart === PREISARTEN.FIX) {
-    return { menge: eingabe.menge, text: String(eingabe.menge) }
+    return { menge: eingabe.menge, text: String(eingabe.menge).replace('.', ',') }
   }
 
   if (preisart === PREISARTEN.QM) {
@@ -951,16 +971,26 @@ function baueKorpusPositionen(
           text: 'Für das Außenset fehlt die Preisgruppe – bitte im Schritt „Material" das Material des Abschlusssets festlegen.',
         })
       }
+      /*
+       * NUR EINE SEITE = HALBER PREIS. Überarbeitung 9, S. 1: „Der Preis für ein Abschlusset
+       * in der Preisliste gilt immer für ‚links & rechts'. Braucht es das Abschlussset nur
+       * ‚rechts' oder ‚links', wird nur der ½ Preis berechnet." Der Listenpreis bleibt der
+       * Einzelpreis aus der Preiszeile; die Menge ½ macht die Rechnung nachvollziehbar.
+       */
+      const einseitig = position === 'links' || position === 'rechts'
       positionen.push(
         bauePosition({
           lookup: regel.aussenset,
-          menge: 1,
+          menge: einseitig ? 0.5 : 1,
           bucket: 'aussenset',
           herkunft: 'abgeleitet',
           hoeheCm: kontext.korpusHoeheCm,
           pg: aussenPg,
           hinweis: [
             'Automatisch ergänzt: schließt den Möbelblock seitlich ab. Trägt die Oberfläche des Möbels nach außen — der Korpus selbst ist nur in Decoboard lieferbar.',
+            einseitig
+              ? `Nur ${position}: ½ des Listenpreises (der Preis gilt für links & rechts).`
+              : null,
             getrenntPg && new Set(getrenntePgs.filter(Boolean)).size > 1
               ? `Links und rechts in verschiedenen Materialien: gerechnet in der teuersten Preisgruppe ${pgText(getrenntPg)} (${getrenntePgs.map((p) => (p ? pgText(p) : '—')).join(' / ')}).`
               : null,
@@ -982,11 +1012,12 @@ function baueKorpusPositionen(
 function frontMaterialPg(el: FrontElement): PriceGroup | undefined {
   const werte = el.fieldValues ?? {}
   for (const key of ['material', 'glas']) {
-    const pg = werte[key]?.material?.priceGroup
+    const pg = pgVon(werte[key]?.material)
     if (pg) return pg
   }
   for (const wert of Object.values(werte)) {
-    if (wert?.material?.priceGroup) return wert.material.priceGroup
+    const pg = pgVon(wert?.material)
+    if (pg) return pg
   }
   return undefined
 }
@@ -1255,10 +1286,45 @@ function baueAusstattungsPositionen(
        * Preis. `artikelBeiAuswahl` nennt den Artikel für die angehakte Rauchglas-Option;
        * ohne Häkchen bleibt es beim Decoboard-Artikel aus `lookup.artikel`.
        */
+      // Überarbeitung 9, S. 5: Bei Conero G/H wählt die Ausführung des Funktionsauszugs den
+      // Artikel. Ohne Auswahl gilt die Vorgabe der Option (12 Hosenhalter).
+      let ausfuehrungsLookup: BauteilLookup = lookup
+      if (lookup.artikelJeAuswahl) {
+        const auswahlId = lookup.artikelJeAuswahl.auswahl
+        const wahl =
+          item.choices?.[auswahlId] ?? option?.choices?.find((ch) => ch.id === auswahlId)?.standard
+        const treffer = wahl ? lookup.artikelJeAuswahl.artikel[wahl] : undefined
+        if (treffer) ausfuehrungsLookup = { ...lookup, ...treffer }
+      }
+
+      // Überarbeitung 9, S. 5: „Conero Container G + H dürfen nur bei Korpussen mit 100er
+      // Breite freigeschaltet werden." Gesperrt wird in der Auswahl; ein älterer Entwurf
+      // bekommt hier einen Fehler statt eines hochgestuften Preises.
+      const variantenSperre = option ? equipmentVariantenSperrgrund(option, item.variant, segmentBreite) : null
+      if (variantenSperre) {
+        meldungen.push({ schwere: 'fehler', text: `Segment ${segment}, „${label}": ${variantenSperre}` })
+        positionen.push({
+          id: naechsteId(),
+          herkunft: 'gewaehlt',
+          bucket: 'innen',
+          segment,
+          label,
+          artikelnummer: ausfuehrungsLookup.artikel,
+          achsen: [],
+          teile: [],
+          menge,
+          einzelpreis: null,
+          gesamt: null,
+          status: 'auf-anfrage',
+          hinweis: variantenSperre,
+        })
+        return
+      }
+
       const aufgeloesterLookup: BauteilLookup =
-        item.rauchglas && lookup.artikelBeiAuswahl
-          ? { ...lookup, artikel: lookup.artikelBeiAuswahl }
-          : lookup
+        item.rauchglas && ausfuehrungsLookup.artikelBeiAuswahl
+          ? { ...ausfuehrungsLookup, artikel: ausfuehrungsLookup.artikelBeiAuswahl }
+          : ausfuehrungsLookup
 
       /*
        * HÖHE DES AUSSTATTUNGSTEILS.
@@ -1278,8 +1344,12 @@ function baueAusstattungsPositionen(
        */
       const rasterDesTeils =
         containerRaster[item.variant ?? ''] ?? rasterAusVariante(item.variant) ?? undefined
+      // Nach Korpushöhenklasse bepreist (LED-Band): die TATSÄCHLICHE Schrankhöhe — der Lookup
+      // rundet sie auf die nächste Stufe des Artikels (9 R · 12 R · 15 R · 18 R). Bis 10/2026
+      // stand hier die bepreiste KORPUS-Stufe, und die kennt nur 18 R und 21 R: Jeder niedrigere
+      // Schrank zahlte das LED-Band zum 18-R-Preis (Befund der Durchgriff-Prüfung).
       const hoeheCmFuerTeil = aufgeloesterLookup.hoeheAusKorpus
-        ? kontext.korpusHoeheCm ?? kontext.hoeheCm
+        ? kontext.hoeheCm ?? kontext.korpusHoeheCm
         : rasterDesTeils != null
           ? hoeheFuerRasterEtikett(aufgeloesterLookup.artikel, rasterDesTeils)
           : schubHoeheCm(zahl(item.heightNote))
@@ -1288,13 +1358,16 @@ function baueAusstattungsPositionen(
       // Fehlt sie (z. B. Innenmaterial „anders" ohne erkennbare Preisgruppe), wird das
       // gemeldet statt still auf PG 1 zurückzufallen: ein zu billig ausgewiesenes
       // Möbel fällt erst in der Auftragsprüfung auf, und dann ist es verkauft.
-      if (aufgeloesterLookup.nutztPg && innenPg == null) ohnePg.add(label)
+      const teilPg = aufgeloesterLookup.festePg ?? innenPg
+      if (aufgeloesterLookup.nutztPg && teilPg == null) ohnePg.add(label)
 
       const hinweise = [
         aufgeloesterLookup.hoeheAusKorpus ? 'Bepreist nach Korpushöhenklasse, je Schrankseite.' : null,
-        aufgeloesterLookup.nutztPg && innenPg
-          ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
-          : null,
+        aufgeloesterLookup.festePg
+          ? `Immer Preisgruppe ${aufgeloesterLookup.festePg.replace('PG', 'PG ')} (Decoboard Anthrazitgrau), unabhängig vom Innenkorpus.`
+          : aufgeloesterLookup.nutztPg && innenPg
+            ? `Preisgruppe ${innenPg.replace('PG', 'PG ')} aus der Innenausführung des Korpus.`
+            : null,
         // Überarbeitung 8, S. 5: Die Tiefe wählt die Atrium-Bodenpreise (S. 13 / 14 / 15).
         aufgeloesterLookup.nutztTiefe && kontext.bepreisteTiefeCm != null
           ? `Tiefenstufe ${kontext.bepreisteTiefeCm} cm.`
@@ -1312,7 +1385,7 @@ function baueAusstattungsPositionen(
           breiteCm: segmentBreite,
           hoeheCm: hoeheCmFuerTeil,
           tiefeCm: kontext.bepreisteTiefeCm,
-          pg: innenPg,
+          pg: teilPg,
           hinweis: hinweise.length ? hinweise.join(' ') : undefined,
         }),
       )
@@ -1399,6 +1472,8 @@ function baueAufschlag(
   stufe: ZuschlagStufe,
   basisBetrag: number,
   erwarteteBasis: AufschlagBasis,
+  /** Vom Berater für diesen Entwurf überschriebener Satz (nur bei Aufschlag in %). */
+  satzUeberschrieben?: number,
 ): KalkPosition {
   const a = getArtikelNr(artikelnummer)
   const basisTitel = AUFSCHLAG_BASIS_KATALOG[erwarteteBasis].titel
@@ -1433,8 +1508,11 @@ function baueAufschlag(
   if (gemeinsam.preisart !== 'AUFSCHLAG') {
     return offen(a.bezeichnung, `Artikel ${a.artikelnummer} trägt nicht die Preisart „Aufschlag".`)
   }
-  const def = aufschlagVon(a)
-  if (!def) return offen(a.bezeichnung, `Für ${a.artikelnummer} sind Satz, Einheit oder Preisbasis nicht vollständig gepflegt.`)
+  const stamm = aufschlagVon(a)
+  if (!stamm) return offen(a.bezeichnung, `Für ${a.artikelnummer} sind Satz, Einheit oder Preisbasis nicht vollständig gepflegt.`)
+  // Überarbeitung 9: Satz je Entwurf überschreibbar — die Artikelverwaltung liefert die Vorgabe.
+  const angepasst = satzUeberschrieben != null && stamm.einheit === '%' && satzUeberschrieben !== stamm.wert
+  const def = angepasst ? { ...stamm, wert: satzUeberschrieben } : stamm
   if (def.basis !== erwarteteBasis) {
     return offen(
       a.bezeichnung,
@@ -1453,9 +1531,10 @@ function baueAufschlag(
     gesamt: betrag,
     status: 'berechnet',
     hinweis:
-      def.einheit === '%'
+      (def.einheit === '%'
         ? `${satz} auf den ${basisTitel} ${formatEuro(basisBetrag)}`
-        : `Betrag ${satz}, einmal je Möbel (zum ${basisTitel})`,
+        : `Betrag ${satz}, einmal je Möbel (zum ${basisTitel})`) +
+      (angepasst ? ` — für diesen Entwurf angepasst (Vorgabe ${aufschlagText(stamm)})` : ''),
   }
 }
 
@@ -1464,11 +1543,20 @@ function baueAufschlag(
  * schaltet sie ab — ein Entwurf ohne `pricingOptions` (jeder neue, und alle älteren, die
  * die Checkboxen nie gesehen haben) rechnet beide mit.
  */
-export function preisOptionen(draft: Draft): { montage: boolean; lieferungRegional: boolean } {
+export function preisOptionen(draft: Draft): NonNullable<Draft['pricingOptions']> {
+  const o = draft.pricingOptions
   return {
-    montage: draft.pricingOptions?.montage ?? true,
-    lieferungRegional: draft.pricingOptions?.lieferungRegional ?? true,
+    montage: o?.montage ?? true,
+    lieferungRegional: o?.lieferungRegional ?? true,
+    // Die überschriebenen Sätze reisen mit — sonst löschte jedes Häkchen sie wieder.
+    ...(gueltigerSatz(o?.montageProzent) != null ? { montageProzent: o!.montageProzent } : {}),
+    ...(gueltigerSatz(o?.lieferungProzent) != null ? { lieferungProzent: o!.lieferungProzent } : {}),
   }
+}
+
+/** Ein vom Berater eingetragener Satz zählt nur, wenn er eine Zahl zwischen 0 und 100 ist. */
+export function gueltigerSatz(wert: unknown): number | undefined {
+  return typeof wert === 'number' && Number.isFinite(wert) && wert >= 0 && wert <= 100 ? wert : undefined
 }
 
 /** Prozent lesbar: 0.1 → „10", 0.035 → „3,5". */
@@ -1532,6 +1620,7 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
   const moebelpreis = summe(positionen)
   const artikelAufschlaegeListe = artikelAufschlaege
     .filter((eintrag) => Boolean(draft[eintrag.ausloeser]))
+    .filter((eintrag) => !(draft.productGroupId && eintrag.nichtBeiProduktgruppen?.includes(draft.productGroupId)))
     .map((eintrag) => baueAufschlag(eintrag.artikel, eintrag.art, 'artikel', moebelpreis, 'MOEBELPREIS'))
   const summeArtikelAufschlaege = summe(artikelAufschlaegeListe)
   const gesamtmoebelpreis = runde2(moebelpreis + summeArtikelAufschlaege)
@@ -1542,7 +1631,14 @@ export function berechneEntwurf(draft: Draft): KalkErgebnis {
     art: eintrag.art,
     option: eintrag.option,
     aktiv: optionen[eintrag.option],
-    position: baueAufschlag(eintrag.artikel, eintrag.art, 'service', gesamtmoebelpreis, 'GESAMTMOEBELPREIS'),
+    position: baueAufschlag(
+      eintrag.artikel,
+      eintrag.art,
+      'service',
+      gesamtmoebelpreis,
+      'GESAMTMOEBELPREIS',
+      gueltigerSatz(optionen[eintrag.prozentFeld]),
+    ),
   }))
   const serviceListe = serviceAuswahl.filter((s) => s.aktiv).map((s) => s.position)
   const gesamt = runde2(gesamtmoebelpreis + summe(serviceListe))

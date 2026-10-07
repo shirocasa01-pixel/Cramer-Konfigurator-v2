@@ -170,12 +170,16 @@ export function isFrontFieldVisible(field: FrontField, element: FrontElement): b
  * Wählbare Materialgruppen für die Aufkantung.
  *
  * Vorlage: „Wenn bei Furnier ‚Nein‘ gewählt wird, muss das Dropdown für die Aufkantung
- * nicht nur Furniere, sondern alle Furniere, Gläser und Mattlacke auflisten." Bei Glas
- * und Mattlack bleibt es bei derselben Gruppe.
+ * nicht nur Furniere, sondern alle Furniere, Gläser und Mattlacke auflisten."
+ * Überarbeitung 9, S. 7: „Bei Line müssen die Gruppen Mattlack und Furnier zusammengefasst
+ * werden. Dann ist es z. B. möglich, die Front in Eiche Furnier zu bestellen und die hintere
+ * Aufkantung in RAL lackiert. Im Dropdown muss dann sowohl Lacke als auch Furnier auswählbar
+ * sein." — deshalb jetzt auch bei einer Mattlack-Frontscheibe die volle Liste. Bei Glas
+ * bleibt es bei Glas.
  */
 export function aufkantungGroupIds(element: FrontElement): string[] {
   const gruppe = frontMaterialGroupId(element)
-  if (gruppe === 'furnier') return LINE_AUFKANTUNG_GROUPS
+  if (gruppe === 'furnier' || gruppe === 'mattlack') return LINE_AUFKANTUNG_GROUPS
   return gruppe ? [gruppe] : LINE_AUFKANTUNG_GROUPS
 }
 
@@ -424,4 +428,28 @@ function copyableFrontValuesRoh(src: FrontElement): Partial<FrontElement> {
     griffProfil: src.griffProfil,
     griffProfilFarbe: src.griffProfilFarbe,
   }
+}
+
+/**
+ * WEISSGLAS HINTERLACKIERT: vollflächig oder Passepartout?
+ *
+ * Überarbeitung 9, S. 6: „Bei Weißglas hinterlackiert muss es immer noch die Option geben zu
+ * wählen, ob die Glasplatte vollflächig hinterlackiert werden soll oder nur ein Rahmen
+ * lackiert wird. Beim Rahmen (ca. 5 cm umlaufend) bleibt dann in der Mitte immer ein
+ * Sichtfenster in Klarglas. Es ist dann also eine Vitrinentür. … Diese Auswahlmöglichkeit
+ * gibt es nur bei Drehtüren! Nicht bei Schubladen und Schiebetüren."
+ *
+ * Gilt für beide hinterlackierten Weißgläser (auch „satina").
+ */
+export function brauchtGlasLackierung(element: FrontElement): boolean {
+  if (element.typeId !== 'drehtuer') return false
+  return Object.values(element.fieldValues ?? {}).some((wert) => {
+    const m = wert?.material
+    return m?.materialGroupId === 'glas' && /^weissglas.*hinterlackiert$/.test(m.optionId ?? '')
+  })
+}
+
+export const GLAS_LACKIERUNG_LABEL: Record<NonNullable<FrontElement['glasLackierung']>, string> = {
+  vollflaechig: 'Vollflächig lackiert',
+  passepartout: 'Passepartout (Rahmen ca. 5 cm, Mitte Klarglas – Vitrinentür)',
 }
