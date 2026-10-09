@@ -23,7 +23,8 @@ import {
   describeHandleConfig,
   describeOben,
 } from '../../lib/frontsFormat'
-import { isFrontFieldVisible } from '../../lib/frontsHelpers'
+import { ZWEILAEUFIG_TYPE_ID, isFrontFieldVisible } from '../../lib/frontsHelpers'
+import { schiebetuerAnzahlText } from '../../lib/schiebetuer'
 import { describeAusstattungAuswahl, describeColumnEquipment } from '../../lib/ausstattungFormat'
 import { downloadPdf } from '../../lib/generatePdf'
 import { formatVkPreis } from '../../lib/pricing'
@@ -192,9 +193,7 @@ export default function SummaryPage() {
         <AusstattungRecap selected={draft.ausstattung?.selected} />
 
         <Block title="Fronten">
-          {fronts.schiebetuerAnzahl ? (
-            <Row k="Anzahl Schiebetüren" v={`${fronts.schiebetuerAnzahl} Stück (ganzer Schrank)`} />
-          ) : null}
+          {fronts.schiebetuerAnzahl ? <Row k="Anzahl Schiebetüren" v={schiebetuerAnzahlText(draft) ?? ''} /> : null}
           {fronts.columns.map((column, index) => {
             const equip = describeColumnEquipment(column)
             return (
@@ -425,7 +424,8 @@ function ElementRecap({ element }: { element: FrontElement }) {
   const handleLine = describeHandleConfig(element)
   if (handleLine) fieldLines.push(handleLine)
   const meta: string[] = []
-  if (element.widthCm || element.heightCm) {
+  // Zweiläufige Schiebetür: Breite und Anzahl stehen in „Anzahl Schiebetüren" (Türfelder).
+  if ((element.widthCm || element.heightCm) && element.typeId !== ZWEILAEUFIG_TYPE_ID) {
     meta.push(`Maße: ${caPrefix()}${element.widthCm ?? '?'}×${element.heightCm ?? '?'} cm`)
   }
   const extras = describeFrontExtras(element)

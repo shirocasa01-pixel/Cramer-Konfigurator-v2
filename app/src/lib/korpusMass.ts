@@ -5,6 +5,7 @@ import { formatMassZahl } from './format.ts'
 import { caPrefix } from './massFormat.ts'
 import {
   ABSCHLUSSSET_MM,
+  ABSCHLUSSSET_SCHIEBETUER_MM,
   FUGE_MM,
   anzahlAbschlusssets,
   aussenbreiteMm,
@@ -75,10 +76,13 @@ export interface KorpusKoordinate {
  * Damit stimmen die Koordinaten mit dem Außenmaß überein — Voraussetzung für die
  * spätere 2D/3D-Darstellung.
  */
-export function computeKorpusKoordinaten(g: KorpusGrunddaten | undefined): KorpusKoordinate[] {
+export function computeKorpusKoordinaten(
+  g: KorpusGrunddaten | undefined,
+  optionen: AussenmassOptionen = {},
+): KorpusKoordinate[] {
   if (!g) return []
   const links = g.abschlussSet?.position === 'links' || g.abschlussSet?.position === 'beide'
-  let xMm = links ? ABSCHLUSSSET_MM + FUGE_MM : 0
+  let xMm = links ? abschlusssetStaerkeMm(optionen) + FUGE_MM : 0
 
   return g.korpusse.map((k) => {
     const breiteCm = resolveKorpusBreiteCm(k)
@@ -121,9 +125,12 @@ export function totalKorpusBreiteCm(g: KorpusGrunddaten | undefined): number | u
  * weiterlaufen. Die Breite ist ab Punkt 4.13 das ERRECHNETE Außenmaß, nicht mehr die
  * Summe der Nennbreiten.
  */
-export function deriveDimensions(g: KorpusGrunddaten): NonNullable<Draft['dimensions']> {
+export function deriveDimensions(
+  g: KorpusGrunddaten,
+  optionen: AussenmassOptionen = {},
+): NonNullable<Draft['dimensions']> {
   const h = resolveHeightCm(g)
-  const masse = berechneAussenmass(g)
+  const masse = berechneAussenmass(g, optionen)
   const t = resolveDepthCm(g)
   return {
     heightCm: h != null ? String(h) : '',
@@ -175,6 +182,16 @@ export const BELEUCHTUNG_TIEFENZUGABE_CM = meta.beleuchtungTiefenzugabeMm / 10
 export interface AussenmassOptionen {
   /** In der Ausstattungs-Vorauswahl ist eine Beleuchtung mit Kabelführung gewählt. */
   beleuchtung?: boolean
+  /**
+   * Eine zweiläufige Schiebetür ist geplant — die Abschlusssets sind dann 20 mm statt 10 mm
+   * stark (Überarbeitung 10, S. 1).
+   */
+  schiebetuer?: boolean
+}
+
+/** Stärke je Abschlussset in mm. */
+export function abschlusssetStaerkeMm(optionen: AussenmassOptionen = {}): number {
+  return optionen.schiebetuer ? ABSCHLUSSSET_SCHIEBETUER_MM : ABSCHLUSSSET_MM
 }
 
 /**
@@ -192,8 +209,12 @@ export function beleuchtungsZugabeCm(g: Pick<KorpusGrunddaten, 'fussleiste'>, op
 }
 
 /** Optionen des Außenmaßes aus einem Entwurf. */
-export function aussenmassOptionen(draft: Pick<Draft, 'ausstattung'>): AussenmassOptionen {
-  return { beleuchtung: hatBeleuchtung(draft.ausstattung?.selected) }
+export function aussenmassOptionen(draft: Pick<Draft, 'ausstattung' | 'fronts'>): AussenmassOptionen {
+  return {
+    beleuchtung: hatBeleuchtung(draft.ausstattung?.selected),
+    // Bewusst ohne `lib/frontsHelpers` (das Modul hängt seinerseits an diesem hier).
+    schiebetuer: (draft.fronts?.columns ?? []).some((c) => c.elements.some((e) => e.typeId === 'schiebetuer-zwei')),
+  }
 }
 
 export interface KorpusMasse {
@@ -253,7 +274,7 @@ export function berechneAussenmass(g: KorpusGrunddaten | undefined, optionen: Au
   }
 
   const anzahlSets = anzahlAbschlusssets(g.abschlussSet?.position)
-  const breite = aussenbreiteMm(frontenMm, anzahlSets)
+  const breite = aussenbreiteMm(frontenMm, anzahlSets, abschlusssetStaerkeMm(optionen))
 
   const hoehe = resolveHeightCm(g)
   const nennTiefe = resolveDepthCm(g)
@@ -357,7 +378,13 @@ export function describeKorpusGrunddatenZeilen(
   const a = g.abschlussSet
   if (a && a.position !== 'keine') {
     const posLabel = a.position === 'beide' ? 'links & rechts' : a.position === 'links' ? 'nur links' : 'nur rechts'
-    rows.push({ label: 'Abschlussset', value: posLabel })
+    // Überarbeitung 10: bei zweiläufigen Schiebetüren 20 mm stark und hinter der Tür liegend.
+    rows.push({
+      label: 'Abschlussset',
+      value: optionen.schiebetuer
+        ? `${posLabel} · ${ABSCHLUSSSET_SCHIEBETUER_MM} mm (Schiebetür zweiläufig: von der Tür abgedeckt, von vorne nicht sichtbar)`
+        : posLabel,
+    })
     // Das Material wird im Schritt „Korpus" gewählt und dort auch beschrieben;
     // hier stehen nur die Angaben aus den Grunddaten.
     if (a.materialGetrennt) {

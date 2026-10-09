@@ -2,7 +2,7 @@ import type { FrontField } from '../config/frontCatalog'
 import { EDGE_HANDLE_ID, EDGE_KUERZBAR_FRONT_TYPE_IDS, getHandle } from '../config/handles'
 import type { AbschlussOben, FrontElement, FrontFieldValue } from '../types'
 import { PRICE_GROUP_LABEL, describeMaterialSelection } from './materialFormat'
-import { GLAS_LACKIERUNG_LABEL, brauchtGlasLackierung } from './frontsHelpers'
+import { GLAS_LACKIERUNG_LABEL, brauchtGlasLackierung, griffProfilAnwendbar } from './frontsHelpers'
 
 /** Anzeige-Labels für „Abschluss unten“ (Sockel-Typen). */
 export const ABSCHLUSS_UNTEN_LABEL: Record<string, string> = {
@@ -60,7 +60,11 @@ export function describeHandleConfig(element: FrontElement): string {
     parts.push(`Griff${handle ? ` ${handle.label}` : ''}${details ? ` · Griffdetails: ${details}` : ''}`)
   }
   if (element.laufschienenfarbe?.trim()) parts.push(`Laufschiene: ${element.laufschienenfarbe.trim()}`)
-  if (element.griffProfil) parts.push(`Griffprofil: ${element.griffProfil === 'edge' ? 'Edge' : 'Curve'}`)
+  // Überarbeitung 10: bei Curve kein Griffprofil „Edge" — auch kein stehengebliebener Wert.
+  if (element.griffProfil && griffProfilAnwendbar(element)) {
+    const farbe = element.griffProfilFarbe?.trim()
+    parts.push(`Griffprofil: ${element.griffProfil === 'edge' ? 'Edge' : 'Curve'}${farbe ? ` · Pulverfarbe: ${farbe}` : ''}`)
+  }
   return parts.join(' · ')
 }
 

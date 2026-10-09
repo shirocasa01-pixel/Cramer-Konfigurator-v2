@@ -10,6 +10,7 @@ import {
   type SegmentGeometrie,
 } from './frontGeometrie.ts'
 import { rasterKollisionen } from './rasterBelegung.ts'
+import { schiebetuerBefunde } from './schiebetuer.ts'
 
 /**
  * Element gültig, wenn:
@@ -180,12 +181,16 @@ export function isFrontsComplete(
   return fronts.columns.every((col, i) => isColumnValid(col, geometrie[i]))
 }
 
-/** `getFrontsIssues` mit der Geometrie aus dem Entwurf (Korpusbreiten, -höhe, Serie). */
+/**
+ * `getFrontsIssues` mit der Geometrie aus dem Entwurf (Korpusbreiten, -höhe, Serie) — und
+ * den Regeln der zweiläufigen Schiebetür, die den ganzen Korpus kennen müssen
+ * (Überarbeitung 10: Korpushöhe 18–21 R, Abschlusssets links & rechts, Türfelder).
+ */
 export function getFrontsIssuesFuerEntwurf(draft: Draft): string[] {
-  return getFrontsIssues(draft.fronts, entwurfsGeometrie(draft))
+  return [...getFrontsIssues(draft.fronts, entwurfsGeometrie(draft)), ...schiebetuerBefunde(draft)]
 }
 
 /** `isFrontsComplete` mit der Geometrie aus dem Entwurf. */
 export function isFrontsCompleteFuerEntwurf(draft: Draft): boolean {
-  return isFrontsComplete(draft.fronts, entwurfsGeometrie(draft))
+  return isFrontsComplete(draft.fronts, entwurfsGeometrie(draft)) && schiebetuerBefunde(draft).length === 0
 }

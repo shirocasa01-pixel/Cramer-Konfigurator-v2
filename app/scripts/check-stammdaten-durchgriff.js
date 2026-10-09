@@ -84,6 +84,7 @@ function schrank({
   elemente = [],
   equipment = [],
   korpusInnenJe,
+  schiebetuerAnzahl,
 } = {}) {
   lfd++
   const korpusse = breiten.map((b, i) => ({
@@ -123,7 +124,7 @@ function schrank({
       ...(verblendung ? { verblendung } : {}),
     },
     ausstattung: { selected: auswahl },
-    fronts: { columns },
+    fronts: { columns, ...(schiebetuerAnzahl ? { schiebetuerAnzahl } : {}) },
     pricingOptions: { montage: true, lieferungRegional: true },
     isVerification: true,
   }
@@ -195,6 +196,27 @@ for (const [art, l] of Object.entries(verblendungLookups)) {
   )
 }
 
+/**
+ * Zweiläufige Schiebetür (Überarbeitung 10): zwei Türen über Türfelder, die genau die Breite
+ * der Zeile haben — 80er / 100er aus je einem Korpus, 120er / 150er aus je zwei Korpi.
+ * Abschlusssets links & rechts, 18 Raster. 150er gibt es nur in Decoboard oder Xtreme Plus.
+ */
+const SCHIEBETUER_FELDER = { 80: [80], 100: [100], 120: [60, 60], 150: [100, 50] }
+function schiebetuerSchrank(breite, linie) {
+  const feld = SCHIEBETUER_FELDER[breite]
+  if (!feld) return { grund: `Breitenstufe ${breite} cm — kein Türfeld aus ein oder zwei Korpi` }
+  const material = breite > 120 ? materialFuer(linie.pg, ['decoboard', 'xtreme-plus']) : materialFuer(linie.pg)
+  const el = {
+    id: 'e1',
+    typeId: 'schiebetuer-zwei',
+    label: 'ST1',
+    styleLineId: linie.styleLineId === 'glossy' ? 'glossy-less' : linie.styleLineId,
+    griffProfil: 'edge',
+    fieldValues: { material: { material } },
+  }
+  return schrank({ breiten: [...feld, ...feld], abschluss: 'beide', elemente: [el], schiebetuerAnzahl: 2 })
+}
+
 // Fronten: BREITE × HOEHE × TIEFE × LINIE_PG
 for (const [typeId, l] of Object.entries(frontLookups)) {
   merke(l.artikel, `Front ${typeId}`, (z, a) => {
@@ -203,6 +225,7 @@ for (const [typeId, l] of Object.entries(frontLookups)) {
     const breite = cm(achse(a, z, 'BREITE'))
     const hoehe = cm(achse(a, z, 'HOEHE'))
     const tiefe = cm(achse(a, z, 'TIEFE'))
+    if (typeId === 'schiebetuer-zwei') return schiebetuerSchrank(breite, linie)
     const el = {
       id: 'e1',
       typeId,

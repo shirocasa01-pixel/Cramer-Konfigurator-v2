@@ -46,6 +46,12 @@ export const FUGE_MM = 3
 /** Stärke eines Abschlusssets (Seitenset) in Millimetern. */
 export const ABSCHLUSSSET_MM = 10
 
+/**
+ * Überarbeitung 10, S. 1: „Abschlußsets links und rechts bei Schiebetüren (zweiläufig) sind
+ * immer notwendig. Stärke 2 cm statt 1 cm wie bei den übrigen Kleiderschränken."
+ */
+export const ABSCHLUSSSET_SCHIEBETUER_MM = 20
+
 /** Kleinste bzw. größte Korpusbreite mit hinterlegter Frontaufteilung (cm). */
 export const KORPUS_MIN_CM = 15
 export const KORPUS_MAX_CM = 100
@@ -150,23 +156,26 @@ export interface AussenbreiteErgebnis {
  *
  * @param frontenMm Breiten aller Fronten des Möbels, von links nach rechts.
  * @param anzahlAbschlusssets 0, 1 oder 2 — je Seite eines.
+ * @param abschlusssetMm Stärke je Abschlussset; Überarbeitung 10: bei zweiläufigen
+ *   Schiebetüren 20 mm statt 10 mm.
  */
 export function aussenbreiteMm(
   frontenMm: readonly number[],
   anzahlAbschlusssets: number,
+  abschlusssetMm: number = ABSCHLUSSSET_MM,
 ): AussenbreiteErgebnis {
   const anzahlFronten = frontenMm.length
   const frontenSummeMm = frontenMm.reduce((summe, mm) => summe + mm, 0)
   // Ohne Front gibt es auch keine Fuge – sonst käme bei einem leeren Möbel ein Maß heraus.
   const anzahlFugen = anzahlFronten === 0 ? 0 : anzahlFronten - 1 + anzahlAbschlusssets
   const gesamtMm =
-    frontenSummeMm + anzahlFugen * FUGE_MM + anzahlAbschlusssets * ABSCHLUSSSET_MM
+    frontenSummeMm + anzahlFugen * FUGE_MM + anzahlAbschlusssets * abschlusssetMm
 
   const teile = [`${anzahlFronten} × Front = ${frontenSummeMm} mm`]
   if (anzahlFugen > 0) teile.push(`${anzahlFugen} × Fuge à ${FUGE_MM} mm = ${anzahlFugen * FUGE_MM} mm`)
   if (anzahlAbschlusssets > 0) {
     teile.push(
-      `${anzahlAbschlusssets} × Abschlussset à ${ABSCHLUSSSET_MM} mm = ${anzahlAbschlusssets * ABSCHLUSSSET_MM} mm`,
+      `${anzahlAbschlusssets} × Abschlussset à ${abschlusssetMm} mm = ${anzahlAbschlusssets * abschlusssetMm} mm`,
     )
   }
 

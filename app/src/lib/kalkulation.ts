@@ -60,6 +60,8 @@ import {
 import { meta, type Artikel, type Preiszeile } from '../data/stammdaten.generated.ts'
 import { getMaterialGroup, getMaterialOption } from '../config/materialMatrix.ts'
 import { pruefeSpalte, segmentGeometrie } from './frontGeometrie.ts'
+import { ZWEILAEUFIG_TYPE_ID } from './frontsHelpers.ts'
+import { gewaehlteAufteilung, schiebetuerBefunde, tuerfelderText } from './schiebetuer.ts'
 import {
   formatLfm,
   resolveDepthCm,
@@ -1029,6 +1031,13 @@ function baueFrontPositionen(
 ): KalkPosition[] {
   const positionen: KalkPosition[] = []
 
+  /*
+   * Überarbeitung 10: Die zweiläufige Schiebetür hängt am ganzen Schrank — Korpushöhe 18–21 R,
+   * Abschlusssets links & rechts, Türfelder gleicher Breite. Dieselben Befunde wie im
+   * Fronten-Schritt; jeder nimmt der Kalkulation die Verbindlichkeit.
+   */
+  for (const befund of schiebetuerBefunde(draft)) meldungen.push({ schwere: 'fehler', text: befund })
+
   ;(draft.fronts?.columns ?? []).forEach((spalte, spaltenIndex) => {
     const segment = spaltenIndex + 1
     const segmentBreite = kontext.breiten[spaltenIndex]
@@ -1049,11 +1058,39 @@ function baueFrontPositionen(
       const lookup = frontLookups[el.typeId]
       if (!lookup) return // „Offen (Regal)" u. Ä. – bewusst keine Preisposition.
 
-      const breiteCm = zahl(el.widthCm) ?? segmentBreite
+      let breiteCm: number | undefined = zahl(el.widthCm) ?? segmentBreite
+      let menge = 1
+      let mengenHinweis: string | undefined
       const hoeheCm = zahl(el.heightCm)
       const pg = frontMaterialPg(el)
       const liniePg = liniePgAchsenwert(el.styleLineId, pg)
       const bezeichnung = getArtikelNr(lookup.artikel)?.bezeichnung ?? lookup.artikel
+
+      /*
+       * ZWEILÄUFIGE SCHIEBETÜR: ein Element steht für ALLE Türen des Schranks. Gerechnet wird
+       * Anzahl × Tür in der Breite eines Türfeldes (Summe seiner Korpus-Nennbreiten, wie die
+       * Preisliste die 80er / 100er / 120er / 150er führt). Bis Überarbeitung 10 stand hier eine
+       * einzige Tür in der Breite des ersten Segments — bei 2 × 100er also die Hälfte.
+       */
+      if (el.typeId === ZWEILAEUFIG_TYPE_ID) {
+        const anzahl = draft.fronts?.schiebetuerAnzahl
+        const aufteilung = gewaehlteAufteilung(draft)
+        if (!anzahl) {
+          meldungen.push({ schwere: 'fehler', text: `„${el.label || bezeichnung}": Anzahl der Schiebetüren fehlt – nicht kalkulierbar.` })
+          return
+        }
+        menge = anzahl
+        if (aufteilung && aufteilung.felder.length > 0) {
+          breiteCm = aufteilung.tuerbreiteCm
+          mengenHinweis = `${anzahl} Schiebetüren à ${cmText(breiteCm)} cm — ${tuerfelderText(aufteilung.felder)}.`
+        } else {
+          // Keine gleichen Türfelder: Der Befund oben macht die Kalkulation unverbindlich; als
+          // Richtwert gilt der Nennanteil der Gesamtbreite.
+          const summe = kontext.breiten.reduce((s, b) => s + b, 0)
+          breiteCm = summe > 0 ? Math.round((summe / anzahl) * 10) / 10 : undefined
+          mengenHinweis = `${anzahl} Schiebetüren — Korpus-Einteilung ergibt keine gleichen Türfelder (Richtwert).`
+        }
+      }
 
       if (breiteCm == null) {
         meldungen.push({
@@ -1098,7 +1135,7 @@ function baueFrontPositionen(
       positionen.push(
         bauePosition({
           lookup,
-          menge: 1,
+          menge,
           bucket: 'fronten',
           herkunft: 'gewaehlt',
           zusatz: el.label || undefined,
@@ -1108,7 +1145,7 @@ function baueFrontPositionen(
           tiefeCm: kontext.tiefeCm,
           liniePg,
           pg,
-          hinweis: rasterHinweis,
+          hinweis: [mengenHinweis, rasterHinweis].filter(Boolean).join(' ') || undefined,
         }),
       )
 

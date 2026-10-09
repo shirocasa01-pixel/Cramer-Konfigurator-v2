@@ -12,7 +12,8 @@ import {
   describeHandleConfig,
   describeOben,
 } from './frontsFormat'
-import { isFrontFieldVisible } from './frontsHelpers'
+import { ZWEILAEUFIG_TYPE_ID, isFrontFieldVisible } from './frontsHelpers'
+import { schiebetuerAnzahlText } from './schiebetuer'
 import { describeAusstattungAuswahl, describeColumnEquipment } from './ausstattungFormat'
 import { formatVkPreis } from './pricing'
 import { aufgeloestePreise } from './pricingSnapshot'
@@ -204,9 +205,8 @@ export function buildPdf(draft: Draft): jsPDF {
   }
 
   section('Fronten')
-  if (draft.fronts?.schiebetuerAnzahl) {
-    kv('Anzahl Schiebetüren', `${draft.fronts.schiebetuerAnzahl} Stück (ganzer Schrank)`)
-  }
+  const schiebetueren = schiebetuerAnzahlText(draft)
+  if (schiebetueren) kv('Anzahl Schiebetüren', schiebetueren)
   draft.fronts?.columns.forEach((column, index) => {
     font(10, 'bold')
     ensure(14)
@@ -226,7 +226,8 @@ export function buildPdf(draft: Draft): jsPDF {
       )
       y += 12
       const meta: string[] = []
-      if (element.widthCm || element.heightCm) {
+      // Zweiläufige Schiebetür: Breite und Anzahl stehen in „Anzahl Schiebetüren" (Türfelder).
+      if ((element.widthCm || element.heightCm) && element.typeId !== ZWEILAEUFIG_TYPE_ID) {
         meta.push(`Maße ${caPrefix()}${element.widthCm ?? '?'}×${element.heightCm ?? '?'} cm`)
       }
       const extras = describeFrontExtras(element)

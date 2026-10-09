@@ -10,8 +10,9 @@
 import { getMaterialGroups } from '../../src/config/materialMatrix.ts'
 import { resolvePriceGroup } from '../../src/lib/materialRules.ts'
 
-export function materialFuer(pg) {
+export function materialFuer(pg, nurGruppen) {
   for (const gruppe of getMaterialGroups()) {
+    if (nurGruppen && !nurGruppen.includes(gruppe.id)) continue
     for (const option of gruppe.options) {
       if (option.requiresFreeText) continue
       if (resolvePriceGroup(gruppe.id, option.id) === pg) {

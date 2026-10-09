@@ -13,16 +13,25 @@ import { getVisibleKorpusAreas } from '../../config/korpus'
 import { isKorpusComplete } from '../../lib/korpusValidation'
 import { isDimensionsValid } from '../../lib/dimensionsValidation'
 import {
-  berechneAussenmass,
+  aussenmassOptionen,
+  deriveDimensions,
   isSondertiefeDepth,
   resolveHeightCm,
   resolveKorpusBreiteCm,
 } from '../../lib/korpusMass'
+import {
+  aufteilungenFuerEntwurf,
+  korpusBreitenCm,
+  schiebetuerAufteilungen,
+  schiebetuerHoeheProblem,
+  tuerfelderText,
+  vorgeschlageneAnzahl,
+} from '../../lib/schiebetuer'
 import { korpusOffsetMm, rasterFuerHoehe } from '../../lib/raster'
 import { formatDimensions } from '../../lib/massFormat'
 import { KLEIDERSCHRANK_GROUP_ID, getAvailableFrontTypes } from '../../config/frontCatalog'
 import type { SegmentMasse } from '../../config/equipment'
-import { getFrontsIssues, isFrontsComplete } from '../../lib/frontsValidation'
+import { getFrontsIssuesFuerEntwurf, isFrontsCompleteFuerEntwurf } from '../../lib/frontsValidation'
 import {
   ebenenDerSpalte,
   entwurfsGeometrie,
@@ -44,8 +53,6 @@ import {
   hasZweilaeufigeSchiebetuer,
   isColumnEquipmentEligible,
   makeElement,
-  pruefeSchiebetuerAnzahl,
-  schiebetuerAnzahlOptions,
   SCHIEBETUER_MAX_CM,
   SCHIEBETUER_MAX_DECOBOARD_XP_CM,
   SCHIEBETUER_MIN_CM,
@@ -92,7 +99,19 @@ export default function FrontsPage() {
   useEffect(() => {
     if (!draft?.fronts) return
     const normal = normalisiereFrontenFuerEntwurf(draft)
-    if (normal !== draft.fronts) updateDraft({ fronts: normal })
+    if (normal !== draft.fronts) {
+      updateDraft({ fronts: normal })
+      return
+    }
+    // Überarbeitung 10: Mit einer zweiläufigen Schiebetür sind die Abschlusssets 20 mm stark —
+    // das Außenmaß im Entwurf folgt, sobald sie hinzukommt oder wieder entfällt.
+    const g = draft.korpusGrunddaten
+    if (g) {
+      const breite = deriveDimensions(g, aussenmassOptionen(draft)).widthCm
+      if (draft.dimensions && breite !== draft.dimensions.widthCm) {
+        updateDraft({ dimensions: { ...draft.dimensions, widthCm: breite } })
+      }
+    }
   }, [draft, updateDraft])
 
   if (!draft) return <Navigate to="/" replace />
@@ -106,18 +125,18 @@ export default function FrontsPage() {
   const fronts: FrontsData = draft.fronts
   // Überarbeitung 9: Breite, Höhe und Anschlag hängen am Korpus des Segments.
   const geometrie: Array<SegmentGeometrie | undefined> = entwurfsGeometrie(draft)
-  const issues = getFrontsIssues(fronts, geometrie)
-  const complete = isFrontsComplete(fronts, geometrie)
+  // Seit Überarbeitung 10 mit den Regeln der zweiläufigen Schiebetür (Höhe, Abschlusssets,
+  // Türfelder) — dieselbe Prüfung wie in Zusammenfassung und Übersicht.
+  const issues = getFrontsIssuesFuerEntwurf(draft)
+  const complete = isFrontsCompleteFuerEntwurf(draft)
   const isRefugium = series.id === 'refugium'
   const sondertiefe = isSondertiefeDepth(draft)
   const hasZwei = hasZweilaeufigeSchiebetuer(fronts)
-  const anzahlOptions = schiebetuerAnzahlOptions(fronts.columns.length)
-  // Punkt 7.5: Die Frontbreite wird aus der Korpusbreite abgeleitet, damit der
-  // Verkäufer sie nicht schätzen muss (seit Überarbeitung 9: den Rest der Ebene, sonst
-  // Flügel- bzw. volle Breite). Punkt 7.7 prüft die Schiebetür-Anzahl gegen die Türbreite.
   const grunddaten = draft.korpusGrunddaten
-  const aussenbreiteCm = grunddaten ? berechneAussenmass(grunddaten).gesamtbreiteCm : undefined
-  const anzahlPruefung = pruefeSchiebetuerAnzahl(aussenbreiteCm, anzahlOptions)
+  // Überarbeitung 10: Die Türanzahl folgt aus der Korpus-Einteilung (Türfelder aus einem oder
+  // zwei Korpi gleicher Gesamtbreite), die Türbreite aus den Korpus-Nennbreiten.
+  const anzahlPruefung = aufteilungenFuerEntwurf(draft)
+  const schiebetuerHoehe = schiebetuerHoeheProblem(grunddaten)
 
   /**
    * Überarbeitung 3 („Höhe bis Korpusoberkante"): Rasterstufe des Korpus. Sie ist die
@@ -168,11 +187,18 @@ export default function FrontsPage() {
         col.id === columnId ? { ...col, geometrieHinweis: undefined, elements: [...col.elements, neu] } : col,
       )
       const next: FrontsData = { ...stand, columns }
-      // Zweiläufige Schiebetür: Anzahl-Schiebetüren vorbelegen (erste zulässige Option).
-      if (typeId === ZWEILAEUFIG_TYPE_ID && !stand.schiebetuerAnzahl) {
-        next.schiebetuerAnzahl = schiebetuerAnzahlOptions(stand.columns.length)[0]
+      if (typeId !== ZWEILAEUFIG_TYPE_ID) return { fronts: next }
+      // Zweiläufige Schiebetür: Türanzahl vorbelegen (erste zulässige Einteilung) und —
+      // Überarbeitung 10 — die Abschlusssets auf „links & rechts" stellen; das Material bleibt.
+      if (!stand.schiebetuerAnzahl) {
+        next.schiebetuerAnzahl = vorgeschlageneAnzahl(schiebetuerAufteilungen(korpusBreitenCm(aktuell.korpusGrunddaten)))
       }
-      return { fronts: next }
+      const g = aktuell.korpusGrunddaten
+      if (!g || g.abschlussSet?.position === 'beide') return { fronts: next }
+      return {
+        fronts: next,
+        korpusGrunddaten: { ...g, abschlussSet: { ...(g.abschlussSet ?? {}), position: 'beide' } },
+      }
     })
   }
   function removeElement(columnId: string, elementId: string) {
@@ -263,43 +289,65 @@ export default function FrontsPage() {
             <span className={styles.exclusiveTitle}>Zweiläufige Schiebetür geplant (exklusiv)</span>
             <span>
               Für diesen Schrank sind keine weiteren Fronten möglich. Die Schiebetür geht immer über die
-              volle Schrankhöhe; die genaue Türbreite ergibt sich aus der technischen Umsetzung in der AV.
+              volle Schrankhöhe und deckt Abschlusssets und Innenkorpus von vorne ab.
             </span>
           </section>
         ) : null}
 
+        {/*
+          Überarbeitung 10, S. 2–4: Die Korpus-Einteilung muss symmetrisch sein — je Tür ein
+          Türfeld aus einem Korpus (Tür 80–100 cm) oder aus zwei Korpi gleicher Gesamtbreite
+          (Tür bis 150 cm). Nur Anzahlen, für die es eine solche Einteilung gibt, sind wählbar.
+        */}
         {hasZwei ? (
           <section className={styles.anzahl} aria-label="Anzahl Schiebetüren">
             <span className={styles.anzahlLabel}>Anzahl Schiebetüren (ganzer Schrank)</span>
             <div className={styles.chips} role="group">
-              {anzahlPruefung.map((p) => (
-                <button
-                  key={p.anzahl}
-                  type="button"
-                  className={fronts.schiebetuerAnzahl === p.anzahl ? styles.chipActive : styles.chip}
-                  onClick={() => updateFronts({ schiebetuerAnzahl: p.anzahl as 2 | 3 | 4 })}
-                  aria-pressed={fronts.schiebetuerAnzahl === p.anzahl}
-                >
-                  {p.anzahl} Schiebetüren
-                  {p.tuerbreiteCm > 0 ? <span className={styles.chipSub}>≈ {p.tuerbreiteCm} cm je Tür</span> : null}
-                </button>
-              ))}
+              {anzahlPruefung.map((p) => {
+                const aktiv = fronts.schiebetuerAnzahl === p.anzahl
+                return (
+                  <button
+                    key={p.anzahl}
+                    type="button"
+                    className={aktiv ? styles.chipActive : styles.chip}
+                    onClick={() => updateFronts({ schiebetuerAnzahl: p.anzahl })}
+                    aria-pressed={aktiv}
+                    disabled={p.felder.length === 0 && !aktiv}
+                    title={p.gruende.join(' ') || undefined}
+                  >
+                    {p.anzahl} Schiebetüren
+                    {p.tuerbreiteCm > 0 ? (
+                      <span className={styles.chipSub}>
+                        {String(p.tuerbreiteCm).replace('.', ',')}er · {p.zulaessig ? tuerfelderText(p.felder) : 'nicht zulässig'}
+                      </span>
+                    ) : (
+                      <span className={styles.chipSub}>passt nicht zur Korpus-Einteilung</span>
+                    )}
+                  </button>
+                )
+              })}
             </div>
             <span className={styles.anzahlHint}>
-              {fronts.columns.length} Korpi →{' '}
-              {anzahlOptions.length === 1
-                ? `immer ${anzahlOptions[0]} Schiebetüren notwendig.`
-                : `${anzahlOptions.join(' oder ')} Schiebetüren – je nach Schranklänge.`}{' '}
-              Eine Schiebetür muss zwischen {SCHIEBETUER_MIN_CM} und {SCHIEBETUER_MAX_CM} cm breit sein
-              (Decoboard und Xtreme Plus bis {SCHIEBETUER_MAX_DECOBOARD_XP_CM} cm).
+              Je Schiebetür ein Türfeld: ein Korpus (Tür {SCHIEBETUER_MIN_CM}–100 cm) oder zwei Korpi, die zusammen so
+              breit sind wie die übrigen Felder (Tür bis {SCHIEBETUER_MAX_CM} cm, in Decoboard und Xtreme Plus bis{' '}
+              {SCHIEBETUER_MAX_DECOBOARD_XP_CM} cm). Ein Korpus ohne Mittelseite ist höchstens 100 cm breit.
             </span>
-            {anzahlPruefung.some((p) => !p.zulaessig && p.tuerbreiteCm > 0) ? (
-              <span className={styles.anzahlWarn} role="status">
-                {anzahlPruefung
-                  .filter((p) => !p.zulaessig && p.tuerbreiteCm > 0)
-                  .map((p) => `${p.anzahl} Türen ergäben ≈ ${p.tuerbreiteCm} cm je Tür`)
-                  .join(' · ')}{' '}
-                — außerhalb der zulässigen Türbreite. Bitte mit der AV abstimmen.
+            {schiebetuerHoehe ? (
+              <span className={styles.anzahlWarn} role="alert">
+                {schiebetuerHoehe}
+              </span>
+            ) : null}
+            {anzahlPruefung
+              .filter((p) => p.anzahl === fronts.schiebetuerAnzahl && p.felder.length > 0 && !p.zulaessig)
+              .map((p) => (
+                <span key={p.anzahl} className={styles.anzahlWarn} role="alert">
+                  {p.gruende.join(' ')}
+                </span>
+              ))}
+            {anzahlPruefung.every((p) => p.felder.length === 0) ? (
+              <span className={styles.anzahlWarn} role="alert">
+                Die Korpi lassen sich in keine 2, 3 oder 4 gleich breiten Türfelder teilen. Bitte im Schritt
+                „Maße" die Korpusbreiten symmetrisch planen (z. B. 2 × 100er für 2 Türen, 3 × 100er für 3 Türen).
               </span>
             ) : null}
           </section>
@@ -383,7 +431,9 @@ export default function FrontsPage() {
             ) : (
               <div className={styles.addRow}>
                 {availableTypes.map((type) => {
-                  const disabled = !canAddFrontType(fronts, type.id)
+                  // Überarbeitung 10: zweiläufige Schiebetür nur bei 18 bis 21 Raster Korpushöhe.
+                  const hoeheSperrt = type.id === ZWEILAEUFIG_TYPE_ID && Boolean(schiebetuerHoehe)
+                  const disabled = !canAddFrontType(fronts, type.id) || hoeheSperrt
                   return (
                     <span key={type.id} className={styles.addSlot}>
                       <button
@@ -391,9 +441,11 @@ export default function FrontsPage() {
                         className={styles.addBtn}
                         disabled={disabled}
                         title={
-                          disabled && type.id === ZWEILAEUFIG_TYPE_ID
-                            ? 'Nur möglich, wenn noch keine andere Front geplant ist.'
-                            : undefined
+                          hoeheSperrt
+                            ? schiebetuerHoehe
+                            : disabled && type.id === ZWEILAEUFIG_TYPE_ID
+                              ? 'Nur möglich, wenn noch keine andere Front geplant ist.'
+                              : undefined
                         }
                         onClick={() => addElement(column.id, type.id)}
                       >

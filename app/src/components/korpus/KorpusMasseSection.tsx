@@ -18,6 +18,7 @@ import {
 } from '../../lib/korpusMass'
 import { sondertiefeOptionenText } from '../../config/equipment'
 import { breitenWarnung, hoehenWarnung, tiefenWarnung } from '../../lib/dimensionsValidation'
+import { schiebetuerHoeheProblem } from '../../lib/schiebetuer'
 import { frontAufteilung, mmZuCm } from '../../lib/frontbreiten'
 import { formatMassZahl } from '../../lib/format'
 import type { KorpusEinheit, KorpusGrunddaten, Verblendung, VerblendungArt } from '../../types'
@@ -79,8 +80,11 @@ interface Props {
    * die Korpustiefe ohne Front wächst im Außenmaß um die Kabelführung.
    */
   beleuchtung?: boolean
-  /** Zweiläufige Schiebetür geplant: Verblendung nur seitlich (kein „Oben"). */
-  nurSeitlicheVerblendung?: boolean
+  /**
+   * Zweiläufige Schiebetür geplant: Verblendung nur seitlich (kein „Oben"); Überarbeitung 10:
+   * Abschlusssets immer links & rechts und 20 mm stark, Korpushöhe 18 bis 21 Raster.
+   */
+  schiebetuer?: boolean
 }
 
 /**
@@ -101,7 +105,8 @@ const SONDERTIEFE_HINWEIS = `Hinweis: Bei Sondertiefe sind als Innenausstattung 
  * Punkt 4.13: Zu jeder Korpusbreite wird die abgeleitete Frontbreite angezeigt –
  * der Berater sieht sofort, was aus seiner Auswahl folgt.
  */
-export function KorpusMasseSection({ value, onChange, beleuchtung, nurSeitlicheVerblendung }: Props) {
+export function KorpusMasseSection({ value, onChange, beleuchtung, schiebetuer }: Props) {
+  const nurSeitlicheVerblendung = schiebetuer
   // Alle Beschriftungen dieses Moduls liegen im Abschnitt „masse" des Schemas; im Code
   // steht der Standard, den der Administrator überschreiben kann.
   const t = useTexte('masse')
@@ -119,7 +124,10 @@ export function KorpusMasseSection({ value, onChange, beleuchtung, nurSeitlicheV
 
   const warnHoehe = hoehenWarnung(resolveHeightCm(value))
   const warnTiefe = tiefenWarnung(depthCm)
-  const masse = berechneAussenmass(value, { beleuchtung })
+  const masse = berechneAussenmass(value, { beleuchtung, schiebetuer })
+  // Überarbeitung 10: Höhe und Abschlussset der zweiläufigen Schiebetür.
+  const schiebetuerHoehe = schiebetuer ? schiebetuerHoeheProblem(value) : undefined
+  const abschlussGesperrt = (key: string) => Boolean(schiebetuer) && key !== 'beide'
 
   // --- Verblendung: Haken → Laufmeter (Überarbeitung 8, Vorgabe Verblendungs-UI) --------
   const setzeVerblendung = (next: Partial<Verblendung>) => patch({ verblendung: { ...verblendung, ...next } })
@@ -194,6 +202,11 @@ export function KorpusMasseSection({ value, onChange, beleuchtung, nurSeitlicheV
           </div>
         ) : null}
         {warnHoehe ? <p className={styles.warn} role="status">{warnHoehe}</p> : null}
+        {schiebetuerHoehe ? (
+          <p className={styles.warn} role="alert">
+            {schiebetuerHoehe}
+          </p>
+        ) : null}
       </section>
 
       {/* Tiefe */}
@@ -413,12 +426,21 @@ export function KorpusMasseSection({ value, onChange, beleuchtung, nurSeitlicheV
               className={abschluss.position === p.key ? styles.chipActive : styles.chip}
               onClick={() => patch({ abschlussSet: { ...abschluss, position: p.key } })}
               aria-pressed={abschluss.position === p.key}
+              disabled={abschlussGesperrt(p.key)}
+              title={abschlussGesperrt(p.key) ? 'Bei zweiläufigen Schiebetüren immer links & rechts.' : undefined}
             >
               {t(`abschluss.pos.${p.key}`, p.label)}
             </button>
           ))}
         </div>
-        {abschluss.position !== 'keine' ? (
+        {schiebetuer ? (
+          <p className={styles.note}>
+            {t(
+              'abschluss.schiebetuer',
+              'Zweiläufige Schiebetür: Abschlusssets links und rechts sind immer notwendig — 20 mm stark statt 10 mm. Von vorne sind sie nicht sichtbar: Die Schiebetür deckt Abschlussset und Innenkorpus ab.',
+            )}
+          </p>
+        ) : abschluss.position !== 'keine' ? (
           <p className={styles.note}>
             {t(
               'abschluss.hinweis',
@@ -697,7 +719,11 @@ export function KorpusMasseSection({ value, onChange, beleuchtung, nurSeitlicheV
               })}
             </p>
             <p className={styles.rechenweg}>{masse.rechenweg}</p>
-            <p className={styles.note}>{t('aussenmass.hinweis', AUSSENMASS_HINWEIS)}</p>
+            <p className={styles.note}>
+              {schiebetuer
+                ? t('aussenmass.hinweis', AUSSENMASS_HINWEIS).replace('(10 mm)', '(20 mm bei zweiläufigen Schiebetüren)')
+                : t('aussenmass.hinweis', AUSSENMASS_HINWEIS)}
+            </p>
             {masse.hinweise.map((h, i) => (
               <p key={i} className={styles.warn} role="status">
                 {h}

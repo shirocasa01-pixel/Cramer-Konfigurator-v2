@@ -24,6 +24,7 @@ import {
   encodeAufkantungValue,
   frontHoeheAusRaster,
   frontMaterialGroupId,
+  griffProfilAnwendbar,
   isFrontFieldVisible,
   parseRasterEingabe,
   GLAS_LACKIERUNG_LABEL,
@@ -233,10 +234,9 @@ export function FrontElementCard({
       ? `Höher als der freie Korpusbereich (max. ${formatMassZahl(geometrie.maxHoeheCm)} cm).`
       : undefined
 
-  // Überarbeitung 3: Curve mit Mattlack oder „anders" hat gar kein Griffprofil.
-  const materialGruppe = frontMaterialGroupId(element)
-  const griffProfilEntfaellt =
-    element.styleLineId === 'curve' && (materialGruppe === 'mattlack' || materialGruppe === MATERIAL_CUSTOM_ID)
+  // Überarbeitung 10, S. 5: Curve hat kein Griffprofil „Edge" — in keinem Material (bis
+  // Überarbeitung 3 entfiel es nur bei Mattlack und „anders").
+  const griffProfilEntfaellt = !griffProfilAnwendbar(element)
 
   return (
     <div className={styles.card}>
@@ -263,8 +263,11 @@ export function FrontElementCard({
         error={labelError}
       />
 
+      {/* Überarbeitung 10: Breite und Anzahl der zweiläufigen Schiebetüren folgen aus der
+          Korpus-Einteilung (Türfelder) — kein eigenes Breitenfeld. */}
+      {type?.ohneHoehe ? null : (
       <div
-        className={[styles.sizeRow, type?.ohneHoehe || type?.hoeheModi ? styles.sizeRowSingle : '']
+        className={[styles.sizeRow, type?.hoeheModi ? styles.sizeRowSingle : '']
           .filter(Boolean)
           .join(' ')}
       >
@@ -276,8 +279,7 @@ export function FrontElementCard({
           onChange={(event) => onChange({ widthCm: event.target.value })}
           hint={geometrie?.breitenHinweis}
         />
-        {/* Zweiläufige Schiebetür: kein Höhenfeld – sie geht immer über die volle Höhe. */}
-        {type?.ohneHoehe || type?.hoeheModi ? null : (
+        {type?.hoeheModi ? null : (
           <TextField
             label={t('feld.hoehe', 'Höhe (cm)')}
             inputMode="decimal"
@@ -287,6 +289,7 @@ export function FrontElementCard({
           />
         )}
       </div>
+      )}
 
       {type?.hoeheRasterStufen ? (
         <div className={styles.styleBlock}>
@@ -318,7 +321,7 @@ export function FrontElementCard({
         <Beschriftung
           abschnittId="fronten"
           schluessel="feld.volleHoehe"
-          standard="Höhe immer über die volle Korpushöhe – technisch nicht anders möglich."
+          standard="Höhe immer über die volle Korpushöhe – technisch nicht anders möglich. Anzahl und Breite der Türen ergeben sich aus der Korpus-Einteilung (oben)."
           as="p"
           className={styles.handleHint}
           mehrzeilig
@@ -656,7 +659,7 @@ export function FrontElementCard({
         />
       ) : null}
 
-      {/* Überarbeitung 3: nur noch „Edge"; bei Curve mit Mattlack/anders entfällt das Profil ganz. */}
+      {/* Überarbeitung 3: nur noch „Edge"; Überarbeitung 10: bei Curve entfällt das Profil ganz. */}
       {type?.griffProfil && !griffProfilEntfaellt ? (
         <div className={styles.styleBlock}>
           <span className={styles.blockLabel}>Griffprofil</span>

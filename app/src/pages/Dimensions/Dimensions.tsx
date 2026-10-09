@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { AppShell } from '../../components/layout/AppShell'
 import { StepIndicator } from '../../components/layout/StepIndicator'
@@ -30,6 +30,10 @@ import { SchemaAbschnittFelder } from '../../components/schema/SchemaAbschnittFe
 import styles from './Dimensions.module.css'
 
 type DimensionsPatch = Partial<NonNullable<Draft['dimensions']>>
+
+// Three.js ist groß — die Vorschau lädt erst, wenn der Schritt „Maße" eines Kleiderschranks
+// geöffnet wird, und bläht den Rest der Anwendung nicht auf.
+const Schrank3DVorschau = lazy(() => import('../../components/vorschau/Schrank3DVorschau'))
 
 /**
  * SCHRITT 4 – Korpus-Maße & Grunddaten.
@@ -83,7 +87,7 @@ export default function DimensionsPage() {
     // gleicht der Fronten-Schritt an (`normalisiereFrontenFuerEntwurf`): Er kennt die
     // Korpusbreite, für die sie eingestellt wurden.
     const g = normalisiereVerblendung(next)
-    updateDraft({ korpusGrunddaten: g, dimensions: deriveDimensions(g) })
+    updateDraft({ korpusGrunddaten: g, dimensions: deriveDimensions(g, aussenmassOptionen(draft!)) })
   }
   function markTouched(field: string) {
     setTouched((prev) => ({ ...prev, [field]: true }))
@@ -143,12 +147,18 @@ export default function DimensionsPage() {
 
         {useRaster ? (
           grunddaten ? (
-            <KorpusMasseSection
-              value={grunddaten}
-              onChange={updateGrunddaten}
-              beleuchtung={aussenmassOptionen(draft).beleuchtung}
-              nurSeitlicheVerblendung={hasZweilaeufigeSchiebetuer(draft.fronts)}
-            />
+            <>
+              <KorpusMasseSection
+                value={grunddaten}
+                onChange={updateGrunddaten}
+                beleuchtung={aussenmassOptionen(draft).beleuchtung}
+                schiebetuer={hasZweilaeufigeSchiebetuer(draft.fronts)}
+              />
+              {/* Überarbeitung 10: 3D-Vorschau — folgt Breiten, Höhe und Anzahl der Korpi. */}
+              <Suspense fallback={<p className={styles.hint}>3D-Vorschau wird geladen …</p>}>
+                <Schrank3DVorschau draft={draft} />
+              </Suspense>
+            </>
           ) : (
             <p className={styles.hint}>Maße werden vorbereitet …</p>
           )

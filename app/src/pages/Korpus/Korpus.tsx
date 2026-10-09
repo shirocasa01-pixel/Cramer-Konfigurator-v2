@@ -33,6 +33,20 @@ import styles from './Korpus.module.css'
   an zwei Stellen gebraucht werden: beim Anzeigen und als Standard im Bearbeitungsdialog.
 */
 const INNEN_JE_KORPUS_CHECKBOX = 'Innenmaterial je Korpus getrennt wählen ({anzahl} Korpi)'
+/*
+  Überarbeitung 10: exakte Beschriftung der beiden Aufschlag-Abfragen. Der Satz ist ein
+  Platzhalter — er kommt live aus dem Artikel (90-037-0001 / -0004), damit eine Änderung in der
+  Stammdatenverwaltung auch in der Beschriftung ankommt (Vorgabe 5 % bzw. 10 %).
+*/
+const RAUMTEILER_CHECKBOX = 'Raumteiler ({satz}% Aufschlag auf den Möbelpreis)'
+const SICHTRUECKWAND_CHECKBOX = 'Sichtrückwand ({satz}% Aufschlag auf den Möbelpreis)'
+const SATZ_HINWEIS = 'Platzhalter: {satz} — der Aufschlag-Satz aus der Artikelverwaltung.'
+
+/** Satz eines Aufschlag-Artikels in deutscher Schreibweise („5", „7,5"). */
+function aufschlagSatz(artikelnummer: string, vorgabe: number): string {
+  const satz = getArtikelNr(artikelnummer)?.aufschlag
+  return String(typeof satz === 'number' && Number.isFinite(satz) ? satz : vorgabe).replace('.', ',')
+}
 const INNEN_JE_KORPUS_HINWEIS =
   'Sobald im Schritt „Maße" mehrere Korpi angelegt sind, lässt sich das Innenmaterial hier je Korpus getrennt wählen — etwa Decoboard hinter den Drehtüren und Furnier im offenen Mittelteil.'
 
@@ -342,8 +356,12 @@ export default function KorpusPage() {
               />
               <Beschriftung
                 abschnittId="material"
-                schluessel="rueckwand.checkbox"
-                standard="Sicht-Rückwand? (sichtbare Außen-Rückwand konfigurieren)"
+                schluessel="sichtrueckwand.checkbox"
+                standard={SICHTRUECKWAND_CHECKBOX}
+                platzhalterHinweis={SATZ_HINWEIS}
+                anzeige={fuelle(t('sichtrueckwand.checkbox', SICHTRUECKWAND_CHECKBOX), {
+                  satz: aufschlagSatz('90-037-0004', 10),
+                })}
               />
             </label>
             {draft.sichtRueckwandAussen ? (
@@ -373,8 +391,12 @@ export default function KorpusPage() {
             />
             <Beschriftung
               abschnittId="material"
-              schluessel="raumteiler.checkbox"
-              standard="Raumteiler? (Möbel steht frei im Raum — Aufschlag auf den Möbelpreis)"
+              schluessel="raumteiler.checkbox.satz"
+              standard={RAUMTEILER_CHECKBOX}
+              platzhalterHinweis={SATZ_HINWEIS}
+              anzeige={fuelle(t('raumteiler.checkbox.satz', RAUMTEILER_CHECKBOX), {
+                satz: aufschlagSatz('90-037-0001', 5),
+              })}
             />
           </label>
         </section>

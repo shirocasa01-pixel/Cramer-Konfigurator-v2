@@ -245,25 +245,16 @@ export function canAddFrontType(fronts: FrontsData | undefined, typeId: string):
   return true
 }
 
-/**
- * Zulässige Anzahl Schiebetür-Elemente in Abhängigkeit der Korpus-Anzahl (S. 17):
- * 2 Korpi → 2, 3 Korpi → 3, 4 Korpi → 2 oder 4. Andere Anzahlen: 2/3/4 als Fallback.
- */
-export function schiebetuerAnzahlOptions(segmentCount: number): Array<2 | 3 | 4> {
-  if (segmentCount === 2) return [2]
-  if (segmentCount === 3) return [3]
-  if (segmentCount === 4) return [2, 4]
-  return [2, 3, 4]
-}
-
 // ---------------------------------------------------------------------------
-// Punkt 7.7 — Türbreite bestimmt die Türanzahl
+// Punkt 7.7 — zulässige Türbreite der zweiläufigen Schiebetür
 // ---------------------------------------------------------------------------
 
 /**
  * Dietmar: „Schiebetüren müssen immer eine Länge zwischen 80 und 120 cm haben.
  * Daraus ergibt sich die Anzahl der notwendigen Türen. Nur bei Decoboard und XP
- * ist eine Schiebetürlänge bis 150 cm möglich."
+ * ist eine Schiebetürlänge bis 150 cm möglich." Überarbeitung 10 bestätigt: „150er
+ * Schiebetüren (zweiläufig) nur in Decoboard oder Xtreme Plus". Welche Türanzahl zu welcher
+ * Korpus-Einteilung passt, steht seitdem in `lib/schiebetuer.ts` (Türfelder).
  */
 export const SCHIEBETUER_MIN_CM = 80
 export const SCHIEBETUER_MAX_CM = 120
@@ -278,39 +269,14 @@ export function schiebetuerMaxBreiteCm(materialGroupId: string | undefined): num
     : SCHIEBETUER_MAX_CM
 }
 
-export interface SchiebetuerAnzahlPruefung {
-  anzahl: number
-  /** Rechnerische Türbreite bei dieser Anzahl (cm, eine Nachkommastelle). */
-  tuerbreiteCm: number
-  /** Liegt die Türbreite im zulässigen Bereich? */
-  zulaessig: boolean
-}
-
 /**
- * Prüft die möglichen Türanzahlen gegen die Breitenregel.
- *
- * Gerechnet wird mit dem NENNANTEIL (Außenbreite ÷ Anzahl). Die tatsächliche
- * Türbreite liegt wegen der Überlappung der beiden Laufebenen darüber; um wie viel,
- * ist nicht dokumentiert — deshalb wird hier bewusst nichts hinzugerechnet, sondern
- * nur der Anteil ausgewiesen. Der Wert ist eine Orientierung, keine Fertigungsangabe.
+ * Hat diese Front ein Griffprofil? Nur die zweiläufige Schiebetür kennt es (immer „Edge").
+ * Überarbeitung 10, S. 5: „Bei Curve bitte die Griffprofilbezeichnung ‚Edge' rausnehmen" —
+ * die Curve-Front bildet den Griff selbst. Eine Quelle für Karte, Zusammenfassung und AV-PDF:
+ * Ein beim Wechsel auf Curve stehengebliebener Wert wird dadurch nirgends mehr gezeigt.
  */
-export function pruefeSchiebetuerAnzahl(
-  aussenbreiteCm: number | undefined,
-  kandidaten: readonly number[],
-  materialGroupId?: string,
-): SchiebetuerAnzahlPruefung[] {
-  if (aussenbreiteCm == null || aussenbreiteCm <= 0) {
-    return kandidaten.map((anzahl) => ({ anzahl, tuerbreiteCm: 0, zulaessig: true }))
-  }
-  const max = schiebetuerMaxBreiteCm(materialGroupId)
-  return kandidaten.map((anzahl) => {
-    const tuerbreiteCm = Math.round((aussenbreiteCm / anzahl) * 10) / 10
-    return {
-      anzahl,
-      tuerbreiteCm,
-      zulaessig: tuerbreiteCm >= SCHIEBETUER_MIN_CM && tuerbreiteCm <= max,
-    }
-  })
+export function griffProfilAnwendbar(element: Pick<FrontElement, 'typeId' | 'styleLineId'>): boolean {
+  return Boolean(getFrontType(element.typeId)?.griffProfil) && element.styleLineId !== 'curve'
 }
 
 // ---------------------------------------------------------------------------
