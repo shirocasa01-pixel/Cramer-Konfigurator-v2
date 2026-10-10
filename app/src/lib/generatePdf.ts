@@ -28,16 +28,16 @@ import { zeichneLookbookSeite, type LookbookBilder } from './pdfLookbook'
 /**
  * Erzeugt das kompakte AV-Übergabe-PDF.
  *
- *   Seite 1 (quer)  Konstruktionszeichnung im Lookbook-Stil — Kopfdaten, Vorder-, Innen- und
- *                   Draufsicht mit Maßketten, Schriftfeld mit X-Checkliste (nur mit Korpus-
- *                   Grunddaten; `pdfLookbook.ts`)
+ *   Seite 1 (quer)  Konstruktionszeichnung 1:1 nach der Cramer-AV-Zeichnung — Isometrie,
+ *                   Grundriss mit Maßketten, Innenansicht, Cramer-Schriftfeld (nur mit
+ *                   Korpus-Grunddaten; `pdfLookbook.ts`)
  *   danach (hoch)   alle Daten wie bisher, zuletzt die gescannte Handzeichnung
  *
  * Alle Spalten-/Segment-Daten aus Phase 4.5 & 5 inkl. Preisgruppen-Metadaten; der
  * verbindliche Preis ist der manuell erfasste VK-Preis (Phase A).
  *
- * @param optionen.skizzen Die gerasterten Ansichten (`skizzenBilder`); ohne sie trägt Seite 1
- *   einen Hinweis statt der Zeichnung.
+ * @param optionen.skizzen Die gerasterte Innenansicht (`skizzenBilder`); ohne sie trägt Seite 1
+ *   dort einen Hinweis.
  */
 export function buildPdf(draft: Draft, optionen: { skizzen?: LookbookBilder } = {}): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
@@ -363,7 +363,7 @@ export async function downloadPdf(draft: Draft): Promise<void> {
   if (draft.korpusGrunddaten && typeof document !== 'undefined') {
     try {
       const { skizzenBilder } = await import('../components/konstruktion/skizzenBild')
-      skizzen = await skizzenBilder(draft)
+      skizzen = await skizzenBilder(draft, ['innen'])
     } catch (fehler) {
       console.warn('Skizze für das PDF nicht verfügbar:', fehler)
     }

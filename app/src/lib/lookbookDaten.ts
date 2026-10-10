@@ -2,21 +2,20 @@ import type { Draft, FrontElement } from '../types'
 import { getBranch } from '../config/branches'
 import { getEquipmentOption } from '../config/equipment'
 import { getStyleLine } from '../config/frontCatalog'
-import { getVisibleKorpusAreas } from '../config/korpus'
 import { getProductGroup, getSeries } from '../config/productCatalog'
 import { describeHandleConfig } from './frontsFormat'
 import { ZWEILAEUFIG_TYPE_ID, allElements } from './frontsHelpers'
-import { konstruktion, mmText } from './konstruktion'
+import { konstruktion, mmText, type Konstruktion2D } from './konstruktion'
 import { computeKorpusMasse, formatLfm, verblendungLfm, verblendungSeitenText } from './korpusMass'
 import { describeMaterialSelection } from './materialFormat'
 
 /**
- * DATEN DER LOOKBOOK-SEITE — Seite 1 des AV-PDFs, angelehnt an das Schriftfeld der
- * Cramer-AV-Zeichnung (Lookbook Refugium): Titel, Kopfdaten, Abmessungen, Ausführung,
- * X-Checkliste, Ausführung & Material, Sonder-Ausstattung.
+ * DATEN DER SEITE 1 DES AV-PDFs — die Felder der Cramer-AV-Konstruktionszeichnung
+ * (Vorlage „Refugium 18Raster in 052/9010": Schriftfeld unten, Hinweise über der Isometrie).
  *
  * Reine Daten, kein jsPDF — das Zeichnen übernimmt `pdfLookbook.ts`. Alles kommt aus dem
- * Entwurf und den Stammdaten; nichts wird hier neu festgelegt.
+ * Entwurf und den Stammdaten; nichts wird hier neu festgelegt. Felder ohne Gegenstück im
+ * Entwurf (Liefertermin) bleiben zum Ausfüllen leer.
  */
 
 export interface Feld {
@@ -30,23 +29,37 @@ export interface Haken {
 }
 
 export interface LookbookDaten {
-  /** „KLEIDERSCHRANK REFUGIUM" */
-  titel: string
-  /** „Refugium 18 Raster · 3 Korpi" — wie die Kopfzeile des Cramer-Schriftfelds. */
-  untertitel: string
-  /** „#2026-TEST-01" — Auftragsnummer, sonst Entwurfsnummer. */
-  nummer: string
-  kopf: Feld[]
+  /** „Refugium 18Raster in Mattlack – RAL 9010" — Kopfzeile des Schriftfelds. */
+  bezeichnung: string
+  /** Zeile darunter (Vorlage: „Cramer M + D") — die Filiale. */
+  filiale: string
+  /** Fuß\Rolle, Höhe, Breite, Tiefe — Maße in mm ohne Einheit. */
   masse: Feld[]
-  /** „3 Schübe, 4 Drehtüren, 5 Böden mit Kleiderstange …" — wie „Ausführung:" im Lookbook. */
-  ausfuehrung: string
-  checkliste: Array<{ gruppe: string; haken: Haken[] }>
-  material: Feld[]
-  sonder: Feld[]
+  liefertermin: string
+  auftragsdatum: string
+  /** Zwei Spalten à fünf Zeilen, zeilenweise: Softschübe | mit Lochreihe, Metallzarge | … */
+  haken: Haken[]
+  /** GRIFF, Front, Korpus, Platte, RW. */
+  ausfuehrung: Feld[]
+  auftragserfassung: string
+  letzteAenderung: string
+  serie: string
+  kunde: string
+  auftragsnummer: string
+  moebelsoftnummer: string
+  berater: string
+  /** „-- Refugium innen Dekor anthrazit --" über dem Grundriss. */
+  innenTitel: string
+  /** „-- 3 Korpi, 2 Drehtüren …" — Hinweise über der Isometrie. */
+  hinweise: string[]
+  /** Material je Front-Element (ID) für die Beschriftung auf den Fronten. */
+  frontMaterial: Record<string, string>
+  modell: Konstruktion2D | null
 }
 
-function datumHeute(): string {
-  return new Date().toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+function datum(iso?: string): string {
+  const d = iso ? new Date(iso) : new Date()
+  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
 }
 
 /** „2 Drehtüren", „1 Schub" — Einzahl/Mehrzahl ohne Rechenfehler bei 0. */
@@ -72,31 +85,23 @@ export function lookbookDaten(draft: Draft): LookbookDaten {
   const m = konstruktion(draft)
   const masse = computeKorpusMasse(draft)
   const elemente = allElements(draft.fronts)
+  const mat = (id: string) => (draft.korpus?.[id] ? describeMaterialSelection(draft.korpus[id]) : '')
 
-  // --- Titel & Kopf ---------------------------------------------------------------------
-  const hoeheText = g?.heightMode === '18R' ? '18 Raster' : g?.heightMode === '21R' ? '21 Raster' : g ? 'Sonderhöhe' : ''
-  // Wie im Lookbook in der Einzahl: „KLEIDERSCHRANK REFUGIUM".
-  const gruppe = group?.id === 'kleiderschraenke' ? 'Kleiderschrank' : group?.name ?? 'Möbel'
-  const titel = `${gruppe} ${series?.name ?? ''}`.trim().toUpperCase()
-  const untertitel = [series?.name, hoeheText, m ? anzahl(m.korpusse.length, 'Korpus', 'Korpi') : ''].filter(Boolean).join(' · ')
-  const kopf: Feld[] = [
-    { label: 'Kunde', wert: draft.customerName?.trim() || '—' },
-    { label: 'Auftragsnummer', wert: draft.orderNumber?.trim() || '—' },
-    { label: 'Berater', wert: draft.consultant?.name || '—' },
-    { label: 'Datum', wert: datumHeute() },
-    { label: 'Filiale', wert: getBranch(draft.branchId)?.name ?? '—' },
-    { label: 'Serie / Modell', wert: [group?.name, series?.name].filter(Boolean).join(' · ') || '—' },
-  ]
+  // --- Kopfzeile „Refugium 18Raster in <Korpus>" -----------------------------------------
+  const raster = g?.heightMode === '18R' ? '18Raster' : g?.heightMode === '21R' ? '21Raster' : g ? 'Sonderhöhe' : ''
+  const korpus = mat('aussen') || eindeutig([mat('aussenLinks'), mat('aussenRechts')]).join(' / ')
+  const bezeichnung = [series?.name ?? group?.name ?? '', raster, korpus ? `in ${korpus}` : ''].filter(Boolean).join(' ')
 
-  // --- Abmessungen (Außenmaß wie in Zusammenfassung und AV-PDF) ----------------------------
-  const mm = (cm: number | undefined) => (cm != null ? `${mmText(Math.round(cm * 10))} mm` : '—')
+  const mm = (cm: number | undefined) => (cm != null ? mmText(Math.round(cm * 10)) : '')
+  const fl = g?.fussleiste
   const masseFelder: Feld[] = [
+    { label: 'Fuß\\Rolle', wert: fl?.enabled ? `Fußleiste ${fl.hoeheCm?.trim() || '?'} cm` : '/' },
     { label: 'Höhe', wert: mm(masse.gesamthoeheCm) },
     { label: 'Breite', wert: mm(masse.gesamtbreiteCm) },
     { label: 'Tiefe', wert: mm(masse.korpustiefeCm) },
   ]
 
-  // --- Ausführung: Fronten und Ausstattung gezählt -------------------------------------------
+  // --- Fronten und Ausstattung gezählt ------------------------------------------------------
   const zaehle = (typ: string) => elemente.filter((e) => e.typeId === typ).length
   const drehtueren = zaehle('drehtuer')
   const schuebe = zaehle('schuebe')
@@ -111,102 +116,92 @@ export function lookbookDaten(draft: Draft): LookbookDaten {
   const beleuchtung = eindeutig(
     (draft.fronts?.columns ?? []).flatMap((c) => c.equipment ?? []).filter((e) => getEquipmentOption(e.optionId)?.beleuchtung).map((e) => getEquipmentOption(e.optionId)?.label ?? ''),
   )
-  const ausfuehrung = [
-    schuebe ? anzahl(schuebe, 'Schub', 'Schübe') : '',
-    drehtueren ? anzahl(drehtueren, 'Drehtür', 'Drehtüren') : '',
-    schiebeZwei ? `${anzahl(schiebeZwei, 'Schiebetür', 'Schiebetüren')} zweiläufig` : '',
-    schiebeEin ? `${anzahl(schiebeEin, 'Schiebetür', 'Schiebetüren')} einläufig` : '',
-    klappen ? anzahl(klappen, 'Klappe', 'Klappen') : '',
-    offen ? anzahl(offen, 'offenes Fach', 'offene Fächer') : '',
-    stangenBoeden ? `${anzahl(stangenBoeden, 'Boden', 'Böden')} mit Kleiderstange` : '',
-    fachboeden ? anzahl(fachboeden, 'Fachboden', 'Fachböden') : '',
-    ...container,
-    beleuchtung.length ? 'LED-Beleuchtung' : '',
-  ]
-    .filter(Boolean)
-    .join(', ')
 
-  // --- X-Checkliste (wie im Cramer-Schriftfeld) --------------------------------------------
+  // --- X-Felder wie im Cramer-Schriftfeld ------------------------------------------------------
   const korpusse = g?.korpusse ?? []
   const v = g?.verblendung
-  const ab = g?.abschlussSet?.position
-  const checkliste: LookbookDaten['checkliste'] = [
-    {
-      gruppe: 'Fronten',
-      haken: [
-        { label: drehtueren ? `Drehtüren (${drehtueren})` : 'Drehtüren', an: drehtueren > 0 },
-        { label: schiebeZwei || schiebeEin ? `Schiebetüren (${schiebeZwei || schiebeEin})` : 'Schiebetüren', an: schiebeZwei + schiebeEin > 0 },
-        { label: schuebe ? `Außenschübe (${schuebe})` : 'Außenschübe', an: schuebe > 0 },
-        { label: 'Klappen', an: klappen > 0 },
-        { label: 'Offene Fächer', an: offen > 0 },
-      ],
-    },
-    {
-      gruppe: 'Korpus',
-      haken: [
-        { label: 'mit Lochreihe', an: korpusse.some((k) => k.lochreihe) },
-        { label: 'ohne Lochreihe', an: korpusse.some((k) => !k.lochreihe) },
-        { label: 'Abschlussset links', an: ab === 'links' || ab === 'beide' },
-        { label: 'Abschlussset rechts', an: ab === 'rechts' || ab === 'beide' },
-        { label: 'Verblendung korpusbündig', an: v?.art === 'korpusbuendig' },
-        { label: 'Verblendung frontbündig', an: v?.art === 'frontbuendig' },
-      ],
-    },
+  const umlauf = draft.fronts?.abschlussOben?.variant === 'UK' || draft.fronts?.abschlussUnten?.type === 'UK'
+  const haken: Haken[] = [
+    // Schübe im Planer sind Softschübe; Metallzarge und Umlaufkorpus 30 mm kennt der Entwurf nicht.
+    { label: 'Softschübe', an: schuebe > 0 || container.length > 0 },
+    { label: 'mit Lochreihe', an: korpusse.some((k) => k.lochreihe) },
+    { label: 'Metallzarge', an: false },
+    { label: 'ohne Lochreihe', an: korpusse.some((k) => !k.lochreihe) },
+    { label: 'Drehtüren', an: drehtueren > 0 },
+    { label: 'Front korpusbündig', an: v?.art === 'korpusbuendig' },
+    { label: 'Schiebetüren', an: schiebeZwei + schiebeEin > 0 },
+    { label: 'Front Standard', an: v?.art !== 'korpusbuendig' },
+    { label: 'Umlaufkorpus 20mm', an: umlauf },
+    { label: 'Umlaufkorpus 30mm', an: false },
   ]
 
-  // --- Ausführung & Material (Schritt „Material" + Fronten) -------------------------------
-  const material: Feld[] = []
-  for (const area of series ? getVisibleKorpusAreas(series, draft.korpusMode) : []) {
-    const sel = draft.korpus?.[area.id]
-    if (sel) material.push({ label: area.label.replace(/^[a-z]\.\s*/, ''), wert: describeMaterialSelection(sel, area.noneLabel) })
-  }
-  const absch = g?.abschlussSet
-  if (absch && absch.position !== 'keine') {
-    const wert = absch.materialGetrennt
-      ? `links: ${describeMaterialSelection(absch.materialLinks ?? absch.material)} · rechts: ${describeMaterialSelection(absch.materialRechts ?? absch.material)}`
-      : describeMaterialSelection(absch.material)
-    material.push({ label: 'Abschlussset', wert })
-  }
-  const fronten = eindeutig(elemente.filter((e) => e.typeId !== 'offen').map(frontText))
-  if (fronten.length) material.push({ label: 'Front', wert: fronten.join(' / ') })
+  // --- GRIFF, Front, Korpus, Platte, RW ------------------------------------------------------
   const griffe = eindeutig(elemente.map(describeHandleConfig))
-  material.push({ label: 'Griff', wert: griffe.length ? griffe.join(' / ') : '—' })
-  if (draft.sichtRueckwandAussen) material.push({ label: 'Sichtrückwand', wert: describeMaterialSelection(draft.korpus?.rueckwandAussen) })
-
-  // --- Sonder-Ausstattung --------------------------------------------------------------------
-  const lfm = verblendungLfm(g)
-  const line = elemente.filter((e) => e.styleLineId === 'line')
-  const aufkantung = line.length
-    ? line.some((e) => e.lineAufkantungGleich === false)
-      ? eindeutig(line.map((e) => (e.fieldValues?.aufkantung?.material ? describeMaterialSelection(e.fieldValues.aufkantung.material) : ''))).join(' / ') || 'abweichend (Material offen)'
-      : 'Line — wie Frontscheibe'
-    : '—'
-  const sonder: Feld[] = [
-    {
-      label: 'Verblendung',
-      wert:
-        v && v.art !== 'keine'
-          ? [v.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig', verblendungSeitenText(v), lfm != null ? `${formatLfm(lfm)} lfm` : ''].filter(Boolean).join(' · ')
-          : '—',
-    },
-    { label: 'Aufkantung', wert: aufkantung },
-    { label: 'Beleuchtung', wert: beleuchtung.length ? beleuchtung.join(', ') : '—' },
-    {
-      label: 'Fußleiste',
-      wert: g?.fussleiste?.enabled ? `H ${g.fussleiste.hoeheCm?.trim() || '?'} × T ${g.fussleiste.tiefeCm?.trim() || '?'} cm` : '—',
-    },
+  const fronten = eindeutig(elemente.filter((e) => e.typeId !== 'offen').map(frontText))
+  const innen = mat('innen')
+  const ausfuehrung: Feld[] = [
+    { label: 'GRIFF', wert: griffe.join(' / ') || '/' },
+    { label: 'Front', wert: fronten.join(' / ') || '/' },
+    { label: 'Korpus', wert: korpus || '/' },
+    { label: 'Platte', wert: mat('abdeckplatte') || '/' },
+    { label: 'RW', wert: (draft.sichtRueckwandAussen ? mat('rueckwandAussen') : innen) || '/' },
   ]
-  if (g?.sondermasse?.trim()) sonder.push({ label: 'Sondermaße', wert: g.sondermasse.trim() })
+
+  // --- Hinweise über der Isometrie (Vorlage: „-- 2 EINZELSCHRÄNKE") ------------------------------
+  const lfm = verblendungLfm(g)
+  const absch = g?.abschlussSet
+  const hinweise = [
+    [
+      m ? anzahl(m.korpusse.length, 'Korpus', 'Korpi') : '',
+      schuebe ? anzahl(schuebe, 'Schub', 'Schübe') : '',
+      drehtueren ? anzahl(drehtueren, 'Drehtür', 'Drehtüren') : '',
+      schiebeZwei ? `${anzahl(schiebeZwei, 'Schiebetür', 'Schiebetüren')} zweiläufig` : '',
+      schiebeEin ? `${anzahl(schiebeEin, 'Schiebetür', 'Schiebetüren')} einläufig` : '',
+      klappen ? anzahl(klappen, 'Klappe', 'Klappen') : '',
+      offen ? anzahl(offen, 'offenes Fach', 'offene Fächer') : '',
+    ]
+      .filter(Boolean)
+      .join(', '),
+    [stangenBoeden ? `${anzahl(stangenBoeden, 'Boden', 'Böden')} mit Kleiderstange` : '', fachboeden ? anzahl(fachboeden, 'Fachboden', 'Fachböden') : '', ...container]
+      .filter(Boolean)
+      .join(', '),
+    absch && absch.position !== 'keine' ? `Abschlussset ${absch.position === 'beide' ? 'links & rechts' : absch.position}` : '',
+    v && v.art !== 'keine'
+      ? `Verblendung ${[v.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig', verblendungSeitenText(v), lfm != null ? `${formatLfm(lfm)} lfm` : ''].filter(Boolean).join(' · ')}`
+      : '',
+    beleuchtung.length ? `Beleuchtung: ${beleuchtung.join(', ')}` : '',
+    draft.raumteiler ? 'Raumteiler (frei im Raum)' : '',
+    g?.sondermasse?.trim() ? `Sondermaße: ${g.sondermasse.trim()}` : '',
+    draft.fronts?.sonderausstattung?.trim() ?? '',
+    ...(m?.hinweise ?? []),
+  ]
+    .filter(Boolean)
+    .map((h) => `-- ${h}`)
+
+  const frontMaterial: Record<string, string> = {}
+  for (const el of elemente) {
+    const sel = el.fieldValues?.material?.material
+    if (sel) frontMaterial[el.id] = describeMaterialSelection(sel)
+  }
 
   return {
-    titel,
-    untertitel,
-    nummer: `#${draft.orderNumber?.trim() || draft.id}`,
-    kopf,
+    bezeichnung,
+    filiale: getBranch(draft.branchId)?.name ?? '',
     masse: masseFelder,
-    ausfuehrung: ausfuehrung || '—',
-    checkliste,
-    material,
-    sonder,
+    liefertermin: '',
+    auftragsdatum: datum(draft.createdAt),
+    haken,
+    ausfuehrung,
+    auftragserfassung: draft.finalizedAt ? datum(draft.finalizedAt) : '',
+    letzteAenderung: datum(),
+    serie: series?.name ?? '',
+    kunde: draft.customerName?.trim() ?? '',
+    auftragsnummer: draft.orderNumber?.trim() ?? '',
+    moebelsoftnummer: draft.id,
+    berater: draft.consultant?.name ?? '',
+    innenTitel: `-- ${[series?.name, 'innen', innen].filter(Boolean).join(' ')} --`,
+    hinweise,
+    frontMaterial,
+    modell: m,
   }
 }

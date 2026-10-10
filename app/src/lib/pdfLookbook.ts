@@ -1,20 +1,27 @@
 import type { jsPDF } from 'jspdf'
-import { brand } from '../config/brand'
-import type { Feld, LookbookDaten } from './lookbookDaten'
+import { KONSTRUKTION as K } from '../config/konstruktionsParameter'
+import { mmText, type Front2D, type Konstruktion2D } from './konstruktion'
+import type { LookbookDaten } from './lookbookDaten'
 
 /**
- * SEITE 1 DES AV-PDFs IM LOOKBOOK-STIL (A4 quer).
+ * SEITE 1 DES AV-PDFs — 1:1 nach der Cramer-AV-Konstruktionszeichnung (A4 quer).
  *
- *   ┌ Titel · Nummer ───────────────────────────── CRAMER PLANER ┐
- *   │ Kunde │ Auftragsnummer │ Berater │ Datum │ Filiale │ Serie  │
- *   ├ Vorderansicht ──── Innenansicht ──── Draufsicht ───────────┤
- *   │   (Skizzen mit Maßketten in mm)                            │
- *   ├ Schriftfeld wie in der Cramer-AV-Zeichnung ────────────────┤
- *   │ Abmessungen · Ausführung │ X-Checkliste │ Material │ Sonder │
- *   └────────────────────────────────────────────────────────────┘
+ *   ┌──────────────────────────┬─────────────────────────────────┐
+ *   │ Hinweise „-- …"          │  -- Refugium innen … --          │
+ *   │                          │  Grundriss mit Maßketten         │
+ *   │  Isometrie (Vektor,      │  „Hallo …, bitte prüfen Sie …"   │
+ *   │  Material auf den        ├─────────────────────────────────┤
+ *   │  Fronten senkrecht)      │  Innenansicht (offener Schrank)  │
+ *   ├──────────────┐           │  mit Höhen und ‹LED›             │
+ *   │ Refugium …   ├──────────┬┴────────────┬──────────┬─────────┤
+ *   │ Maße · X-Felder │ GRIFF … RW │ Daten · Logo │ Kunde … │
+ *   └──────────────┴──────────┴─────────────┴──────────┴─────────┘
  *
- * Die Skizzen kommen als Bild (`components/konstruktion/skizzenBild.tsx`); ohne sie — etwa
- * in einer Prüfung ohne Browser — steht an ihrer Stelle ein Hinweis.
+ * Alle Positionen stehen im Raster der Vorlage (1000 × 708 px, Zeichenrahmen 18…992 ×
+ * 18…697) und werden auf die Seite umgerechnet — so bleibt die Aufteilung identisch.
+ * Isometrie und Grundriss zeichnet jsPDF als Vektoren aus dem 2D-Modell; die Innenansicht
+ * kommt als Bild (`components/konstruktion/skizzenBild.tsx`), damit sie genau der Skizze am
+ * Bildschirm entspricht. Ohne Bild (Prüfung ohne Browser) steht dort ein Hinweis.
  */
 
 export interface LookbookBild {
@@ -24,179 +31,404 @@ export interface LookbookBild {
 }
 
 export interface LookbookBilder {
-  vorne?: LookbookBild
   innen?: LookbookBild
-  oben?: LookbookBild
 }
 
-const TINTE: [number, number, number] = [20, 22, 26]
-const GRAU: [number, number, number] = [120, 120, 125]
-const LINIE: [number, number, number] = [205, 203, 198]
+type Punkt = [number, number]
+interface Feld4 {
+  l: number
+  t: number
+  r: number
+  b: number
+}
+
+const C30 = Math.cos(Math.PI / 6)
+const S30 = 0.5
 
 export function zeichneLookbookSeite(doc: jsPDF, d: LookbookDaten, bilder: LookbookBilder = {}): void {
   const W = doc.internal.pageSize.getWidth()
   const H = doc.internal.pageSize.getHeight()
-  const rand = 28
-  const breite = W - 2 * rand
-  const schrift = (groesse: number, stil: 'normal' | 'bold' = 'normal', farbe = TINTE) => {
+  const R = { x: 16, y: 16, w: W - 32, h: H - 32 }
+  const X = (px: number) => R.x + ((px - 18) / 974) * R.w
+  const Y = (py: number) => R.y + ((py - 18) / 679) * R.h
+  const schrift = (pt: number, stil: 'normal' | 'bold' = 'normal') => {
     doc.setFont('helvetica', stil)
-    doc.setFontSize(groesse)
-    doc.setTextColor(...farbe)
+    doc.setFontSize(pt)
+  }
+  /** Text in eine Breite zwingen: erst kleiner (bis `min`), dann gekürzt. */
+  const passend = (text: string, breite: number, pt: number, min = 5.5): string => {
+    let g = pt
+    doc.setFontSize(g)
+    while (g > min && doc.getTextWidth(text) > breite) doc.setFontSize((g -= 0.5))
+    return doc.getTextWidth(text) > breite ? (doc.splitTextToSize(text, breite)[0] ?? '') : text
+  }
+  const linie = (x1: number, y1: number, x2: number, y2: number) => doc.line(X(x1), Y(y1), X(x2), Y(y2))
+  doc.setTextColor(0, 0, 0)
+  doc.setDrawColor(0, 0, 0)
+  doc.setFillColor(255, 255, 255)
+
+  // --- Rahmen mit Feldteilung --------------------------------------------------------------
+  doc.setLineWidth(0.4)
+  doc.rect(8, 8, W - 16, H - 16)
+  for (const px of [237, 465, 760]) {
+    doc.line(X(px), 8, X(px), R.y)
+    doc.line(X(px), H - 8, X(px), R.y + R.h)
+  }
+  for (const py of [180, 360, 540]) {
+    doc.line(8, Y(py), R.x, Y(py))
+    doc.line(W - 8, Y(py), R.x + R.w, Y(py))
+  }
+  doc.setLineWidth(0.8)
+  doc.rect(R.x, R.y, R.w, R.h)
+  doc.setLineWidth(0.6)
+  linie(465, 18, 465, 607)
+  linie(465, 283, 992, 283)
+
+  // --- A) Isometrie (links) -----------------------------------------------------------------
+  schrift(7.5)
+  if (d.modell) isometrie(doc, d, d.modell, { l: X(18) + 12, t: Y(18) + 8, r: X(465) - 12, b: Y(607) - 6 }, [X(298), Y(548) - 6])
+
+  // --- B) Grundriss (oben rechts) -------------------------------------------------------------
+  schrift(10.5)
+  doc.text(passend(d.innenTitel, X(980) - X(478), 10.5), X(728), Y(38), { align: 'center' })
+  if (d.modell) grundriss(doc, d.modell, { l: X(478), t: Y(50), r: X(980), b: Y(222) })
+  schrift(8.5)
+  const hallo = 'Hallo '
+  const bitte = ', bitte prüfen Sie umgehend die Zeichnung'
+  const nx = X(472) + doc.getTextWidth(hallo)
+  const name = passend(d.kunde || ' ', X(986) - nx - doc.getTextWidth(bitte), 8.5, 8.5)
+  const ende = Math.max(nx + doc.getTextWidth(name), X(640))
+  doc.text(hallo, X(472), Y(242))
+  doc.text(name, nx, Y(242))
+  doc.setLineWidth(0.4)
+  doc.line(nx, Y(243.5), ende, Y(243.5))
+  doc.text(bitte, ende, Y(242))
+  doc.text('auf sachliche- und maßliche Richtigkeit. Änderungen nur noch 3 Tage möglich.', X(472), Y(256))
+  doc.text(`MFG/ ${d.berater || '—'} / ab Auftragserfassung (siehe unten)`, X(472), Y(270))
+
+  // --- C) Innenansicht (unten rechts) -----------------------------------------------------------
+  const ib = { l: X(474), t: Y(290), r: X(984), b: Y(601) }
+  const bild = bilder.innen
+  if (bild) {
+    const s = Math.min((ib.r - ib.l) / bild.breite, (ib.b - ib.t) / bild.hoehe)
+    const bw = bild.breite * s
+    const bh = bild.hoehe * s
+    doc.addImage(bild.dataUrl, 'PNG', ib.l + (ib.r - ib.l - bw) / 2, ib.t + (ib.b - ib.t - bh) / 2, bw, bh, undefined, 'FAST')
+  } else {
+    schrift(8)
+    doc.text('Skizze nicht verfügbar', (ib.l + ib.r) / 2, (ib.t + ib.b) / 2, { align: 'center' })
   }
 
-  // --- Titel ------------------------------------------------------------------------------
-  let y = rand + 14
-  schrift(17, 'bold')
-  doc.text(d.titel, rand, y)
-  schrift(9, 'normal', GRAU)
-  doc.text(`${d.nummer}   ·   ${d.untertitel}`, rand, y + 14)
-  schrift(11, 'bold')
-  doc.text(brand.productName, W - rand, y, { align: 'right' })
-  schrift(8, 'normal', GRAU)
-  doc.text('AV-Übergabe · Konstruktionszeichnung', W - rand, y + 12, { align: 'right' })
-
-  // --- Kopfdaten ----------------------------------------------------------------------------
-  y += 26
-  doc.setDrawColor(...TINTE)
+  // --- Schriftfeld links: Bezeichnung, Maße, X-Felder ---------------------------------------------
   doc.setLineWidth(0.8)
-  doc.line(rand, y, W - rand, y)
-  const zelle = breite / d.kopf.length
-  d.kopf.forEach((f, i) => {
-    const x = rand + i * zelle
-    schrift(6.5, 'normal', GRAU)
-    doc.text(f.label.toUpperCase(), x, y + 11)
-    schrift(9, 'bold')
-    doc.text(doc.splitTextToSize(f.wert, zelle - 8)[0] ?? '—', x, y + 23)
+  doc.setFillColor(255, 255, 255)
+  doc.rect(X(18), Y(548), X(298) - X(18), Y(697) - Y(548), 'FD')
+  doc.rect(X(298), Y(607), X(992) - X(298), Y(697) - Y(607), 'FD')
+  doc.setLineWidth(0.4)
+  schrift(10)
+  doc.text(passend(d.bezeichnung, X(294) - X(22), 10), X(22), Y(563))
+  linie(18, 567, 298, 567)
+  schrift(7)
+  doc.text(passend(d.filiale, X(156) - X(22), 7), X(22), Y(577))
+  d.masse.forEach((f, i) => {
+    const y = 589 + i * 10
+    schrift(7.5)
+    doc.text(`${f.label}:`, X(22), Y(y))
+    doc.text(passend(f.wert, X(140) - X(70), 7.5), X(140), Y(y), { align: 'right' })
+    if (f.label !== 'Fuß\\Rolle') {
+      schrift(6)
+      doc.text('mm', X(142), Y(y))
+    }
+    linie(18, y + 2, 160, y + 2)
   })
-  y += 31
-  doc.setDrawColor(...LINIE)
-  doc.setLineWidth(0.5)
-  doc.line(rand, y, W - rand, y)
+  linie(160, 567, 160, 627)
+  schrift(7)
+  doc.text('Liefertermin:', X(178), Y(578))
+  doc.text('Auftragsdatum:', X(178), Y(604))
+  schrift(8)
+  doc.text(d.liefertermin, X(229), Y(591), { align: 'center' })
+  doc.text(d.auftragsdatum, X(229), Y(617), { align: 'center' })
+  linie(176, 593, 282, 593)
+  linie(176, 619, 282, 619)
+  linie(18, 627, 298, 627)
+  const zeileH = (697 - 627) / 5
+  for (let i = 0; i < 5; i++) {
+    const y0 = 627 + i * zeileH
+    if (i > 0) linie(18, y0, 298, y0)
+    for (const [spalte, x0, box] of [
+      [0, 22, 140],
+      [1, 156, 285],
+    ] as const) {
+      const h = d.haken[i * 2 + spalte]
+      if (!h) continue
+      schrift(7.5)
+      doc.text(h.label, X(x0), Y(y0 + zeileH - 4))
+      if (h.an) doc.text('X', X(box + 6.5), Y(y0 + zeileH - 4), { align: 'center' })
+    }
+  }
+  for (const px of [140, 152, 285]) linie(px, 627, px, 697)
 
-  // --- Skizzen ------------------------------------------------------------------------------
-  const schriftfeldH = 128
-  const skizzeOben = y + 8
-  const skizzeUnten = H - rand - schriftfeldH - 10
-  const felder: Array<[keyof LookbookBilder, string, number]> = [
-    ['vorne', 'Vorderansicht', 0.36],
-    ['innen', 'Innenansicht', 0.36],
-    ['oben', 'Draufsicht (Grundriss)', 0.28],
+  // --- Schriftfeld Mitte: GRIFF, Front, Korpus, Platte, RW -------------------------------------------
+  for (const px of [420, 567, 775]) linie(px, 607, px, 697)
+  d.ausfuehrung.forEach((f, i) => {
+    const y0 = 607 + i * 18
+    if (i > 0) linie(298, y0, 567, y0)
+    schrift(9)
+    doc.text(`${f.label}:`, X(302), Y(y0 + 13.5))
+    const breite = X(564) - X(423)
+    const wert = passend(f.wert, breite, 9, 7)
+    if (wert === f.wert) doc.text(wert, X(493.5), Y(y0 + 13), { align: 'center' })
+    else {
+      // Lange Angaben (Griff mit Details) zweizeilig statt unleserlich klein.
+      doc.setFontSize(6)
+      const zeilen: string[] = doc.splitTextToSize(f.wert, breite)
+      if (zeilen.length > 2) zeilen[1] = zeilen[1].replace(/\s*\S*$/, ' …')
+      zeilen.slice(0, 2).forEach((z, j) => doc.text(z, X(493.5), Y(y0 + 8 + j * 7), { align: 'center' }))
+    }
+  })
+
+  // --- Daten, Logo, Serie ---------------------------------------------------------------------------
+  for (const [i, oben, unten, wert] of [
+    [0, 'Auftrags-', 'erfassung', d.auftragserfassung],
+    [1, 'letzte', 'Änderung', d.letzteAenderung],
+  ] as const) {
+    const y0 = 607 + i * 18
+    schrift(4.8)
+    doc.text(oben, X(569), Y(y0 + 7.5))
+    doc.text(unten, X(569), Y(y0 + 14))
+    schrift(9.5)
+    doc.text(wert, X(689), Y(y0 + 13.5), { align: 'center' })
+    linie(567, y0 + 18, 775, y0 + 18)
+  }
+  linie(603, 607, 603, 643)
+  linie(700, 643, 700, 697)
+  schrift(17, 'bold')
+  doc.text('CRAMER', X(633), Y(670), { align: 'center' })
+  schrift(5.5)
+  doc.text('HOLZMANUFAKTUR', X(633), Y(686), { align: 'center', charSpace: 1.2 })
+  schrift(10)
+  doc.text('Serie:', X(706), Y(659))
+  doc.text(passend(d.serie, X(772) - X(703), 11), X(737.5), Y(686), { align: 'center' })
+
+  // --- Schriftfeld rechts: Kunde, Auftragsnummer, Möbelsoftnummer ------------------------------------
+  linie(775, 643, 992, 643)
+  linie(775, 670, 992, 670)
+  linie(838, 643, 838, 697)
+  schrift(5)
+  doc.text('Kunde', X(778), Y(614))
+  doc.text('Auftragsnummer', X(778), Y(659))
+  doc.text('Möbelsoftnummer', X(778), Y(686))
+  schrift(11)
+  doc.text(passend(d.kunde || '—', X(988) - X(780), 11), X(883.5), Y(633), { align: 'center' })
+  doc.text(passend(d.auftragsnummer || '— — — — —', X(988) - X(842), 13), X(915), Y(665), { align: 'center' })
+  doc.text(passend(d.moebelsoftnummer, X(988) - X(842), 13), X(915), Y(692), { align: 'center' })
+}
+
+// ---------------------------------------------------------------------------
+// Zeichenhilfen
+// ---------------------------------------------------------------------------
+
+/** Geschlossenes Vieleck — weiß gefüllt, damit Dahinterliegendes verdeckt wird. */
+function vieleck(doc: jsPDF, p: Punkt[]) {
+  // Text setzt in jsPDF dieselbe Füllfarbe — deshalb vor jeder Fläche neu.
+  doc.setFillColor(255, 255, 255)
+  doc.lines(
+    p.slice(1).map((q, i) => [q[0] - p[i][0], q[1] - p[i][1]]),
+    p[0][0],
+    p[0][1],
+    [1, 1],
+    'FD',
+    true,
+  )
+}
+
+/**
+ * Maßkette wie in der Cramer-Zeichnung: durchgehende Linie, Schrägstrich und kurze Hilfslinie
+ * an jeder Grenze, das Maß über der Linie (senkrecht: links davon, gedreht).
+ */
+function kette(doc: jsPDF, segmente: Array<[number, number, string]>, q: number, senkrecht = false) {
+  if (segmente.length === 0) return
+  const p = (a: number, b: number): Punkt => (senkrecht ? [b, a] : [a, b])
+  const strich = (a: Punkt, b: Punkt) => doc.line(a[0], a[1], b[0], b[1])
+  const enden = segmente.flatMap(([a, b]) => [a, b])
+  doc.setLineWidth(0.35)
+  strich(p(Math.min(...enden) - 4, q), p(Math.max(...enden) + 4, q))
+  for (const e of enden) {
+    strich(p(e, q - 3.5), p(e, q + 3.5))
+    strich(p(e - 2, q + 2), p(e + 2, q - 2))
+  }
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6.5)
+  segmente.forEach(([a, b, text], i) => {
+    const tw = doc.getTextWidth(text)
+    if (senkrecht) doc.text(text, q - 1.8, (a + b) / 2 + tw / 2, { angle: 90 })
+    // Zu schmale Abschnitte (Abschlussset): Maß außen neben die Kette.
+    else if (b - a < tw + 3) doc.text(text, i === 0 ? a - 3 : b + 3, q - 1.8, { align: i === 0 ? 'right' : 'left' })
+    else doc.text(text, (a + b) / 2, q - 1.8, { align: 'center' })
+  })
+}
+
+/** Fronten ohne Überlappung von links nach rechts — für die Kette unter dem Grundriss. */
+function frontReihe(m: Konstruktion2D): Front2D[] {
+  const reihe: Front2D[] = []
+  for (const f of [...m.fronten].filter((f) => f.art !== 'offen').sort((a, b) => a.x - b.x || b.h - a.h)) {
+    const letzte = reihe[reihe.length - 1]
+    if (!letzte || f.x >= letzte.x + letzte.b - 5) reihe.push(f)
+  }
+  return reihe
+}
+
+// ---------------------------------------------------------------------------
+// A) Isometrie
+// ---------------------------------------------------------------------------
+
+/**
+ * Geschlossener Schrank in Isometrie (30°): Breite nach rechts unten, Tiefe nach rechts oben.
+ * Sichtbar sind Fronten, Deckflächen und die rechte Seite. Die Zeichnung wird so groß wie
+ * möglich, ohne die Hinweise oben rechts oder das Schriftfeld unten links zu berühren.
+ */
+function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, block: Punkt) {
+  const { breiteMm: B, tiefeMm: T, hoeheMm: Hm } = m
+  const tan = S30 / C30
+
+  // Hinweise oben rechts
+  const nx = box.l + (box.r - box.l) * 0.48
+  const alle: string[] = d.hinweise.flatMap((h) => doc.splitTextToSize(h, box.r - nx) as string[])
+  const zeilen = alle.slice(0, 12)
+  if (alle.length > zeilen.length) zeilen[11] = zeilen[11].replace(/\s*\S*$/, ' … (siehe Seite 2)')
+  if (zeilen.length) doc.text(zeilen, nx, box.t + 6)
+  const hinweisH = zeilen.length ? 6 + zeilen.length * 8.7 + 4 : 0
+
+  const breit = (B + T) * C30
+  const hoch = (B + T) * S30 + Hm
+  /** Passt der Schrank mit Maßstab k, linker Kante L und Oberkante t, ohne Schriftfeld und Hinweise zu berühren? */
+  const frei = (k: number, L: number, t: number) => {
+    if (L < box.l - 0.01 || L + breit * k > box.r + 0.01 || t + hoch * k > box.b) return false
+    // Die Unterkante fällt nach rechts — gegen das Schriftfeld links unten.
+    const xu = Math.min(block[0], L + B * C30 * k)
+    if (xu > L && t + (xu - L) * tan + (T * S30 + Hm) * k > block[1]) return false
+    // Die Oberkante fällt rechts vom höchsten Punkt — gegen die Hinweise oben rechts.
+    const xo = Math.max(nx, L + T * C30 * k)
+    return !hinweisH || xo > L + breit * k || t + (xo - L) * tan - T * S30 * k >= box.t + hinweisH
+  }
+  // Größter Maßstab über alle Lagen (links/rechts bündig, neben/unter den Hinweisen).
+  let best = { k: 0, L: box.l, t: box.t }
+  for (const rechts of [false, true]) {
+    for (const t of [box.t, box.t + hinweisH]) {
+      const lage = (k: number) => (rechts ? box.r - breit * k : box.l)
+      let lo = 0
+      let hi = Math.min((box.r - box.l) / breit, (box.b - t) / hoch)
+      for (let i = 0; i < 30; i++) {
+        const k = (lo + hi) / 2
+        if (frei(k, lage(k), t)) lo = k
+        else hi = k
+      }
+      if (lo > best.k * 1.02) best = { k: lo, L: lage(lo), t }
+    }
+  }
+  const { k, L, t: oben } = best
+  const P = (x: number, z: number, t = 0): Punkt => [L + (x + t) * C30 * k, oben + ((x - t) * S30 + T * S30 + Hm - z) * k]
+
+  doc.setFillColor(255, 255, 255)
+  doc.setLineWidth(0.5)
+  const teile: Punkt[] = [
+    ...(m.abschluss.links ? [[0, m.abschluss.links] as Punkt] : []),
+    ...m.korpusse.map((korpus): Punkt => [korpus.x, korpus.x + korpus.b]),
+    ...(m.abschluss.rechts ? [[B - m.abschluss.rechts, B] as Punkt] : []),
   ]
-  let x = rand
-  for (const [schluessel, titel, anteil] of felder) {
-    const fb = breite * anteil
-    schrift(7, 'bold', GRAU)
-    doc.text(titel.toUpperCase(), x + 2, skizzeOben + 7)
-    const bild = bilder[schluessel]
-    const platzB = fb - 10
-    const platzH = skizzeUnten - skizzeOben - 14
-    if (bild) {
-      const s = Math.min(platzB / bild.breite, platzH / bild.hoehe)
-      const bw = bild.breite * s
-      const bh = bild.hoehe * s
-      // Draufsicht oben bündig, die Ansichten von vorne unten bündig (gemeinsame Fußbodenlinie).
-      const by = schluessel === 'oben' ? skizzeOben + 12 : skizzeUnten - bh
-      doc.addImage(bild.dataUrl, 'PNG', x + (fb - bw) / 2, by, bw, bh, undefined, 'FAST')
-    } else {
-      schrift(8, 'normal', GRAU)
-      doc.text('Skizze nicht verfügbar', x + fb / 2, (skizzeOben + skizzeUnten) / 2, { align: 'center' })
+  for (const [a, b] of teile) {
+    vieleck(doc, [P(a, 0), P(b, 0), P(b, Hm), P(a, Hm)])
+    vieleck(doc, [P(a, Hm), P(b, Hm), P(b, Hm, T), P(a, Hm, T)])
+  }
+  const re = teile[teile.length - 1]?.[1] ?? B
+  vieleck(doc, [P(re, 0), P(re, 0, T), P(re, Hm, T), P(re, Hm)])
+
+  // Fronten (vordere Schiebetür-Ebene zuletzt), Griffe, Material senkrecht beschriftet
+  for (const f of [...m.fronten].filter((f) => f.art !== 'offen').sort((a, b) => (a.ebene ?? 0) - (b.ebene ?? 0))) {
+    doc.setLineWidth(0.5)
+    vieleck(doc, [P(f.x, f.y), P(f.x + f.b, f.y), P(f.x + f.b, f.y + f.h), P(f.x, f.y + f.h)])
+    const g = griffStrecke(f)
+    if (g) {
+      doc.setLineWidth(1.1)
+      const [a, b] = [P(g[0], g[1]), P(g[2], g[3])]
+      doc.line(a[0], a[1], b[0], b[1])
     }
-    x += fb
-  }
-
-  // --- Schriftfeld ---------------------------------------------------------------------------
-  const sy = H - rand - schriftfeldH
-  doc.setDrawColor(...TINTE)
-  doc.setLineWidth(0.8)
-  doc.rect(rand, sy, breite, schriftfeldH)
-  const spalten = [0.27, 0.21, 0.28, 0.24]
-  const xs: number[] = []
-  let sx = rand
-  for (const anteil of spalten) {
-    xs.push(sx)
-    sx += breite * anteil
-  }
-  doc.setLineWidth(0.5)
-  for (const x0 of xs.slice(1)) doc.line(x0, sy, x0, sy + schriftfeldH)
-
-  const kopfzeile = (x0: number, text: string) => {
-    schrift(7, 'bold', GRAU)
-    doc.text(text.toUpperCase(), x0 + 6, sy + 11)
-  }
-
-  // Spalte 1: Bezeichnung, Abmessungen, Ausführung (wie „Refugium 21Raster in …", Höhe/Breite/Tiefe)
-  const s1 = xs[0]
-  const b1 = breite * spalten[0] - 12
-  schrift(9.5, 'bold')
-  doc.text(doc.splitTextToSize(d.untertitel, b1)[0] ?? '', s1 + 6, sy + 14)
-  schrift(7.5, 'normal', GRAU)
-  doc.text(doc.splitTextToSize(d.kopf.find((f) => f.label === 'Kunde')?.wert ?? '', b1)[0] ?? '', s1 + 6, sy + 24)
-  let zy = sy + 38
-  for (const f of d.masse) {
-    schrift(8, 'normal', GRAU)
-    doc.text(`${f.label}:`, s1 + 6, zy)
-    schrift(8.5, 'bold')
-    doc.text(f.wert, s1 + 6 + b1, zy, { align: 'right' })
-    zy += 11
-  }
-  schrift(7, 'bold', GRAU)
-  doc.text('AUSFÜHRUNG', s1 + 6, zy + 4)
-  schrift(7.5, 'normal')
-  doc.text(doc.splitTextToSize(d.ausfuehrung, b1).slice(0, 4), s1 + 6, zy + 14)
-
-  // Spalte 2: X-Checkliste
-  const s2 = xs[1]
-  kopfzeile(s2, 'Checkliste')
-  zy = sy + 23
-  for (const gruppe of d.checkliste) {
-    for (const h of gruppe.haken) {
-      if (zy > sy + schriftfeldH - 6) break
-      kaestchen(doc, s2 + 6, zy - 6, h.an)
-      schrift(7.5, h.an ? 'bold' : 'normal', h.an ? TINTE : GRAU)
-      doc.text(h.label, s2 + 17, zy)
-      zy += 9.5
-    }
-    zy += 2
-  }
-
-  // Spalte 3: Ausführung & Material — Spalte 4: Sonder-Ausstattung
-  feldliste(doc, xs[2], sy, breite * spalten[2], 'Ausführung & Material', d.material, schriftfeldH)
-  feldliste(doc, xs[3], sy, breite * spalten[3], 'Sonder-Ausstattung', d.sonder, schriftfeldH)
-
-  schrift(6.5, 'normal', GRAU)
-  doc.text(`Maßstäbliche Skizze, Maße in mm · erstellt mit ${brand.productName} · maßgeblich sind Außenmaß und AV-Freigabe`, rand, H - rand + 12)
-}
-
-/** Kästchen der Checkliste — angekreuzt mit „X" wie im Cramer-Schriftfeld. */
-function kaestchen(doc: jsPDF, x: number, y: number, an: boolean) {
-  doc.setDrawColor(...TINTE)
-  doc.setLineWidth(0.5)
-  doc.rect(x, y, 7, 7)
-  if (an) {
-    doc.setLineWidth(0.9)
-    doc.line(x + 1.3, y + 1.3, x + 5.7, y + 5.7)
-    doc.line(x + 5.7, y + 1.3, x + 1.3, y + 5.7)
+    const material = f.elementId ? d.frontMaterial[f.elementId] : undefined
+    if (!material || (f.art !== 'drehtuer' && f.art !== 'schiebetuer')) continue
+    const platz = f.h * k * 0.8
+    doc.setFontSize(6.5)
+    let text = `-- ${material} --`
+    if (doc.getTextWidth(text) > platz) text = doc.splitTextToSize(material, platz)[0] ?? ''
+    const [cx, cy] = P(f.x + f.b / 2, f.y + f.h / 2)
+    doc.text(text, cx + 2.3, cy + doc.getTextWidth(text) / 2, { angle: 90 })
   }
 }
 
-/** Beschriftete Liste mit Umbruch, abgeschnitten an der Unterkante des Schriftfelds. */
-function feldliste(doc: jsPDF, x: number, sy: number, spaltenB: number, titel: string, felder: Feld[], hoehe: number) {
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(7)
-  doc.setTextColor(...GRAU)
-  doc.text(titel.toUpperCase(), x + 6, sy + 11)
-  const labelB = 66
-  let y = sy + 23
-  for (const f of felder) {
-    if (y > sy + hoehe - 6) break
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(7.5)
-    // Höchstens zwei Zeilen je Angabe — die vollständige Beschreibung steht ab Seite 2.
-    const zeilen: string[] = doc.splitTextToSize(f.wert || '—', spaltenB - labelB - 12).slice(0, 2)
-    doc.setTextColor(...GRAU)
-    doc.text(`${f.label}:`, x + 6, y)
-    doc.setTextColor(...TINTE)
-    doc.text(zeilen, x + 6 + labelB, y)
-    y += zeilen.length * 9 + 2
+/** Griff als Strecke [x1, z1, x2, z2] auf der Frontebene — Lage wie in `bauteile/Griffe.tsx`. */
+function griffStrecke(f: Front2D): [number, number, number, number] | null {
+  const g = f.griff
+  if (!g || g.art === 'pto' || g.art === 'sonder') return null
+  const laenge = 'laengeMm' in g && g.laengeMm ? g.laengeMm : g.art === 'muschel' ? 105 : g.art === 'knopf' ? 30 : f.h
+  if (f.art === 'schublade' || f.art === 'klappe') {
+    const z = f.y + f.h - K.griffSchubVonObenMm
+    const cx = f.x + f.b / 2
+    return [cx - laenge / 2, z, cx + laenge / 2, z]
   }
+  const rechts = f.anschlag !== 'rechts'
+  const x = rechts ? f.x + f.b - K.griffKantenabstandMm : f.x + K.griffKantenabstandMm
+  if (laenge >= f.h) return [x, f.y, x, f.y + f.h]
+  const cz = f.griffY ?? f.y + f.h / 2
+  return [x, cz - laenge / 2, x, cz + laenge / 2]
+}
+
+// ---------------------------------------------------------------------------
+// B) Grundriss
+// ---------------------------------------------------------------------------
+
+/**
+ * Draufsicht wie in der Vorlage: Korpi mit Einteilung, Fronten davor; oben Gesamtmaß und
+ * Korpusbreiten, unten die Frontbreiten, links Korpustiefe und Tiefe mit Front.
+ */
+function grundriss(doc: jsPDF, m: Konstruktion2D, box: Feld4) {
+  const B = m.breiteMm
+  const T = m.tiefeMm
+  const F = m.schiebetueren > 0 ? K.schiebeEbeneMm + K.frontMm : K.frontMm
+  const ab = 12
+  const links = box.l + 2 * ab + 6
+  const k = Math.min((box.r - links) / B, (box.b - box.t - 3 * ab) / (T + F))
+  const x0 = links + (box.r - links - B * k) / 2
+  const y0 = box.t + 2 * ab
+  const X = (mm: number) => x0 + mm * k
+
+  doc.setFillColor(255, 255, 255)
+  doc.setLineWidth(0.5)
+  const teile: Punkt[] = [
+    ...(m.abschluss.links ? [[0, m.abschluss.links] as Punkt] : []),
+    ...m.korpusse.map((korpus): Punkt => [korpus.x, korpus.x + korpus.b]),
+    ...(m.abschluss.rechts ? [[B - m.abschluss.rechts, B] as Punkt] : []),
+  ]
+  for (const [a, b] of teile) doc.rect(X(a), y0, (b - a) * k, T * k, 'FD')
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(6.5)
+  for (const korpus of m.korpusse) doc.text(`${String(korpus.nennCm).replace('.', ',')}er`, X(korpus.x) + 3, y0 + 9)
+  doc.setFillColor(255, 255, 255)
+  for (const f of m.fronten.filter((f) => f.art !== 'offen')) {
+    doc.rect(X(f.x), y0 + (T + (f.ebene === 1 ? K.schiebeEbeneMm : 0)) * k, f.b * k, K.frontMm * k, 'FD')
+  }
+
+  // Oben: Gesamtmaß, darunter die Korpuseinteilung (Fugen zur Mitte zusammengefasst)
+  kette(doc, [[X(0), X(B), mmText(B)]], y0 - 2 * ab + 2)
+  const grenzen: number[] = []
+  for (const p of [0, ...m.korpusse.flatMap((korpus) => [korpus.x, korpus.x + korpus.b]), B].sort((a, b) => a - b)) {
+    const letzte = grenzen[grenzen.length - 1]
+    if (letzte == null || p - letzte >= 5) grenzen.push(p)
+    else if (p === B) grenzen[grenzen.length - 1] = B
+    else if (letzte !== 0) grenzen[grenzen.length - 1] = (letzte + p) / 2
+  }
+  kette(doc, grenzen.slice(1).map((g, i): [number, number, string] => [X(grenzen[i]), X(g), mmText(g - grenzen[i])]), y0 - ab + 2)
+
+  // Unten: Frontbreiten — links: Korpustiefe und Tiefe mit Front
+  kette(doc, frontReihe(m).map((f): [number, number, string] => [X(f.x), X(f.x + f.b), mmText(f.b)]), y0 + (T + F) * k + ab - 2)
+  kette(doc, [[y0, y0 + T * k, mmText(T)]], x0 - ab + 4, true)
+  kette(doc, [[y0, y0 + (T + F) * k, mmText(T + F)]], x0 - 2 * ab + 4, true)
 }

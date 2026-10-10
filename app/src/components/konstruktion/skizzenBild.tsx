@@ -102,6 +102,8 @@ export async function skizzenBilder(
       if (!ctx) continue
       ctx.fillStyle = '#ffffff'
       ctx.fillRect(0, 0, breite, hoehe)
+      // Schwarz-weiß wie die Cramer-AV-Zeichnung — die Bildschirmfarben gehören nicht in den Druck.
+      ctx.filter = 'grayscale(1)'
       ctx.drawImage(img, 0, 0, breite, hoehe)
       ergebnis[ansicht] = { dataUrl: canvas.toDataURL('image/png'), breite, hoehe }
     }

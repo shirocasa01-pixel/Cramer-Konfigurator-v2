@@ -57,6 +57,8 @@ export interface Front2D {
   b: number
   h: number
   label?: string
+  /** ID des Front-Elements im Entwurf (Material-Beschriftung im AV-PDF). */
+  elementId?: string
   /** Bandseite der Drehtür (Anschlag); der Griff sitzt gegenüber. */
   anschlag?: 'links' | 'rechts'
   /** Laufebene der Schiebetür: 0 hinten, 1 vorne. */
@@ -499,6 +501,7 @@ export function konstruktion(
         b: Math.round(anteil),
         h: hoehe - frontUnterkante,
         label: `ST${i + 1}`,
+        elementId: tuer?.id,
         ebene: i % 2 === 1 ? 1 : 0,
         // Griffprofile über die volle Türhöhe, an der zur Mitte zeigenden Kante.
         griff,
@@ -522,7 +525,7 @@ export function konstruktion(
           const art = frontArt(el)
           const hEl = Math.min(mmVon(el.heightCm) ?? h, h)
           const anschlag = el.tuerAnschlag ?? (ebene.elemente.length === 2 ? (j === 0 ? 'links' : 'rechts') : 'links')
-          fronten.push({ art, typeId: el.typeId, x: xs, y, b, h: hEl, label: el.label || undefined, anschlag, griff: griffFormVon(el), griffY: griffMitte(art, y, hEl) })
+          fronten.push({ art, typeId: el.typeId, x: xs, y, b, h: hEl, label: el.label || undefined, elementId: el.id, anschlag, griff: griffFormVon(el), griffY: griffMitte(art, y, hEl) })
           xs += b + K.fugeMm
         })
         y += h + K.fugeMm

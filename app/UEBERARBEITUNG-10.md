@@ -159,20 +159,23 @@ der Zeichnung gezoomt wird und nicht über eine Vergrößerung des Bildes, bleib
 Zahlen und Griffe in jeder Stufe gestochen scharf. Die vier Ansichten sind oben umschaltbar,
 Esc schließt.
 
-**[GEFIXT] AV-PDF: Seite 1 als Konstruktionszeichnung im Lookbook-Stil (A4 quer).**
+**[GEFIXT] AV-PDF: Seite 1 aufgebaut wie Ihre AV-Konstruktionszeichnung (A4 quer).**
 
-- **Kopf:** Titel („KLEIDERSCHRANK REFUGIUM") mit Nummer, darunter Kunde, Auftragsnummer,
-  Berater, Datum, Filiale, Serie / Modell.
-- **Mitte:** Vorderansicht und Innenansicht mit Maßketten in mm, daneben der Grundriss. Die
-  Skizzen sind dieselben wie auf dem Bildschirm, für den Druck in hoher Auflösung
-  (2.400 px Breite, gut 300 dpi auf der Seite).
-- **Schriftfeld wie in Ihrer AV-Zeichnung:** Bezeichnung mit Raster und Korpusanzahl, Kunde,
-  Höhe / Breite / Tiefe in mm und die Ausführung („2 Schübe, 4 Drehtüren, 5 Böden mit
-  Kleiderstange …"). Dazu eine X-Checkliste, die sich aus dem Entwurf ankreuzt: Drehtüren,
-  Schiebetüren, Außenschübe, Klappen, offene Fächer, mit / ohne Lochreihe, Abschlussset links /
-  rechts, Verblendung korpus- / frontbündig. Daneben Ausführung & Material (Korpus innen,
-  Abschlussset, Front, Griff, Sichtrückwand) und Sonder-Ausstattung (Verblendung mit
-  Laufmetern, Aufkantung, Beleuchtung, Fußleistenausschnitt, Sondermaße).
+- **Links:** der geschlossene Schrank in Isometrie, als Vektorzeichnung. Fronten mit Griffen,
+  auf den Türen senkrecht das Material („-- Furnier – Räuchereiche geölt --"). Darüber die
+  Hinweise („-- 3 Korpi, 2 Schübe, 3 Drehtüren …", Abschlussset, Verblendung, Beleuchtung,
+  Sondermaße, Sonderausstattung).
+- **Oben rechts:** „-- Refugium innen <Material> --", der Grundriss mit Maßketten: Gesamtbreite
+  und Korpuseinteilung darüber, Frontbreiten darunter, links Korpustiefe und Tiefe mit Front.
+  Darunter der Prüfhinweis „Hallo <Kunde>, bitte prüfen Sie umgehend die Zeichnung …".
+- **Unten rechts:** nur die Innenansicht (offener Schrank) mit Höhen und LED, in Schwarz-Weiß.
+- **Schriftfeld:** „Refugium 18Raster in <Korpus>", Filiale, Fuß\Rolle, Höhe / Breite / Tiefe,
+  Liefertermin (leer zum Ausfüllen), Auftragsdatum; X-Felder Softschübe, Metallzarge,
+  Drehtüren, Schiebetüren, Umlaufkorpus 20 mm | mit / ohne Lochreihe, Front korpusbündig,
+  Front Standard, Umlaufkorpus 30 mm; GRIFF, Front, Korpus, Platte, RW; Auftragserfassung
+  (Abschluss des Entwurfs), letzte Änderung, Logo, Serie; Kunde, Auftragsnummer,
+  Möbelsoftnummer (= Entwurfsnummer). Metallzarge und Umlaufkorpus 30 mm kennt der Planer
+  nicht; sie bleiben leer.
 
 Ab Seite 2 folgen alle Angaben wie bisher. Serien mit freier Maßeingabe haben keine
 Korpusdaten zum Zeichnen; ihr PDF bleibt unverändert.
