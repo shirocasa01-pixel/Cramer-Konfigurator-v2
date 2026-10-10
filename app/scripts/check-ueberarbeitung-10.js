@@ -351,8 +351,15 @@ console.log(c.bold('\nPDF — Seite 1 wie die Cramer-AV-Zeichnung (Schriftfeld, 
     const quer = pdf.getPageInfo(1).pageContext.mediaBox
     pruefe(quer.topRightX > quer.topRightY && pdf.getNumberOfPages() >= 2, `Seite 1 quer (${Math.round(quer.topRightX)} × ${Math.round(quer.topRightY)} pt), danach die Datenseiten`)
     const text = pdf.output()
-    pruefe(['GRIFF:', 'Möbelsoftnummer', 'Liefertermin:', 'HOLZMANUFAKTUR', 'Umlaufkorpus 20mm', 'bitte prüfen Sie umgehend'].every((t) => text.includes(t)), 'PDF-Text enthält das Cramer-Schriftfeld und den Prüfhinweis')
-    pruefe(text.includes('Skizze nicht verf'), 'Ohne Browser (keine Rasterung) steht ein Hinweis statt der Skizze')
+    pruefe(['GRIFF:', 'Möbelsoftnummer', 'Liefertermin:', '(PLANER)', 'Umlaufkorpus 20mm', 'bitte prüfen Sie umgehend'].every((t) => text.includes(t)), 'PDF-Text enthält das Cramer-Schriftfeld und den Prüfhinweis')
+    // Materialbeschriftung auf den Fronten nur bei verschiedenen Materialien („-- … --" endet auf „ --)").
+    const beschriftungen = (pg1, pg2) => {
+      const mit = (pg) => ({ fieldValues: { material: { material: materialFuer(pg) } } })
+      const x = schrank({ breiten: [50, 50], fronten: [[tuerD(mit(pg1))], [tuerD({ id: 'd2', ...mit(pg2) })]] })
+      return buildPdf(x).output().split(' --)').length - 2 // minus „-- Refugium innen … --"
+    }
+    pruefe(beschriftungen('PG1', 'PG1') === 0 && beschriftungen('PG1', 'PG2') === 2, `Material auf den Fronten nur bei verschiedenen Materialien (gleich: ${beschriftungen('PG1', 'PG1')}, verschieden: ${beschriftungen('PG1', 'PG2')})`)
+    pruefe(text.includes('Skizze nicht verf'),'Ohne Browser (keine Rasterung) steht ein Hinweis statt der Skizze')
     const ohne = buildPdf({ ...d, korpusGrunddaten: undefined })
     pruefe(ohne.getPageInfo(1).pageContext.mediaBox.topRightX < ohne.getPageInfo(1).pageContext.mediaBox.topRightY, 'Ohne Korpus-Grunddaten (freie Maße): keine Lookbook-Seite, PDF wie bisher')
   } catch (e) {

@@ -161,8 +161,10 @@ Esc schließt.
 
 **[GEFIXT] AV-PDF: Seite 1 aufgebaut wie Ihre AV-Konstruktionszeichnung (A4 quer).**
 
-- **Links:** der geschlossene Schrank in Isometrie, als Vektorzeichnung. Fronten mit Griffen,
-  auf den Türen senkrecht das Material („-- Furnier – Räuchereiche geölt --"). Darüber die
+- **Links (immer mittig):** der Schrank in Isometrie, als Vektorzeichnung. Fronten mit Griffen;
+  offene Fächer zeigen das Innenleben (Seitenwand, Rückwand, Böden, Kleiderstange, Container).
+  Das Material steht nur dann auf den Fronten („-- Furnier – Räuchereiche geölt --"), wenn die
+  Fronten verschiedene Materialien/Oberflächen haben. Darüber die
   Hinweise („-- 3 Korpi, 2 Schübe, 3 Drehtüren …", Abschlussset, Verblendung, Beleuchtung,
   Sondermaße, Sonderausstattung).
 - **Oben rechts:** „-- Refugium innen <Material> --", der Grundriss mit Maßketten: Gesamtbreite
@@ -173,7 +175,7 @@ Esc schließt.
   Liefertermin (leer zum Ausfüllen), Auftragsdatum; X-Felder Softschübe, Metallzarge,
   Drehtüren, Schiebetüren, Umlaufkorpus 20 mm | mit / ohne Lochreihe, Front korpusbündig,
   Front Standard, Umlaufkorpus 30 mm; GRIFF, Front, Korpus, Platte, RW; Auftragserfassung
-  (Abschluss des Entwurfs), letzte Änderung, Logo, Serie; Kunde, Auftragsnummer,
+  (Abschluss des Entwurfs), letzte Änderung, Logo CRAMER über PLANER, Serie; Kunde, Auftragsnummer,
   Möbelsoftnummer (= Entwurfsnummer). Metallzarge und Umlaufkorpus 30 mm kennt der Planer
   nicht; sie bleiben leer.
 

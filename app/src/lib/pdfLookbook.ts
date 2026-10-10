@@ -1,4 +1,5 @@
 import type { jsPDF } from 'jspdf'
+import { brand } from '../config/brand'
 import { KONSTRUKTION as K } from '../config/konstruktionsParameter'
 import { mmText, type Front2D, type Konstruktion2D } from './konstruktion'
 import type { LookbookDaten } from './lookbookDaten'
@@ -14,7 +15,7 @@ import type { LookbookDaten } from './lookbookDaten'
  *   │  Fronten senkrecht)      │  Innenansicht (offener Schrank)  │
  *   ├──────────────┐           │  mit Höhen und ‹LED›             │
  *   │ Refugium …   ├──────────┬┴────────────┬──────────┬─────────┤
- *   │ Maße · X-Felder │ GRIFF … RW │ Daten · Logo │ Kunde … │
+ *   │ Maße · X-Felder │ GRIFF … RW │ Daten · CRAMER PLANER │ Kunde … │
  *   └──────────────┴──────────┴─────────────┴──────────┴─────────┘
  *
  * Alle Positionen stehen im Raster der Vorlage (1000 × 708 px, Zeichenrahmen 18…992 ×
@@ -202,10 +203,16 @@ export function zeichneLookbookSeite(doc: jsPDF, d: LookbookDaten, bilder: Lookb
   }
   linie(603, 607, 603, 643)
   linie(700, 643, 700, 697)
-  schrift(17, 'bold')
-  doc.text('CRAMER', X(633), Y(670), { align: 'center' })
-  schrift(5.5)
-  doc.text('HOLZMANUFAKTUR', X(633), Y(686), { align: 'center', charSpace: 1.2 })
+  // Wortmarke CRAMER PLANER (wie `<BrandMark />`): CRAMER fett über PLANER leicht, gesperrt.
+  const sperrung = 2
+  const mittig = (text: string, y: number) =>
+    doc.text(text, X(633.5) - (doc.getTextWidth(text) + sperrung * (text.length - 1)) / 2, Y(y), { charSpace: sperrung })
+  schrift(13, 'bold')
+  mittig(brand.wordmark.primary, 665)
+  schrift(13)
+  doc.setTextColor(110, 110, 115)
+  mittig(brand.wordmark.secondary, 688)
+  doc.setTextColor(0, 0, 0)
   schrift(10)
   doc.text('Serie:', X(706), Y(659))
   doc.text(passend(d.serie, X(772) - X(703), 11), X(737.5), Y(686), { align: 'center' })
@@ -228,8 +235,8 @@ export function zeichneLookbookSeite(doc: jsPDF, d: LookbookDaten, bilder: Lookb
 // Zeichenhilfen
 // ---------------------------------------------------------------------------
 
-/** Geschlossenes Vieleck — weiß gefüllt, damit Dahinterliegendes verdeckt wird. */
-function vieleck(doc: jsPDF, p: Punkt[]) {
+/** Geschlossenes Vieleck — weiß gefüllt, damit Dahinterliegendes verdeckt wird; `null`: nur der Pfad (Beschnitt). */
+function vieleck(doc: jsPDF, p: Punkt[], stil: 'FD' | null = 'FD') {
   // Text setzt in jsPDF dieselbe Füllfarbe — deshalb vor jeder Fläche neu.
   doc.setFillColor(255, 255, 255)
   doc.lines(
@@ -237,7 +244,7 @@ function vieleck(doc: jsPDF, p: Punkt[]) {
     p[0][0],
     p[0][1],
     [1, 1],
-    'FD',
+    stil,
     true,
   )
 }
@@ -283,9 +290,9 @@ function frontReihe(m: Konstruktion2D): Front2D[] {
 // ---------------------------------------------------------------------------
 
 /**
- * Geschlossener Schrank in Isometrie (30°): Breite nach rechts unten, Tiefe nach rechts oben.
- * Sichtbar sind Fronten, Deckflächen und die rechte Seite. Die Zeichnung wird so groß wie
- * möglich, ohne die Hinweise oben rechts oder das Schriftfeld unten links zu berühren.
+ * Schrank in Isometrie (30°): Breite nach rechts unten, Tiefe nach rechts oben. Sichtbar sind
+ * Fronten, Deckflächen, die rechte Seite und in offenen Fächern das Innenleben. Die Zeichnung
+ * steht mittig und so groß wie möglich, ohne Hinweise oder Schriftfeld zu berühren.
  */
 function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, block: Punkt) {
   const { breiteMm: B, tiefeMm: T, hoeheMm: Hm } = m
@@ -311,22 +318,28 @@ function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, 
     const xo = Math.max(nx, L + T * C30 * k)
     return !hinweisH || xo > L + breit * k || t + (xo - L) * tan - T * S30 * k >= box.t + hinweisH
   }
-  // Größter Maßstab über alle Lagen (links/rechts bündig, neben/unter den Hinweisen).
-  let best = { k: 0, L: box.l, t: box.t }
-  for (const rechts of [false, true]) {
-    for (const t of [box.t, box.t + hinweisH]) {
-      const lage = (k: number) => (rechts ? box.r - breit * k : box.l)
-      let lo = 0
-      let hi = Math.min((box.r - box.l) / breit, (box.b - t) / hoch)
-      for (let i = 0; i < 30; i++) {
-        const k = (lo + hi) / 2
-        if (frei(k, lage(k), t)) lo = k
-        else hi = k
-      }
-      if (lo > best.k * 1.02) best = { k: lo, L: lage(lo), t }
+  /** Größter Wert in [lo, hi], für den `ok` noch gilt (ok fällt von wahr auf falsch). */
+  const suche = (lo: number, hi: number, ok: (v: number) => boolean) => {
+    for (let i = 0; i < 30; i++) {
+      const v = (lo + hi) / 2
+      if (ok(v)) lo = v
+      else hi = v
     }
+    return lo
   }
-  const { k, L, t: oben } = best
+  // Immer waagerecht mittig; größter Maßstab neben oder unter den Hinweisen …
+  const mitte = (k: number) => box.l + (box.r - box.l - breit * k) / 2
+  let k = 0
+  let t0 = box.t
+  for (const t of [box.t, box.t + hinweisH]) {
+    const kt = suche(0, Math.min((box.r - box.l) / breit, (box.b - t) / hoch), (v) => frei(v, mitte(v), t))
+    if (kt > k * 1.02) [k, t0] = [kt, t]
+  }
+  // … und senkrecht mittig im Spielraum, der dann noch frei ist.
+  const L = mitte(k)
+  const tUnten = suche(t0, box.b, (t) => frei(k, L, t))
+  const tOben = tUnten - suche(0, tUnten - box.t, (dt) => frei(k, L, tUnten - dt))
+  const oben = (tOben + tUnten) / 2
   const P = (x: number, z: number, t = 0): Punkt => [L + (x + t) * C30 * k, oben + ((x - t) * S30 + T * S30 + Hm - z) * k]
 
   doc.setFillColor(255, 255, 255)
@@ -343,8 +356,15 @@ function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, 
   const re = teile[teile.length - 1]?.[1] ?? B
   vieleck(doc, [P(re, 0), P(re, 0, T), P(re, Hm, T), P(re, Hm)])
 
-  // Fronten (vordere Schiebetür-Ebene zuletzt), Griffe, Material senkrecht beschriftet
-  for (const f of [...m.fronten].filter((f) => f.art !== 'offen').sort((a, b) => (a.ebene ?? 0) - (b.ebene ?? 0))) {
+  // Innenleben jedes Korpus — zu sehen überall, wo keine Front davor sitzt (offene Fächer).
+  for (const korpus of m.korpusse) innenleben(doc, m, korpus, P)
+
+  // Fronten (vordere Schiebetür-Ebene zuletzt) mit Griffen
+  const fronten = [...m.fronten].filter((f) => f.art !== 'offen').sort((a, b) => (a.ebene ?? 0) - (b.ebene ?? 0))
+  const materialVon = (f: Front2D) => (f.elementId ? d.frontMaterial[f.elementId] ?? '' : '')
+  // Beschriftet wird nur, wenn die Fronten verschiedene Materialien/Oberflächen haben.
+  const beschriften = new Set(fronten.map(materialVon)).size > 1
+  for (const f of fronten) {
     doc.setLineWidth(0.5)
     vieleck(doc, [P(f.x, f.y), P(f.x + f.b, f.y), P(f.x + f.b, f.y + f.h), P(f.x, f.y + f.h)])
     const g = griffStrecke(f)
@@ -353,15 +373,70 @@ function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, 
       const [a, b] = [P(g[0], g[1]), P(g[2], g[3])]
       doc.line(a[0], a[1], b[0], b[1])
     }
-    const material = f.elementId ? d.frontMaterial[f.elementId] : undefined
-    if (!material || (f.art !== 'drehtuer' && f.art !== 'schiebetuer')) continue
-    const platz = f.h * k * 0.8
+    const material = materialVon(f)
+    if (!beschriften || !material) continue
+    // Hohe Fronten senkrecht, flache (Schübe, Klappen) entlang der Unterkante (−30°).
+    const senkrecht = f.h >= f.b
+    const platz = (senkrecht ? f.h : f.b) * k * 0.8
     doc.setFontSize(6.5)
     let text = `-- ${material} --`
     if (doc.getTextWidth(text) > platz) text = doc.splitTextToSize(material, platz)[0] ?? ''
+    const tw = doc.getTextWidth(text)
     const [cx, cy] = P(f.x + f.b / 2, f.y + f.h / 2)
-    doc.text(text, cx + 2.3, cy + doc.getTextWidth(text) / 2, { angle: 90 })
+    if (senkrecht) doc.text(text, cx + 2.3, cy + tw / 2, { angle: 90 })
+    else if (f.h * k > 8) doc.text(text, cx - (tw / 2) * C30 - 1.1, cy - (tw / 2) * S30 + 2, { angle: -30 })
   }
+}
+
+/**
+ * Blick in einen Korpus: linke Innenseite, Boden, Rückwand und die Ausstattung von unten
+ * nach oben (weiß gefüllt, so verdeckt Höheres das Dahinterliegende). Beschnitten auf die
+ * Öffnung — die Fronten werden danach darübergezeichnet, sichtbar bleibt also nur, was offen ist.
+ */
+function innenleben(doc: jsPDF, m: Konstruktion2D, korpus: Konstruktion2D['korpusse'][number], P: (x: number, z: number, t?: number) => Punkt) {
+  const a = korpus.x + K.seiteMm
+  const b = korpus.x + korpus.b - K.seiteMm
+  const zu = m.innenBodenMm
+  const zo = m.innenObenMm
+  const T = m.tiefeMm - K.rueckwandMm
+  if (b <= a || zo <= zu) return
+  doc.saveGraphicsState()
+  vieleck(doc, [P(a, zu), P(b, zu), P(b, zo), P(a, zo)], null)
+  doc.clip()
+  doc.discardPath()
+  doc.setLineWidth(0.35)
+  vieleck(doc, [P(a, zu, T), P(b, zu, T), P(b, zo, T), P(a, zo, T)])
+  vieleck(doc, [P(a, zu), P(a, zu, T), P(a, zo, T), P(a, zo)])
+  vieleck(doc, [P(a, zu), P(b, zu), P(b, zu, T), P(a, zu, T)])
+
+  const kiste = (x0: number, x1: number, z0: number, z1: number, t0: number, t1: number) => {
+    vieleck(doc, [P(x0, z0, t0), P(x1, z0, t0), P(x1, z1, t0), P(x0, z1, t0)])
+    vieleck(doc, [P(x0, z1, t0), P(x1, z1, t0), P(x1, z1, t1), P(x0, z1, t1)])
+  }
+  for (const e of m.ausstattung.filter((e) => e.korpus === korpus.index).sort((p, q) => p.y - q.y)) {
+    const x0 = Math.max(a, e.x)
+    const x1 = Math.min(b, e.x + e.b)
+    if (e.art === 'boden' || e.art === 'glasboden' || e.art === 'trennboden') {
+      kiste(x0, x1, e.y, e.y + (e.h || K.einlegebodenMm), 0, T)
+    } else if (e.art === 'kleiderstange' || e.art === 'led-deckel') {
+      doc.setLineWidth(e.art === 'kleiderstange' ? 1.1 : 0.35)
+      const t = e.art === 'kleiderstange' ? T / 2 : 30
+      const [p, q] = [P(x0, e.y, t), P(x1, e.y, t)]
+      doc.line(p[0], p[1], q[0], q[1])
+      doc.setLineWidth(0.35)
+    } else if (e.h > 0 && e.art !== 'aussenschub' && e.art !== 'led-seite' && e.art !== 'hinweis') {
+      // Container, Schubladen, Körbe, Auszüge: Kasten vorne (wie in der Draufsicht) mit Auszugsfugen.
+      kiste(x0, x1, e.y, e.y + e.h, 10, Math.min(10 + (e.t ?? K.containerTiefeMm), T))
+      let z = e.y
+      for (const hoehe of (e.teilungen ?? []).slice(0, -1)) {
+        z += hoehe
+        const [p, q] = [P(x0, z, 10), P(x1, z, 10)]
+        doc.line(p[0], p[1], q[0], q[1])
+      }
+    }
+  }
+  doc.restoreGraphicsState()
+  doc.setLineWidth(0.5)
 }
 
 /** Griff als Strecke [x1, z1, x2, z2] auf der Frontebene — Lage wie in `bauteile/Griffe.tsx`. */
