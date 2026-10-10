@@ -11,6 +11,7 @@
  *   Erg.   Raumteiler / Sichtrückwand: Beschriftung, nur sichtbar wenn aktiv · Stand der
  *          sechs Cramer-Antworten (Edge, Wandtablar, Aufkantung, Container, Tavolo, M-104)
  *   2D     Konstruktionsansicht folgt Breiten, Höhe, Fronten und Ausstattung
+ *   PDF    Seite 1 im Lookbook-Stil: Kopfdaten, X-Checkliste, Material, Sonder-Ausstattung
  *
  *   npm run ue10:test
  */
@@ -311,6 +312,60 @@ console.log(c.bold('\n2D — Konstruktionsmodell: Maße, Fronten, Griffe, Aussta
   licht.ausstattung = { selected: ['led-syncro'] }
   pruefe(konstruktion(licht)?.wandabstandMm === 10, 'Beleuchtung → 10 mm Wandabstand in der Draufsicht')
   pruefe(konstruktion(schrank({ breiten: [] })) === null, 'Ohne Korpus keine Zeichnung')
+}
+
+// ---------------------------------------------------------------------------
+console.log(c.bold('\nPDF — Seite 1 im Lookbook-Stil (Kopfdaten, Checkliste, Material, Sonder-Ausstattung)'))
+{
+  // Die PDF-Module importieren ohne Dateiendung (wie die Oberfläche) — deshalb über Vite-SSR.
+  let server
+  try {
+    const { createServer } = await import('vite')
+    server = await createServer({ server: { middlewareMode: true }, appType: 'custom', logLevel: 'silent' })
+    const { lookbookDaten } = await server.ssrLoadModule('/src/lib/lookbookDaten.ts')
+    const { buildPdf } = await server.ssrLoadModule('/src/lib/generatePdf.ts')
+
+    const tuerD = (extra) => ({ id: 'd1', typeId: 'drehtuer', label: 'D1', widthCm: '49', heightCm: '230,1', styleLineId: 'glatt', tuerAnschlag: 'links', fieldValues: {}, ...extra })
+    const schubD = (id) => ({ id, typeId: 'schuebe', label: id.toUpperCase(), widthCm: '59', heightCm: '25,3', styleLineId: 'glatt', fieldValues: {} })
+    const d = schrank({ breiten: [50, 60], abschluss: 'beide', fronten: [[tuerD({ griff: true, griffId: 'nr123' })], [schubD('s1'), schubD('s2'), tuerD({ id: 'd2', label: 'D2', widthCm: '59', heightCm: '173,7' })]] })
+    d.customerName = 'Familie Muster'
+    d.orderNumber = 'A-4711'
+    d.consultant = { id: 'M-001', name: 'Anna Berger' }
+    d.korpusGrunddaten.verblendung = { art: 'frontbuendig', seiten: { links: true, oben: true } }
+    d.fronts.columns[0].equipment = [{ id: 'l', optionId: 'led-syncro', qty: 1 }]
+    const lb = lookbookDaten(d)
+    const wert = (liste, label) => liste.find((f) => f.label === label)?.wert
+    pruefe(lb.titel === 'KLEIDERSCHRANK REFUGIUM' && lb.nummer === '#A-4711', `Titel „${lb.titel}", Nummer ${lb.nummer}`)
+    pruefe(
+      wert(lb.kopf, 'Kunde') === 'Familie Muster' && wert(lb.kopf, 'Auftragsnummer') === 'A-4711' && wert(lb.kopf, 'Berater') === 'Anna Berger' && /\d\d\.\d\d\.\d{4}/.test(wert(lb.kopf, 'Datum')) && wert(lb.kopf, 'Filiale') !== '—' && /Refugium/.test(wert(lb.kopf, 'Serie / Modell')),
+      'Kopfdaten: Kunde, Auftragsnummer, Berater, Datum, Filiale, Serie / Modell',
+      lb.kopf,
+    )
+    const an = (label) => lb.checkliste.flatMap((g) => g.haken).find((h) => h.label.startsWith(label))?.an
+    pruefe(an('Drehtüren') === true && an('Schiebetüren') === false && an('Außenschübe') === true, '[X] Drehtüren  [ ] Schiebetüren  [X] Außenschübe — aus dem Entwurf', lb.checkliste)
+    pruefe(an('Abschlussset links') && an('Abschlussset rechts') && an('Verblendung frontbündig') && !an('Verblendung korpusbündig'), 'Abschlussset links & rechts, Verblendung frontbündig angekreuzt')
+    pruefe(/frontbündig/.test(wert(lb.sonder, 'Verblendung')) && /lfm/.test(wert(lb.sonder, 'Verblendung')), `Sonder-Ausstattung Verblendung: „${wert(lb.sonder, 'Verblendung')}"`)
+    pruefe(wert(lb.sonder, 'Beleuchtung') === 'LED-Syncro', 'Beleuchtung: LED-Syncro')
+    pruefe(/Nr\. 123/.test(wert(lb.material, 'Griff')) && wert(lb.material, 'Abschlussset') !== undefined, 'Material: Griff Nr. 123, Abschlussset')
+    pruefe(/2 Schübe/.test(lb.ausfuehrung) && /2 Drehtüren/.test(lb.ausfuehrung) && /LED/.test(lb.ausfuehrung), `Ausführung: „${lb.ausfuehrung}"`)
+    pruefe(wert(lb.masse, 'Breite') === '1109 mm', `Breite = Außenmaß (490 + 590 + 3 × 3 + 2 × 10 mm): ${wert(lb.masse, 'Breite')}`)
+
+    const st = lookbookDaten(schrank({ breiten: [100, 100], tuer: schiebetuer(), anzahl: 2 }))
+    pruefe(st.checkliste[0].haken.find((h) => h.label.startsWith('Schiebetüren'))?.an === true && /2 Schiebetüren zweiläufig/.test(st.ausfuehrung), 'Zweiläufige Schiebetür: [X] Schiebetüren (2)')
+
+    const pdf = buildPdf(d)
+    const quer = pdf.getPageInfo(1).pageContext.mediaBox
+    pruefe(quer.topRightX > quer.topRightY && pdf.getNumberOfPages() >= 2, `Seite 1 quer (${Math.round(quer.topRightX)} × ${Math.round(quer.topRightY)} pt), danach die Datenseiten`)
+    const text = pdf.output()
+    pruefe(text.includes('KLEIDERSCHRANK REFUGIUM') && text.includes('CHECKLISTE') && text.includes('SONDER-AUSSTATTUNG'), 'PDF-Text enthält Titel, Checkliste und Sonder-Ausstattung')
+    pruefe(text.includes('Skizze nicht verf'), 'Ohne Browser (keine Rasterung) steht ein Hinweis statt der Skizze')
+    const ohne = buildPdf({ ...d, korpusGrunddaten: undefined })
+    pruefe(ohne.getPageInfo(1).pageContext.mediaBox.topRightX < ohne.getPageInfo(1).pageContext.mediaBox.topRightY, 'Ohne Korpus-Grunddaten (freie Maße): keine Lookbook-Seite, PDF wie bisher')
+  } catch (e) {
+    pruefe(false, 'PDF-Prüfung über Vite-SSR', e?.stack?.split('\n').slice(0, 4).join(' | '))
+  } finally {
+    await server?.close()
+  }
 }
 
 console.log(fehler === 0 ? c.green(c.bold('\nAlle Prüfungen bestanden.\n')) : c.red(c.bold(`\n${fehler} Befund(e).\n`)))

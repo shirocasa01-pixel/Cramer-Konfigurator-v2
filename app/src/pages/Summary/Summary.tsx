@@ -90,10 +90,11 @@ export default function SummaryPage() {
     draft?.artikelnummer?.trim() ? null : 'Artikelnummer',
   ].filter((f): f is string => f !== null)
 
-  function handleSendToAv() {
+  async function handleSendToAv() {
     if (!draft) return
     if (avFehlend.length > 0) return
-    downloadPdf(draft)
+    // Erst das PDF fertig erzeugen (Skizzen werden gerastert), dann das Mailprogramm öffnen.
+    await downloadPdf(draft)
     const to = support.contacts[0]?.value ?? 'av@cramer.de'
     const subject = encodeURIComponent(`AV-Übergabe ${draft.id} · ${draft.orderNumber}`)
     const body = encodeURIComponent(
@@ -305,7 +306,7 @@ export default function SummaryPage() {
           <Button variant="ghost" onClick={() => navigate('/fronts')}>
             Zurück
           </Button>
-          <Button variant="ghost" onClick={() => downloadPdf(draft)}>
+          <Button variant="ghost" onClick={() => void downloadPdf(draft)}>
             PDF herunterladen
           </Button>
           <Button

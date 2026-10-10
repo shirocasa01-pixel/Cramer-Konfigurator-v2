@@ -151,6 +151,32 @@ Lage der Raster, Bauhöhen der Container, Griffhöhe, Kleiderstangen-Abstand. Wa
 festgelegt haben, ist dort als Annahme gekennzeichnet (Rückfragen 6 und 7). Preise und
 Prüfungen hängen nicht an diesen Werten.
 
+**[GEFIXT] Skizze im Vollbild.** Unten links in der Skizze öffnet ein Knopf die aktive Ansicht
+bildschirmfüllend. Dort lässt sich stufenlos zoomen, bis 1.200 %: mit + / −, mit dem
+Mausrad, mit zwei Fingern auf dem iPad oder per Doppelklick. Ziehen verschiebt den
+Ausschnitt, „Einpassen" (oder die Taste 0) zeigt wieder alles. Weil über den Bildausschnitt
+der Zeichnung gezoomt wird und nicht über eine Vergrößerung des Bildes, bleiben Maßketten,
+Zahlen und Griffe in jeder Stufe gestochen scharf. Die vier Ansichten sind oben umschaltbar,
+Esc schließt.
+
+**[GEFIXT] AV-PDF: Seite 1 als Konstruktionszeichnung im Lookbook-Stil (A4 quer).**
+
+- **Kopf:** Titel („KLEIDERSCHRANK REFUGIUM") mit Nummer, darunter Kunde, Auftragsnummer,
+  Berater, Datum, Filiale, Serie / Modell.
+- **Mitte:** Vorderansicht und Innenansicht mit Maßketten in mm, daneben der Grundriss. Die
+  Skizzen sind dieselben wie auf dem Bildschirm, für den Druck in hoher Auflösung
+  (2.400 px Breite, gut 300 dpi auf der Seite).
+- **Schriftfeld wie in Ihrer AV-Zeichnung:** Bezeichnung mit Raster und Korpusanzahl, Kunde,
+  Höhe / Breite / Tiefe in mm und die Ausführung („2 Schübe, 4 Drehtüren, 5 Böden mit
+  Kleiderstange …"). Dazu eine X-Checkliste, die sich aus dem Entwurf ankreuzt: Drehtüren,
+  Schiebetüren, Außenschübe, Klappen, offene Fächer, mit / ohne Lochreihe, Abschlussset links /
+  rechts, Verblendung korpus- / frontbündig. Daneben Ausführung & Material (Korpus innen,
+  Abschlussset, Front, Griff, Sichtrückwand) und Sonder-Ausstattung (Verblendung mit
+  Laufmetern, Aufkantung, Beleuchtung, Fußleistenausschnitt, Sondermaße).
+
+Ab Seite 2 folgen alle Angaben wie bisher. Serien mit freier Maßeingabe haben keine
+Korpusdaten zum Zeichnen; ihr PDF bleibt unverändert.
+
 ## Rückfragen
 
 1. **[OFFEN] Türbreite 120–150 cm:** Wir lassen Türen über 120 cm nur in Decoboard und Xtreme
@@ -185,5 +211,6 @@ Prüfungen hängen nicht an diesen Werten.
 | Fronten-Schritt, Maße-Schritt, Frontkarte | `Fronts.tsx`, `KorpusMasseSection.tsx`, `FrontElementCard.tsx` |
 | Curve ohne Griffprofil | `griffProfilAnwendbar` in `src/lib/frontsHelpers.ts` |
 | Raumteiler / Sichtrückwand | `src/pages/Korpus/Korpus.tsx` |
-| 2D-Skizze | Modell `src/lib/konstruktion.ts` (mm, Stapelregel, Griffformen), Parameter `src/config/konstruktionsParameter.ts`, Bauteil-Bibliothek `src/components/konstruktion/bauteile/`, Ansichten `Konstruktion2D.tsx`, verschiebbares Layout `KonstruktionsLayout.tsx` (`<AppShell skizze>`) |
+| 2D-Skizze | Modell `src/lib/konstruktion.ts` (mm, Stapelregel, Griffformen), Parameter `src/config/konstruktionsParameter.ts`, Bauteil-Bibliothek `src/components/konstruktion/bauteile/`, Ansichten `Konstruktion2D.tsx`, verschiebbares Layout `KonstruktionsLayout.tsx` (`<AppShell skizze>`), Vollbild `SkizzenVollbild.tsx` |
+| AV-PDF Seite 1 | Daten `src/lib/lookbookDaten.ts`, Seite `src/lib/pdfLookbook.ts`, Druckbild `src/components/konstruktion/skizzenBild.tsx`, eingebunden in `generatePdf.ts` |
 | Prüfung | `scripts/check-ueberarbeitung-10.js` (`npm run ue10:test`), Durchgriff um Schiebetür-Schränke ergänzt |

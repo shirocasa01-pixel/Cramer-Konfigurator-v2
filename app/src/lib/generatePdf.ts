@@ -22,13 +22,24 @@ import { caPrefix, formatDimensions } from './massFormat'
 import { aussenmassOptionen, describeKorpusGrunddatenZeilen } from './korpusMass'
 import { felderFuer, getAbschnitt } from './schemaStore'
 import { anzeigeWert, zeigeFeld } from './schemaWerte'
+import { lookbookDaten } from './lookbookDaten'
+import { zeichneLookbookSeite, type LookbookBilder } from './pdfLookbook'
 
 /**
- * Erzeugt das kompakte AV-Übergabe-PDF (Seite 1: Daten, Seite 2: gescannte Skizze).
+ * Erzeugt das kompakte AV-Übergabe-PDF.
+ *
+ *   Seite 1 (quer)  Konstruktionszeichnung im Lookbook-Stil — Kopfdaten, Vorder-, Innen- und
+ *                   Draufsicht mit Maßketten, Schriftfeld mit X-Checkliste (nur mit Korpus-
+ *                   Grunddaten; `pdfLookbook.ts`)
+ *   danach (hoch)   alle Daten wie bisher, zuletzt die gescannte Handzeichnung
+ *
  * Alle Spalten-/Segment-Daten aus Phase 4.5 & 5 inkl. Preisgruppen-Metadaten; der
  * verbindliche Preis ist der manuell erfasste VK-Preis (Phase A).
+ *
+ * @param optionen.skizzen Die gerasterten Ansichten (`skizzenBilder`); ohne sie trägt Seite 1
+ *   einen Hinweis statt der Zeichnung.
  */
-export function buildPdf(draft: Draft): jsPDF {
+export function buildPdf(draft: Draft, optionen: { skizzen?: LookbookBilder } = {}): jsPDF {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' })
   const pageW = doc.internal.pageSize.getWidth()
   const pageH = doc.internal.pageSize.getHeight()
@@ -333,10 +344,29 @@ export function buildPdf(draft: Draft): jsPDF {
     }
   }
 
+  // --- Seite 1: Konstruktionszeichnung im Lookbook-Stil (quer), vor alle anderen Seiten ---
+  if (draft.korpusGrunddaten) {
+    doc.addPage('a4', 'landscape')
+    zeichneLookbookSeite(doc, lookbookDaten(draft), optionen.skizzen)
+    doc.movePage(doc.getNumberOfPages(), 1)
+  }
+
   return doc
 }
 
-/** Lädt das PDF lokal herunter. */
-export function downloadPdf(draft: Draft): void {
-  buildPdf(draft).save(`${draft.id}.pdf`)
+/**
+ * Lädt das PDF lokal herunter. Vorher werden die Skizzen für Seite 1 gerastert — scheitert
+ * das (z. B. ohne Canvas), entsteht das PDF trotzdem, mit Hinweis statt Zeichnung.
+ */
+export async function downloadPdf(draft: Draft): Promise<void> {
+  let skizzen: LookbookBilder | undefined
+  if (draft.korpusGrunddaten && typeof document !== 'undefined') {
+    try {
+      const { skizzenBilder } = await import('../components/konstruktion/skizzenBild')
+      skizzen = await skizzenBilder(draft)
+    } catch (fehler) {
+      console.warn('Skizze für das PDF nicht verfügbar:', fehler)
+    }
+  }
+  buildPdf(draft, { skizzen }).save(`${draft.id}.pdf`)
 }
