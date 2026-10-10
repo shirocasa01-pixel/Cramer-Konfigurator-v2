@@ -11,7 +11,7 @@
  *   Erg.   Raumteiler / Sichtrückwand: Beschriftung, nur sichtbar wenn aktiv · Stand der
  *          sechs Cramer-Antworten (Edge, Wandtablar, Aufkantung, Container, Tavolo, M-104)
  *   2D     Konstruktionsansicht folgt Breiten, Höhe, Fronten und Ausstattung
- *   PDF    Seite 1 wie die Cramer-AV-Zeichnung: Schriftfeld, X-Felder, Hinweise
+ *   PDF    Seite 1 wie die Cramer-AV-Zeichnung: Schriftfeld, X-Felder, Isometrie
  *
  *   npm run ue10:test
  */
@@ -315,7 +315,7 @@ console.log(c.bold('\n2D — Konstruktionsmodell: Maße, Fronten, Griffe, Aussta
 }
 
 // ---------------------------------------------------------------------------
-console.log(c.bold('\nPDF — Seite 1 wie die Cramer-AV-Zeichnung (Schriftfeld, X-Felder, Hinweise)'))
+console.log(c.bold('\nPDF — Seite 1 wie die Cramer-AV-Zeichnung (Schriftfeld, X-Felder, Isometrie)'))
 {
   // Die PDF-Module importieren ohne Dateiendung (wie die Oberfläche) — deshalb über Vite-SSR.
   let server
@@ -336,22 +336,22 @@ console.log(c.bold('\nPDF — Seite 1 wie die Cramer-AV-Zeichnung (Schriftfeld, 
     const lb = lookbookDaten(d)
     const wert = (liste, label) => liste.find((f) => f.label === label)?.wert
     const an = (label) => lb.haken.find((h) => h.label === label)?.an
-    pruefe(/^Refugium (18|21)Raster/.test(lb.bezeichnung) && lb.kunde === 'Familie Muster' && lb.auftragsnummer === 'A-4711' && lb.moebelsoftnummer === d.id && lb.berater === 'Anna Berger', `Schriftfeld: „${lb.bezeichnung}", Kunde, Auftragsnummer, Möbelsoftnummer, Berater`)
+    pruefe(/^Refugium (18|21)Raster/.test(lb.bezeichnung) && lb.kunde === 'Familie Muster' && lb.auftragsnummer === 'A-4711' && lb.moebelsoftnummer === d.id, `Schriftfeld: „${lb.bezeichnung}", Kunde, Auftragsnummer, Möbelsoftnummer`)
     pruefe(/\d\d\.\d\d\.\d{4}/.test(lb.auftragsdatum) && /\d\d\.\d\d\.\d{4}/.test(lb.letzteAenderung) && lb.filiale !== '' && lb.serie === 'Refugium', 'Auftragsdatum, letzte Änderung, Filiale, Serie')
     pruefe(lb.haken.length === 10 && an('Drehtüren') && !an('Schiebetüren') && an('Softschübe') && an('Front Standard') && !an('Front korpusbündig'), '[X] Drehtüren  [ ] Schiebetüren  [X] Softschübe  [X] Front Standard — aus dem Entwurf', lb.haken)
     pruefe(['GRIFF', 'Front', 'Korpus', 'Platte', 'RW'].every((l, i) => lb.ausfuehrung[i]?.label === l) && /Nr\. 123/.test(wert(lb.ausfuehrung, 'GRIFF')), 'Felder GRIFF (Nr. 123), Front, Korpus, Platte, RW', lb.ausfuehrung)
-    pruefe(lb.hinweise.some((h) => /2 Schübe/.test(h) && /2 Drehtüren/.test(h)) && lb.hinweise.some((h) => /Verblendung frontbündig.*lfm/.test(h)) && lb.hinweise.some((h) => /LED-Syncro/.test(h)) && lb.hinweise.every((h) => h.startsWith('-- ')), 'Hinweise „-- …": Fronten, Verblendung mit lfm, Beleuchtung', lb.hinweise)
     pruefe(wert(lb.masse, 'Breite') === '1109', `Breite = Außenmaß (490 + 590 + 3 × 3 + 2 × 10 mm): ${wert(lb.masse, 'Breite')}`)
     pruefe(lb.modell?.fronten.every((f) => f.elementId) === true, 'Jede Front im Modell kennt ihr Element (Material-Beschriftung)')
 
     const st = lookbookDaten(schrank({ breiten: [100, 100], tuer: schiebetuer(), anzahl: 2 }))
-    pruefe(st.haken.find((h) => h.label === 'Schiebetüren')?.an === true && st.hinweise.some((h) => /2 Schiebetüren zweiläufig/.test(h)), 'Zweiläufige Schiebetür: [X] Schiebetüren')
+    pruefe(st.haken.find((h) => h.label === 'Schiebetüren')?.an === true, 'Zweiläufige Schiebetür: [X] Schiebetüren')
 
     const pdf = buildPdf(d)
     const quer = pdf.getPageInfo(1).pageContext.mediaBox
     pruefe(quer.topRightX > quer.topRightY && pdf.getNumberOfPages() >= 2, `Seite 1 quer (${Math.round(quer.topRightX)} × ${Math.round(quer.topRightY)} pt), danach die Datenseiten`)
     const text = pdf.output()
-    pruefe(['GRIFF:', 'Möbelsoftnummer', 'Liefertermin:', '(PLANER)', 'Umlaufkorpus 20mm', 'bitte prüfen Sie umgehend'].every((t) => text.includes(t)), 'PDF-Text enthält das Cramer-Schriftfeld und den Prüfhinweis')
+    pruefe(['GRIFF:', 'Möbelsoftnummer', 'Liefertermin:', '(PLANER)', 'Umlaufkorpus 20mm'].every((t) => text.includes(t)), 'PDF-Text enthält das Cramer-Schriftfeld')
+    pruefe(!['(Hallo ', 'bitte prüfen Sie', 'MFG/', '(-- 3 Korpi', '(-- 2 Korpi'].some((t) => text.includes(t)), 'Kein Prüfhinweis „Hallo …" und keine Hinweisliste „-- …" mehr auf Seite 1')
     // Materialbeschriftung auf den Fronten nur bei verschiedenen Materialien („-- … --" endet auf „ --)").
     const beschriftungen = (pg1, pg2) => {
       const mit = (pg) => ({ fieldValues: { material: { material: materialFuer(pg) } } })

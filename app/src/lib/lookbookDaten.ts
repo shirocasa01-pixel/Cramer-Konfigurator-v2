@@ -1,17 +1,16 @@
 import type { Draft, FrontElement } from '../types'
 import { getBranch } from '../config/branches'
-import { getEquipmentOption } from '../config/equipment'
 import { getStyleLine } from '../config/frontCatalog'
 import { getProductGroup, getSeries } from '../config/productCatalog'
 import { describeHandleConfig } from './frontsFormat'
 import { ZWEILAEUFIG_TYPE_ID, allElements } from './frontsHelpers'
 import { konstruktion, mmText, type Konstruktion2D } from './konstruktion'
-import { computeKorpusMasse, formatLfm, verblendungLfm, verblendungSeitenText } from './korpusMass'
+import { computeKorpusMasse } from './korpusMass'
 import { describeMaterialSelection } from './materialFormat'
 
 /**
  * DATEN DER SEITE 1 DES AV-PDFs — die Felder der Cramer-AV-Konstruktionszeichnung
- * (Vorlage „Refugium 18Raster in 052/9010": Schriftfeld unten, Hinweise über der Isometrie).
+ * (Vorlage „Refugium 18Raster in 052/9010": Schriftfeld unten).
  *
  * Reine Daten, kein jsPDF — das Zeichnen übernimmt `pdfLookbook.ts`. Alles kommt aus dem
  * Entwurf und den Stammdaten; nichts wird hier neu festgelegt. Felder ohne Gegenstück im
@@ -47,11 +46,8 @@ export interface LookbookDaten {
   kunde: string
   auftragsnummer: string
   moebelsoftnummer: string
-  berater: string
   /** „-- Refugium innen Dekor anthrazit --" über dem Grundriss. */
   innenTitel: string
-  /** „-- 3 Korpi, 2 Drehtüren …" — Hinweise über der Isometrie. */
-  hinweise: string[]
   /** Material je Front-Element (ID) für die Beschriftung auf den Fronten. */
   frontMaterial: Record<string, string>
   modell: Konstruktion2D | null
@@ -60,11 +56,6 @@ export interface LookbookDaten {
 function datum(iso?: string): string {
   const d = iso ? new Date(iso) : new Date()
   return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-}
-
-/** „2 Drehtüren", „1 Schub" — Einzahl/Mehrzahl ohne Rechenfehler bei 0. */
-function anzahl(n: number, eins: string, mehr: string): string {
-  return `${n} ${n === 1 ? eins : mehr}`
 }
 
 function eindeutig(werte: string[]): string[] {
@@ -101,21 +92,14 @@ export function lookbookDaten(draft: Draft): LookbookDaten {
     { label: 'Tiefe', wert: mm(masse.korpustiefeCm) },
   ]
 
-  // --- Fronten und Ausstattung gezählt ------------------------------------------------------
+  // --- Fronten und Container gezählt (X-Felder) ------------------------------------------------------
   const zaehle = (typ: string) => elemente.filter((e) => e.typeId === typ).length
   const drehtueren = zaehle('drehtuer')
   const schuebe = zaehle('schuebe')
   const schiebeEin = zaehle('schiebetuer')
   const schiebeZwei = elemente.some((e) => e.typeId === ZWEILAEUFIG_TYPE_ID) ? draft.fronts?.schiebetuerAnzahl ?? 2 : 0
-  const klappen = elemente.filter((e) => ['stauraumklappe', 'hochstellklappe', 'schreibklappe'].includes(e.typeId)).length
-  const offen = zaehle('offen')
   const a = m?.ausstattung ?? []
-  const stangenBoeden = a.filter((x) => x.art === 'boden' && x.optionId === 'einlegeboden-kleiderstange').length
-  const fachboeden = a.filter((x) => (x.art === 'boden' && x.optionId !== 'einlegeboden-kleiderstange') || x.art === 'glasboden').length
   const container = eindeutig(a.filter((x) => x.art === 'container' || x.art === 'innenschublade').map((x) => x.label))
-  const beleuchtung = eindeutig(
-    (draft.fronts?.columns ?? []).flatMap((c) => c.equipment ?? []).filter((e) => getEquipmentOption(e.optionId)?.beleuchtung).map((e) => getEquipmentOption(e.optionId)?.label ?? ''),
-  )
 
   // --- X-Felder wie im Cramer-Schriftfeld ------------------------------------------------------
   const korpusse = g?.korpusse ?? []
@@ -147,37 +131,6 @@ export function lookbookDaten(draft: Draft): LookbookDaten {
     { label: 'RW', wert: (draft.sichtRueckwandAussen ? mat('rueckwandAussen') : innen) || '/' },
   ]
 
-  // --- Hinweise über der Isometrie (Vorlage: „-- 2 EINZELSCHRÄNKE") ------------------------------
-  const lfm = verblendungLfm(g)
-  const absch = g?.abschlussSet
-  const hinweise = [
-    [
-      m ? anzahl(m.korpusse.length, 'Korpus', 'Korpi') : '',
-      schuebe ? anzahl(schuebe, 'Schub', 'Schübe') : '',
-      drehtueren ? anzahl(drehtueren, 'Drehtür', 'Drehtüren') : '',
-      schiebeZwei ? `${anzahl(schiebeZwei, 'Schiebetür', 'Schiebetüren')} zweiläufig` : '',
-      schiebeEin ? `${anzahl(schiebeEin, 'Schiebetür', 'Schiebetüren')} einläufig` : '',
-      klappen ? anzahl(klappen, 'Klappe', 'Klappen') : '',
-      offen ? anzahl(offen, 'offenes Fach', 'offene Fächer') : '',
-    ]
-      .filter(Boolean)
-      .join(', '),
-    [stangenBoeden ? `${anzahl(stangenBoeden, 'Boden', 'Böden')} mit Kleiderstange` : '', fachboeden ? anzahl(fachboeden, 'Fachboden', 'Fachböden') : '', ...container]
-      .filter(Boolean)
-      .join(', '),
-    absch && absch.position !== 'keine' ? `Abschlussset ${absch.position === 'beide' ? 'links & rechts' : absch.position}` : '',
-    v && v.art !== 'keine'
-      ? `Verblendung ${[v.art === 'korpusbuendig' ? 'korpusbündig' : 'frontbündig', verblendungSeitenText(v), lfm != null ? `${formatLfm(lfm)} lfm` : ''].filter(Boolean).join(' · ')}`
-      : '',
-    beleuchtung.length ? `Beleuchtung: ${beleuchtung.join(', ')}` : '',
-    draft.raumteiler ? 'Raumteiler (frei im Raum)' : '',
-    g?.sondermasse?.trim() ? `Sondermaße: ${g.sondermasse.trim()}` : '',
-    draft.fronts?.sonderausstattung?.trim() ?? '',
-    ...(m?.hinweise ?? []),
-  ]
-    .filter(Boolean)
-    .map((h) => `-- ${h}`)
-
   const frontMaterial: Record<string, string> = {}
   for (const el of elemente) {
     const sel = el.fieldValues?.material?.material
@@ -198,9 +151,7 @@ export function lookbookDaten(draft: Draft): LookbookDaten {
     kunde: draft.customerName?.trim() ?? '',
     auftragsnummer: draft.orderNumber?.trim() ?? '',
     moebelsoftnummer: draft.id,
-    berater: draft.consultant?.name ?? '',
     innenTitel: `-- ${[series?.name, 'innen', innen].filter(Boolean).join(' ')} --`,
-    hinweise,
     frontMaterial,
     modell: m,
   }

@@ -8,9 +8,8 @@ import type { LookbookDaten } from './lookbookDaten'
  * SEITE 1 DES AV-PDFs — 1:1 nach der Cramer-AV-Konstruktionszeichnung (A4 quer).
  *
  *   ┌──────────────────────────┬─────────────────────────────────┐
- *   │ Hinweise „-- …"          │  -- Refugium innen … --          │
- *   │                          │  Grundriss mit Maßketten         │
- *   │  Isometrie (Vektor,      │  „Hallo …, bitte prüfen Sie …"   │
+ *   │                          │  -- Refugium innen … --          │
+ *   │  Isometrie (Vektor,      │  Grundriss mit Maßketten         │
  *   │  Material auf den        ├─────────────────────────────────┤
  *   │  Fronten senkrecht)      │  Innenansicht (offener Schrank)  │
  *   ├──────────────┐           │  mit Höhen und ‹LED›             │
@@ -83,7 +82,7 @@ export function zeichneLookbookSeite(doc: jsPDF, d: LookbookDaten, bilder: Lookb
   doc.rect(R.x, R.y, R.w, R.h)
   doc.setLineWidth(0.6)
   linie(465, 18, 465, 607)
-  linie(465, 283, 992, 283)
+  linie(465, 215, 992, 215)
 
   // --- A) Isometrie (links) -----------------------------------------------------------------
   schrift(7.5)
@@ -92,23 +91,10 @@ export function zeichneLookbookSeite(doc: jsPDF, d: LookbookDaten, bilder: Lookb
   // --- B) Grundriss (oben rechts) -------------------------------------------------------------
   schrift(10.5)
   doc.text(passend(d.innenTitel, X(980) - X(478), 10.5), X(728), Y(38), { align: 'center' })
-  if (d.modell) grundriss(doc, d.modell, { l: X(478), t: Y(50), r: X(980), b: Y(222) })
-  schrift(8.5)
-  const hallo = 'Hallo '
-  const bitte = ', bitte prüfen Sie umgehend die Zeichnung'
-  const nx = X(472) + doc.getTextWidth(hallo)
-  const name = passend(d.kunde || ' ', X(986) - nx - doc.getTextWidth(bitte), 8.5, 8.5)
-  const ende = Math.max(nx + doc.getTextWidth(name), X(640))
-  doc.text(hallo, X(472), Y(242))
-  doc.text(name, nx, Y(242))
-  doc.setLineWidth(0.4)
-  doc.line(nx, Y(243.5), ende, Y(243.5))
-  doc.text(bitte, ende, Y(242))
-  doc.text('auf sachliche- und maßliche Richtigkeit. Änderungen nur noch 3 Tage möglich.', X(472), Y(256))
-  doc.text(`MFG/ ${d.berater || '—'} / ab Auftragserfassung (siehe unten)`, X(472), Y(270))
+  if (d.modell) grundriss(doc, d.modell, { l: X(478), t: Y(50), r: X(980), b: Y(208) })
 
   // --- C) Innenansicht (unten rechts) -----------------------------------------------------------
-  const ib = { l: X(474), t: Y(290), r: X(984), b: Y(601) }
+  const ib = { l: X(474), t: Y(221), r: X(984), b: Y(602) }
   const bild = bilder.innen
   if (bild) {
     const s = Math.min((ib.r - ib.l) / bild.breite, (ib.b - ib.t) / bild.hoehe)
@@ -292,31 +278,20 @@ function frontReihe(m: Konstruktion2D): Front2D[] {
 /**
  * Schrank in Isometrie (30°): Breite nach rechts unten, Tiefe nach rechts oben. Sichtbar sind
  * Fronten, Deckflächen, die rechte Seite und in offenen Fächern das Innenleben. Die Zeichnung
- * steht mittig und so groß wie möglich, ohne Hinweise oder Schriftfeld zu berühren.
+ * steht mittig und so groß wie möglich, ohne das Schriftfeld links unten zu berühren.
  */
 function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, block: Punkt) {
   const { breiteMm: B, tiefeMm: T, hoeheMm: Hm } = m
   const tan = S30 / C30
 
-  // Hinweise oben rechts
-  const nx = box.l + (box.r - box.l) * 0.48
-  const alle: string[] = d.hinweise.flatMap((h) => doc.splitTextToSize(h, box.r - nx) as string[])
-  const zeilen = alle.slice(0, 12)
-  if (alle.length > zeilen.length) zeilen[11] = zeilen[11].replace(/\s*\S*$/, ' … (siehe Seite 2)')
-  if (zeilen.length) doc.text(zeilen, nx, box.t + 6)
-  const hinweisH = zeilen.length ? 6 + zeilen.length * 8.7 + 4 : 0
-
   const breit = (B + T) * C30
   const hoch = (B + T) * S30 + Hm
-  /** Passt der Schrank mit Maßstab k, linker Kante L und Oberkante t, ohne Schriftfeld und Hinweise zu berühren? */
+  /** Passt der Schrank mit Maßstab k, linker Kante L und Oberkante t, ohne das Schriftfeld zu berühren? */
   const frei = (k: number, L: number, t: number) => {
     if (L < box.l - 0.01 || L + breit * k > box.r + 0.01 || t + hoch * k > box.b) return false
     // Die Unterkante fällt nach rechts — gegen das Schriftfeld links unten.
     const xu = Math.min(block[0], L + B * C30 * k)
-    if (xu > L && t + (xu - L) * tan + (T * S30 + Hm) * k > block[1]) return false
-    // Die Oberkante fällt rechts vom höchsten Punkt — gegen die Hinweise oben rechts.
-    const xo = Math.max(nx, L + T * C30 * k)
-    return !hinweisH || xo > L + breit * k || t + (xo - L) * tan - T * S30 * k >= box.t + hinweisH
+    return xu <= L || t + (xu - L) * tan + (T * S30 + Hm) * k <= block[1]
   }
   /** Größter Wert in [lo, hi], für den `ok` noch gilt (ok fällt von wahr auf falsch). */
   const suche = (lo: number, hi: number, ok: (v: number) => boolean) => {
@@ -327,19 +302,12 @@ function isometrie(doc: jsPDF, d: LookbookDaten, m: Konstruktion2D, box: Feld4, 
     }
     return lo
   }
-  // Immer waagerecht mittig; größter Maßstab neben oder unter den Hinweisen …
+  // Immer waagerecht mittig mit dem größten Maßstab …
   const mitte = (k: number) => box.l + (box.r - box.l - breit * k) / 2
-  let k = 0
-  let t0 = box.t
-  for (const t of [box.t, box.t + hinweisH]) {
-    const kt = suche(0, Math.min((box.r - box.l) / breit, (box.b - t) / hoch), (v) => frei(v, mitte(v), t))
-    if (kt > k * 1.02) [k, t0] = [kt, t]
-  }
+  const k = suche(0, Math.min((box.r - box.l) / breit, (box.b - box.t) / hoch), (v) => frei(v, mitte(v), box.t))
   // … und senkrecht mittig im Spielraum, der dann noch frei ist.
   const L = mitte(k)
-  const tUnten = suche(t0, box.b, (t) => frei(k, L, t))
-  const tOben = tUnten - suche(0, tUnten - box.t, (dt) => frei(k, L, tUnten - dt))
-  const oben = (tOben + tUnten) / 2
+  const oben = (box.t + suche(box.t, box.b, (t) => frei(k, L, t))) / 2
   const P = (x: number, z: number, t = 0): Punkt => [L + (x + t) * C30 * k, oben + ((x - t) * S30 + T * S30 + Hm - z) * k]
 
   doc.setFillColor(255, 255, 255)

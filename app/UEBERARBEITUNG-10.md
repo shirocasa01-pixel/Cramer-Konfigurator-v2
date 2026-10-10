@@ -164,13 +164,11 @@ Esc schließt.
 - **Links (immer mittig):** der Schrank in Isometrie, als Vektorzeichnung. Fronten mit Griffen;
   offene Fächer zeigen das Innenleben (Seitenwand, Rückwand, Böden, Kleiderstange, Container).
   Das Material steht nur dann auf den Fronten („-- Furnier – Räuchereiche geölt --"), wenn die
-  Fronten verschiedene Materialien/Oberflächen haben. Darüber die
-  Hinweise („-- 3 Korpi, 2 Schübe, 3 Drehtüren …", Abschlussset, Verblendung, Beleuchtung,
-  Sondermaße, Sonderausstattung).
+  Fronten verschiedene Materialien/Oberflächen haben.
 - **Oben rechts:** „-- Refugium innen <Material> --", der Grundriss mit Maßketten: Gesamtbreite
   und Korpuseinteilung darüber, Frontbreiten darunter, links Korpustiefe und Tiefe mit Front.
-  Darunter der Prüfhinweis „Hallo <Kunde>, bitte prüfen Sie umgehend die Zeichnung …".
-- **Unten rechts:** nur die Innenansicht (offener Schrank) mit Höhen und LED, in Schwarz-Weiß.
+- **Unten rechts:** nur die Innenansicht (offener Schrank) mit Höhen und LED, in Schwarz-Weiß,
+  größer als in der Vorlage (der Prüfhinweis „Hallo …" der Vorlage entfällt auf Wunsch).
 - **Schriftfeld:** „Refugium 18Raster in <Korpus>", Filiale, Fuß\Rolle, Höhe / Breite / Tiefe,
   Liefertermin (leer zum Ausfüllen), Auftragsdatum; X-Felder Softschübe, Metallzarge,
   Drehtüren, Schiebetüren, Umlaufkorpus 20 mm | mit / ohne Lochreihe, Front korpusbündig,
