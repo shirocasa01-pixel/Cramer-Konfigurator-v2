@@ -1,10 +1,9 @@
 .split {
   width: 100%;
-  max-width: 1720px;
+  max-width: 1920px;
   margin: 0 auto;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 860px);
-  gap: var(--space-5);
+  grid-template-columns: minmax(0, 1fr) 14px minmax(0, 860px);
   align-items: start;
   padding-left: var(--space-5);
 }
@@ -16,6 +15,48 @@
   min-width: 0;
 }
 
+/* Verschiebbare Trennlinie zwischen Skizze und Formular. */
+.trenner {
+  position: sticky;
+  top: var(--topbar-height);
+  height: calc(100vh - var(--topbar-height));
+  display: flex;
+  justify-content: center;
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  outline: none;
+}
+
+.trenner::before {
+  content: '';
+  width: 1px;
+  height: 100%;
+  background: var(--color-line);
+}
+
+.griff {
+  position: absolute;
+  top: 50%;
+  width: 6px;
+  height: 48px;
+  margin-top: -24px;
+  border-radius: var(--radius-pill);
+  background: var(--color-line-strong);
+  transition: background 0.15s ease;
+}
+
+.trenner:hover .griff,
+.trenner:focus-visible .griff,
+.trenner:active .griff {
+  background: var(--color-ink);
+}
+
+.trenner:focus-visible::before {
+  background: var(--color-focus);
+  width: 2px;
+}
+
 /* Das Formular behält die Breite und Abstände der jeweiligen Seite. */
 .formular {
   min-width: 0;
@@ -24,17 +65,20 @@
 /* iPad quer / kleine Laptops: weiter nebeneinander, Formular etwas breiter. */
 @media (max-width: 1180px) {
   .split {
-    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
-    gap: 0;
+    grid-template-columns: minmax(0, 2fr) 14px minmax(0, 3fr);
     padding-left: var(--space-4);
   }
 }
 
-/* Hochformat / Telefon: Skizze über dem Formular, in der Höhe begrenzt. */
+/* Hochformat / Telefon: Skizze über dem Formular, kein Trenner. */
 @media (max-width: 860px) {
   .split {
-    grid-template-columns: minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr) !important;
     padding-left: 0;
+  }
+
+  .trenner {
+    display: none;
   }
 
   .skizze {

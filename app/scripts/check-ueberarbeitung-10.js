@@ -31,6 +31,7 @@ import {
   zerlegeInTuerfelder,
 } from '../src/lib/schiebetuer.ts'
 import { konstruktion } from '../src/lib/konstruktion.ts'
+import { KONSTRUKTION, rasterHoeheMm } from '../src/config/konstruktionsParameter.ts'
 import { materialFuer } from './lib/testMaterial.js'
 
 const c = {
@@ -229,23 +230,39 @@ console.log(c.bold('\nStand der sechs Cramer-Antworten (Mappe = Preisliste)'))
 }
 
 // ---------------------------------------------------------------------------
-console.log(c.bold('\n2D — Konstruktionsansicht folgt Maßen, Fronten und Ausstattung'))
+console.log(c.bold('\n2D — Konstruktionsmodell: Maße, Fronten, Griffe, Ausstattung, Stapelregel'))
 {
   const m = konstruktion(schrank({ breiten: [50, 60, 80, 100], abschluss: 'beide' }))
   pruefe(m && m.korpusse.map((k) => k.b).join() === '500,600,800,1000', '4 Module 50er / 60er / 80er / 100er (mm)', m?.korpusse)
   pruefe(m && m.breiteMm === 2920 && m.hoeheMm === 2350 && m.tiefeMm === 600, 'Zeichnung 2920 × 2350 × 600 mm (2900 + 2 × 10 mm Abschlussset)', m && [m.breiteMm, m.hoeheMm, m.tiefeMm])
-  pruefe(m && m.sockelMm === 46 && m.innenBodenMm === 65, '18 R: Frontzone 2304 mm → Sockel 46 mm, Innenboden 65 mm', m && [m.sockelMm, m.innenBodenMm])
+  pruefe(m && m.innenBodenMm === 112 && m.innenObenMm === 2310, 'Bodenplatte OK 112 mm (S. 27: Pos. 2 = 34,0 cm), Abschlussboden UK 2310 mm', m && [m.innenBodenMm, m.innenObenMm])
+  pruefe(rasterHoeheMm(2) === 340 && rasterHoeheMm(4) === 596, 'Raster 2 = 340 mm, Raster 4 = 596 mm — wie die Planungsmaße S. 27')
+  pruefe(m && m.korpusse.filter((k) => k.bodentraeger).map((k) => k.nennCm).join() === '80,100', 'Zusätzlicher Bodenträger ab 80 cm (S. 26 „Breite Korpi")')
   pruefe(konstruktion(schrank({ breiten: [50, 60, 80, 100], hoehe: '21R' }))?.hoeheMm === 2740, 'Höhe 21 R → 2740 mm')
   pruefe(konstruktion(schrank({ breiten: [50, 50, 50, 50, 50, 50, 50, 50] }))?.korpusse.length === 8, '8 Module')
   const st = konstruktion(schrank({ breiten: [100, 100], tuer: schiebetuer(), anzahl: 2 }))
   pruefe(st?.schiebetueren === 2 && st.breiteMm === 2040 && new Set(st.fronten.map((f) => f.ebene)).size === 2, 'Zweiläufige Schiebetür: 2 Türen über 2040 mm, zwei Laufebenen', st?.fronten)
+  pruefe(st?.fronten.every((f) => f.griff?.art === 'edge'), 'Schiebetür Glatt: Griffprofil Edge')
+  pruefe(konstruktion(schrank({ breiten: [100, 100], tuer: schiebetuer('curve'), anzahl: 2 }))?.fronten.every((f) => f.griff?.art === 'profil'), 'Schiebetür Curve: Curve-Profil statt Edge')
+
+  // Griffe je Front.
+  const tuer = (extra) => ({ id: 'd1', typeId: 'drehtuer', label: 'D1', widthCm: '49', heightCm: '230,1', styleLineId: 'glatt', tuerAnschlag: 'links', fieldValues: {}, ...extra })
+  const griff = (extra) => konstruktion(schrank({ breiten: [50], fronten: [[tuer(extra)]] }))?.fronten[0]
+  pruefe(griff({ griff: true, griffId: 'nr123' })?.griff?.laengeMm === 329, 'Griff Nr. 123 → Bügelgriff 329 mm')
+  pruefe(griff({ griff: true, griffId: 'nr128' })?.griff?.art === 'muschel' && griff({ griff: true, griffId: 'nr126' })?.griff?.art === 'kante', 'Nr. 128 Muschel, Nr. 126 Kantengriff')
+  pruefe(griff({ griff: true, griffId: 'edge', griffLaengeCm: '100' })?.griff?.laengeMm === 1000, 'Edge an der Drehtür, gekürzt auf 100 cm')
+  pruefe(griff({ pto: true })?.griff?.art === 'pto' && griff({ styleLineId: '107' })?.griff?.art === 'profil', 'PTO; Stil-Linie 107 → eigene Griffleiste')
+  const g = griff({ griff: true, griffId: 'nr123' })
+  pruefe(g?.griffY === KONSTRUKTION.griffhoeheTuer.mm, `Griffhöhe nach Parameter (${KONSTRUKTION.griffhoeheTuer.mm} mm über Fußboden)`, g)
+
   const schub = { id: 's1', typeId: 'schuebe', label: 'S1', widthCm: '49', heightCm: '25,3', styleLineId: 'glatt', fieldValues: {} }
-  const dreh = { id: 'd1', typeId: 'drehtuer', label: 'D1', widthCm: '49', heightCm: '201,5', styleLineId: 'glatt', tuerAnschlag: 'rechts', fieldValues: {} }
+  const dreh = tuer({ id: 'd2', label: 'D2', heightCm: '201,5', tuerAnschlag: 'rechts' })
   const gm = konstruktion(schrank({ breiten: [50, 50], fronten: [[schub, dreh], []] }))
   const s = gm?.fronten.find((f) => f.art === 'schublade')
   const t = gm?.fronten.find((f) => f.art === 'drehtuer')
   pruefe(s && t && t.y > s.y + s.h && t.anschlag === 'rechts', 'Schub unten, Drehtür darüber, Anschlag rechts', gm?.fronten)
-  // Ausstattung hinter der Front: Boden auf Raster 5 mit Stange, Container 4,5 R, LED-Syncro.
+
+  // Ausstattung hinter der Front.
   const d = schrank({ breiten: [100], abschluss: 'keine' })
   d.fronts.columns[0].equipment = [
     { id: 'e1', optionId: 'einlegeboden-kleiderstange', qty: 1, hoehen: [{ modus: 'raster', raster: 5 }] },
@@ -255,11 +272,41 @@ console.log(c.bold('\n2D — Konstruktionsansicht folgt Maßen, Fronten und Auss
   ]
   const a = konstruktion(d)?.ausstattung ?? []
   const boden = a.find((x) => x.art === 'boden')
-  pruefe(boden?.y === 677, `Boden auf Raster 5: ${boden?.y} mm über dem Fußboden (65 + 100 + 4 × 128)`, boden)
-  pruefe(a.find((x) => x.art === 'kleiderstange')?.y === 617, 'Kleiderstange 60 mm unter dem Boden')
+  pruefe(boden?.y === 724 && boden.h === 28, `Boden auf Raster 5: UK ${boden?.y} mm (112 + 100 + 4 × 128), 28 mm stark`, boden)
+  pruefe(a.find((x) => x.art === 'kleiderstange')?.y === 664, 'Kleiderstange 60 mm unter dem Boden')
   const cont = a.find((x) => x.art === 'container')
-  pruefe(cont?.y === 65 && cont?.h === 576, 'Container 4,5 R steht am Korpusboden, 576 mm hoch', cont)
-  pruefe(a.some((x) => x.art === 'led-deckel') && a.some((x) => x.art === 'hinweis' && /Krawattenspange/.test(x.label)), 'LED am Deckel, Krawattenspange als Hinweis')
+  pruefe(cont?.y === 112 && cont?.h === 576 && cont.teilungen?.length === 3, 'Container 4,5 R am Korpusboden, 576 mm, 3 Schübe à 1,5 R', cont)
+  pruefe(a.some((x) => x.art === 'led-deckel') && a.some((x) => x.art === 'hinweis' && /Krawattenspange/.test(x.label)), 'LED am Abschlussboden, Krawattenspange als Hinweis')
+
+  // Stapelregel: Außenschübe unten + Conero A „am Boden" → über Schübe und Trennboden.
+  const sd = schrank({
+    breiten: [60],
+    abschluss: 'keine',
+    fronten: [
+      [
+        { id: 's1', typeId: 'schuebe', label: 'S1', widthCm: '59', heightCm: '25,3', styleLineId: 'glatt', fieldValues: {} },
+        { id: 's2', typeId: 'schuebe', label: 'S2', widthCm: '59', heightCm: '25,3', styleLineId: 'glatt', fieldValues: {} },
+        tuer({ id: 'd3', label: 'D3', widthCm: '59', heightCm: '173,7' }),
+      ],
+    ],
+  })
+  sd.fronts.columns[0].equipment = [{ id: 'c1', optionId: 'container-conero', qty: 1, variant: 'A' }]
+  const sm = konstruktion(sd)
+  const conero = sm?.ausstattung.find((x) => x.optionId === 'container-conero')
+  const trenn = sm?.ausstattung.find((x) => x.art === 'trennboden')
+  pruefe(trenn && conero && conero.y >= trenn.y + trenn.h && conero.h === 610, `Conero A (61 cm) rückt über Schübe + Trennboden: UK ${conero?.y} mm (Raster ${conero?.raster})`, [trenn, conero])
+  pruefe(sm?.hinweise.some((h) => /Conero/.test(h) && /Außenschübe/.test(h)), 'Verschiebung steht als Hinweis im Modell', sm?.hinweise)
+  pruefe(conero && rasterHoeheMm(conero.raster) === conero.y, 'Neue Höhe liegt genau auf einem Raster')
+  // Zwei Böden, die sich überlappen würden → der zweite rückt ein Raster höher.
+  const ud = schrank({ breiten: [60], abschluss: 'keine' })
+  ud.fronts.columns[0].equipment = [{ id: 'b', optionId: 'einlegeboden', qty: 2, hoehen: [{ modus: 'raster', raster: 6 }, { modus: 'raster', raster: 6 }] }]
+  const ub = konstruktion(ud)?.ausstattung.filter((x) => x.art === 'boden') ?? []
+  pruefe(ub.length === 2 && ub[1].y >= ub[0].y + ub[0].h, 'Zwei Böden auf Raster 6 überlappen nicht — der zweite rückt nach oben', ub)
+
+  // Rückansicht-Daten.
+  const rd = schrank({ breiten: [100] })
+  rd.fronts.columns[0].equipment = [{ id: 'r', optionId: 'rueckwandausschnitt', qty: 1 }]
+  pruefe(konstruktion(rd)?.korpusse[0].rueckwandAusschnitte.length === 1, 'Rückwandausschnitt erscheint in der Rückansicht')
   const licht = schrank({ breiten: [60] })
   licht.ausstattung = { selected: ['led-syncro'] }
   pruefe(konstruktion(licht)?.wandabstandMm === 10, 'Beleuchtung → 10 mm Wandabstand in der Draufsicht')

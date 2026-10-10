@@ -103,21 +103,53 @@ dieselbe zweistufige Übersicht: Möbelpreis + artikelbezogene Aufschläge = Ges
 dann + Montage + Lieferung.
 
 **[GEFIXT] 2D-Konstruktionsansicht neben dem Formular.** Die zwischenzeitliche 3D-Vorschau ist
-wieder entfernt. In den Schritten „Maße", „Material", „Ausstattung" und „Fronten" stehen
-jetzt links eine mitlaufende Skizze und rechts das Formular. Das Formular liegt rechts, weil
-Rechtshänder mit Maus oder Touchpad dann kürzere Wege haben. Die Skizze ist im Stil Ihrer
-AV-Zeichnung gehalten, Maße in mm. Es gibt zwei Ansichten:
+wieder entfernt. In den Schritten „Maße", „Material", „Ausstattung" und „Fronten" steht links
+eine mitlaufende Skizze, rechts das Formular. Das Formular liegt rechts, weil Rechtshänder mit
+Maus oder Touchpad dann kürzere Wege haben.
 
-- **Vorderansicht:** Korpus-Aufteilung, Fronten mit Öffnungslinien (Spitze zur Bandseite),
-  Griffe, Schübe, Schiebetüren. Dahinter die Ausstattung mit Höhe über dem Fußboden:
-  Böden, Kleiderstangen, Container, Innenschubladen, Rollböden, LED. Die Fronten lassen sich
-  ausblenden.
+Die **Trennlinie lässt sich verschieben**: per Maus, Finger oder Pfeiltasten. So kann die
+Zeichnung im Kundengespräch groß werden. Ein Doppelklick setzt sie zurück, und das Gerät merkt
+sich die Breite. Das Formular bleibt immer mindestens 420 px breit.
+
+Die Skizze ist im Stil Ihrer AV-Zeichnung gehalten, maßstäblich, Maße in mm. Es gibt **vier
+Ansichten**:
+
+- **Vorderansicht (geschlossen):** Korpi, Fronten mit Fugen, Öffnungslinien der Drehtüren
+  (Spitze zur Bandseite), Griffe, Sockel, Abschlusssets, Verblendung, Maßketten.
+- **Innenansicht (offen):** Fronten nur als Kontur. Dahinter die ganze Ausstattung mit
+  Oberkante über dem Fußboden, die Rasterleiste je Korpus, Außenschübe mit Trennboden,
+  Bodenplatte und Abschlussboden.
 - **Draufsicht:** Tiefe, Korpustrennungen, Wand und Wandabstand (Kabelführung bei
   Beleuchtung), Abschlusssets, Verblendungen, Fußleistenausschnitt, Kleiderstangen,
-  Türöffnungsbögen und die zwei Laufebenen der Schiebetüren.
+  Container-Grundflächen, Türöffnungsbögen und die zwei Laufebenen der Schiebetüren.
+- **Rückansicht:** von hinten gesehen, also gespiegelt. Rückwand je Korpus, Lochreihe,
+  zusätzlicher Bodenträger ab 80 cm, Rückwandausschnitt und Revisionsklappe,
+  Fußleistenausschnitt, Sichtrückwand.
 
-Jede Eingabe ändert die Skizze sofort. Auf dem iPad quer bleibt die Teilung erhalten, im
-Hochformat steht die Skizze über dem Formular.
+**Bauteil-Bibliothek.** Jedes Refugium-Bauteil hat ein eigenes Zeichenmodul, das die Skizze
+je nach Konfiguration zusammensetzt:
+
+- Korpus mit Seiten und Mittelseiten (2 cm), Böden (28 mm), Glasboden (8 mm), Abschlussboden,
+  Sockel und Rückwand.
+- Kleiderstange, Kleiderlift, Gürtel-/Krawattenauszug.
+- Container Decoboard (3 / 4,5 / 6 / 7,5 R mit Schüben à 1,5 R), Craft A–C (61 / 80 / 80 cm)
+  und Conero A–H (61 bis 110 cm), jeweils mit Auszügen und Rauchglas-Deckplatte.
+- Innenschublade, Rollboden, Rollkorb, Schuhablage, Hemdeinsatz, LED-Syncro und LED-Band.
+- Drehtür, Schub, Klappe, ein- und zweiläufige Schiebetür, offenes Fach.
+- Griffe als Silhouetten: Bügelgriff Nr. 90–124 in der Länge laut Liste, Knopf Nr. 19,
+  Kantengriff Nr. 125/126, Griffleiste Nr. 127, Muschelgriff Nr. 128, Edge (voll oder gekürzt),
+  die Griffleisten von Line, 107 und Curve, PTO und Sondergriff.
+
+**Keine Überlappungen.** Teile hinter einer Front liegen nie übereinander. Plant der Berater
+unten Außenschübe, rückt z. B. ein Container Conero, der „am Korpusboden" steht, automatisch
+auf das nächste freie Raster über Schüben und Trennboden. Unter der Skizze steht dazu ein
+Hinweis wie „Korpus 3 — Container Conero A: über die Außenschübe gesetzt (Raster 4)".
+
+**Parameter statt fester Werte.** Alle Maße und Platzierungsregeln der Zeichnung stehen
+zentral in `src/config/konstruktionsParameter.ts`, jeweils mit Quelle: Platten- und Bodenstärken,
+Lage der Raster, Bauhöhen der Container, Griffhöhe, Kleiderstangen-Abstand. Was Sie noch nicht
+festgelegt haben, ist dort als Annahme gekennzeichnet (Rückfragen 6 und 7). Preise und
+Prüfungen hängen nicht an diesen Werten.
 
 ## Rückfragen
 
@@ -136,6 +168,13 @@ Hochformat steht die Skizze über dem Formular.
 5. **[OFFEN] Drei Korpi hinter einer Tür:** Ihre Skizzen zeigen je Tür einen oder zwei Korpi.
    Ist z. B. eine 150er Tür über 3 × 50er auch möglich? Bisher sperren wir das.
 
+6. **[OFFEN] Griffhöhe an Drehtüren und einläufigen Schiebetüren:** In der Zeichnung sitzt die
+   Griffmitte bei 105 cm über dem Fußboden (bei kurzen Türen in der Türmitte), 4 cm von der
+   Schließkante. Welche Höhe ist bei Ihnen Standard?
+7. **[OFFEN] Lage der Raster:** Aus Ihren Planungsmaßen (S. 27: Pos. 2 = 34,0 cm, Pos. 4 =
+   59,6 cm) und „Raster 1 ca. 10 cm über der Bodenplatte" haben wir die Oberkante der
+   Bodenplatte bei ca. 11,2 cm abgeleitet. Stimmt das, auch für 21 Raster?
+
 ## Technischer Überblick
 
 | Bereich | Datei |
@@ -146,5 +185,5 @@ Hochformat steht die Skizze über dem Formular.
 | Fronten-Schritt, Maße-Schritt, Frontkarte | `Fronts.tsx`, `KorpusMasseSection.tsx`, `FrontElementCard.tsx` |
 | Curve ohne Griffprofil | `griffProfilAnwendbar` in `src/lib/frontsHelpers.ts` |
 | Raumteiler / Sichtrückwand | `src/pages/Korpus/Korpus.tsx` |
-| 2D-Skizze / Split-Layout | `src/lib/konstruktion.ts` (Modell in mm), `src/components/konstruktion/Konstruktion2D.tsx`, `KonstruktionsLayout.tsx`, `AppShell skizze` |
+| 2D-Skizze | Modell `src/lib/konstruktion.ts` (mm, Stapelregel, Griffformen), Parameter `src/config/konstruktionsParameter.ts`, Bauteil-Bibliothek `src/components/konstruktion/bauteile/`, Ansichten `Konstruktion2D.tsx`, verschiebbares Layout `KonstruktionsLayout.tsx` (`<AppShell skizze>`) |
 | Prüfung | `scripts/check-ueberarbeitung-10.js` (`npm run ue10:test`), Durchgriff um Schiebetür-Schränke ergänzt |

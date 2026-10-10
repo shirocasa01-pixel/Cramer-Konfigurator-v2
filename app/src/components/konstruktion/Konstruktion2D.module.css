@@ -8,16 +8,10 @@
   border-radius: var(--radius-lg);
 }
 
-.kopf {
+.tabs {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-
-.tabs {
-  display: inline-flex;
+  align-self: flex-start;
   padding: 2px;
   gap: 2px;
   border: 1px solid var(--color-line-strong);
@@ -27,28 +21,19 @@
 .tab,
 .tabAktiv {
   min-height: 34px;
-  padding: 0 var(--space-4);
+  padding: 0 var(--space-3);
   border: none;
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-ink);
   font: inherit;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
 .tabAktiv {
   background: var(--color-ink);
   color: var(--color-accent-contrast);
-}
-
-.schalter {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
-  font-size: 0.85rem;
-  color: var(--color-ink-secondary);
-  cursor: pointer;
 }
 
 .buehne {
@@ -62,7 +47,7 @@
   display: block;
   width: 100%;
   height: auto;
-  max-height: calc(100vh - var(--topbar-height) - 190px);
+  max-height: calc(100vh - var(--topbar-height) - 210px);
   min-height: 240px;
   font-family: var(--font-sans);
 }
@@ -73,15 +58,28 @@
   color: var(--color-ink-muted);
 }
 
+.hinweisListe {
+  margin: 0;
+  padding-left: 1.1em;
+  font-size: 0.78rem;
+  color: #8a5a00;
+}
+
 /* --- Zeichnung (CAD-Stil: schwarze Linien, wenig Fläche) --------------------- */
 
 .svg line,
 .svg rect,
 .svg polyline,
-.svg path {
+.svg path,
+.svg circle {
   stroke: #1d1e21;
   stroke-width: 1;
   fill: none;
+}
+
+.svg text {
+  stroke: none !important;
+  fill: #1d1e21;
 }
 
 .boden {
@@ -93,12 +91,56 @@
   stroke: none !important;
 }
 
+/* Korpus */
 .korpus rect {
   fill: #f1efea;
 }
 
+.korpus .seite {
+  fill: #e4dfd5;
+}
+
 .korpus .innen {
   fill: #ffffff;
+}
+
+.konstruktionsboden {
+  fill: #ddd7cb !important;
+}
+
+.sockel {
+  fill: #cfc9bd !important;
+}
+
+.rueckwand {
+  fill: #f6f3ee !important;
+}
+
+.sichtrueckwand {
+  fill: #e6eef2 !important;
+}
+
+.rueckwandSchnitt {
+  fill: #9f998d !important;
+}
+
+.loch circle {
+  fill: #8a8b90;
+  stroke: none;
+}
+
+.bodentraeger {
+  stroke: #6b6d72 !important;
+  stroke-dasharray: 10 5;
+}
+
+.ausschnitt rect {
+  fill: #ffffff;
+  stroke-dasharray: 6 3;
+}
+
+.ausschnitt text {
+  fill: #55565b;
 }
 
 .abschluss {
@@ -110,6 +152,7 @@
   stroke-dasharray: 6 3;
 }
 
+/* Ausstattung */
 .fachboden {
   fill: #e7e2d8 !important;
 }
@@ -128,32 +171,93 @@
   fill: #ece8df;
 }
 
-.einbau text,
-.hinweis {
-  fill: #55565b;
+.korb rect {
+  fill: #f3f1ec;
+  stroke-dasharray: 2 3;
 }
 
-.led line {
+.aussenschub rect {
+  fill: #ebe7de;
+  stroke-dasharray: 4 3;
+}
+
+.einbau text,
+.korb text,
+.aussenschub text,
+.kleiderlift text,
+.hinweis {
+  fill: #55565b !important;
+}
+
+.teilung {
+  stroke: #8a8b90 !important;
+}
+
+.rauchglas {
+  fill: #6f7377 !important;
+}
+
+.kleiderlift line {
+  stroke: #6b6d72 !important;
+}
+
+.led line,
+line.led {
   stroke: #c98a12 !important;
   stroke-width: 2 !important;
   stroke-dasharray: 8 4;
 }
 
-.led text,
-.ledPunkt {
-  fill: #b07508;
+.led text {
+  fill: #b07508 !important;
 }
 
-.front {
-  fill: rgba(255, 255, 255, 0.72) !important;
+.ledPunkt {
+  fill: #b07508 !important;
+  stroke: none !important;
+}
+
+.hoehe {
+  fill: #6b6d72 !important;
+}
+
+.verschoben {
+  fill: #a25f00 !important;
+}
+
+.rasterleiste line {
+  stroke: #b9b5ac !important;
+}
+
+.rasterleiste text {
+  fill: #a09b90 !important;
+}
+
+/* Fronten */
+.frontVoll {
+  fill: #ffffff !important;
 }
 
 .schiebeHinten {
-  fill: rgba(236, 233, 226, 0.78) !important;
+  fill: #f0ede6 !important;
 }
 
 .schiebeVorne {
-  fill: rgba(250, 249, 246, 0.82) !important;
+  fill: #faf9f6 !important;
+}
+
+.offen {
+  stroke-dasharray: 3 4;
+  stroke: #8a8b90 !important;
+}
+
+.geist rect {
+  stroke: #9c9a94 !important;
+  stroke-dasharray: 7 5;
+}
+
+.geist text {
+  fill: #9c9a94 !important;
 }
 
 .oeffnung {
@@ -161,15 +265,36 @@
   stroke-dasharray: 6 4;
 }
 
-.griff {
-  stroke-width: 3 !important;
-}
-
 .bogen {
   stroke: #8a8b90 !important;
   stroke-dasharray: 5 4;
 }
 
+/* Griffe */
+.griffKoerper,
+.griffKoerper rect {
+  fill: #2a2b2e !important;
+  stroke: #2a2b2e !important;
+}
+
+.griffProfil {
+  stroke: #2a2b2e !important;
+  stroke-width: 3 !important;
+}
+
+.griffGlas {
+  fill: #cfe0e6 !important;
+}
+
+.griffSonder circle {
+  stroke-dasharray: 4 3;
+}
+
+.pto {
+  fill: #6b6d72 !important;
+}
+
+/* Verdeckte Kanten, Maße, Beschriftung */
 .verdeckt line,
 .verdeckt,
 rect.verdeckt {
@@ -178,30 +303,9 @@ rect.verdeckt {
 }
 
 .verdeckt text {
-  fill: #55565b;
-  stroke: none;
+  fill: #55565b !important;
 }
 
 .mass line {
   stroke: #55565b !important;
-}
-
-.mass text,
-.hoehe,
-.korpusLabel,
-.frontLabel {
-  fill: #1d1e21;
-}
-
-.hoehe {
-  fill: #55565b;
-}
-
-.svg text {
-  stroke: none;
-}
-
-.offen {
-  stroke-dasharray: 3 4;
-  stroke: #8a8b90 !important;
 }
