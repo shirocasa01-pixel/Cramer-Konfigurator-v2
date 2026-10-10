@@ -5,6 +5,7 @@ import { Button } from '../ui/Button'
 import { ActionMenu } from './ActionMenu'
 import { EditorLeiste } from './EditorLeiste'
 import { VersionsWaechter } from './Mitteilungen'
+import { KonstruktionsLayout } from '../konstruktion/KonstruktionsLayout'
 import { SyncFehlerLeiste, SystemAktualisierenKnopf } from './SystemSync'
 import { useAuth } from '../../context/AuthContext'
 import { useDraft } from '../../context/DraftContext'
@@ -15,6 +16,11 @@ interface AppShellProps {
   children: ReactNode
   /** Optionaler Sticky-Footer (z. B. Fortschritt + Primäraktion ab späteren Phasen). */
   footer?: ReactNode
+  /**
+   * Links die mitlaufende 2D-Konstruktionsansicht des aktuellen Entwurfs, rechts die Seite
+   * (Schritte „Maße" bis „Fronten"). Siehe `components/konstruktion/KonstruktionsLayout.tsx`.
+   */
+  skizze?: boolean
 }
 
 /** Die sieben Schritte des Konfigurators — dort, und nur dort, gibt es etwas vorzuschauen. */
@@ -39,7 +45,7 @@ const KONFIGURATOR_ROUTEN = [
  * Rückgängig und Wiederherstellen, die sich auf den ENTWURF beziehen statt auf den
  * Verlauf — dieselbe Erwartung wie in Word oder Excel.
  */
-export function AppShell({ children, footer }: AppShellProps) {
+export function AppShell({ children, footer, skizze }: AppShellProps) {
   const { user, logout, isAdmin } = useAuth()
   const {
     draft,
@@ -209,7 +215,9 @@ export function AppShell({ children, footer }: AppShellProps) {
       {isAdmin ? <SyncFehlerLeiste /> : null}
       <EditorLeiste />
 
-      <main className={styles.main}>{children}</main>
+      <main className={styles.main}>
+        {skizze && draft ? <KonstruktionsLayout draft={draft}>{children}</KonstruktionsLayout> : children}
+      </main>
 
       {footer ? <footer className={styles.footer}>{footer}</footer> : null}
     </div>

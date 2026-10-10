@@ -99,7 +99,7 @@ export default function AusstattungPage() {
   const selectedCount = selected.size
 
   return (
-    <AppShell>
+    <AppShell skizze>
       <div className={styles.page}>
         <StepIndicator activeKey="ausstattung" />
 

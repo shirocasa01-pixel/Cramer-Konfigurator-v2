@@ -139,7 +139,7 @@ export default function KorpusPage() {
   }
 
   return (
-    <AppShell>
+    <AppShell skizze>
       <div className={styles.page}>
         <StepIndicator activeKey="korpus" />
 

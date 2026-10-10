@@ -10,7 +10,7 @@
  *   S. 5   Curve: kein Griffprofil „Edge"
  *   Erg.   Raumteiler / Sichtrückwand: Beschriftung, nur sichtbar wenn aktiv · Stand der
  *          sechs Cramer-Antworten (Edge, Wandtablar, Aufkantung, Container, Tavolo, M-104)
- *   3D     Schrank-Modell der Vorschau folgt Breiten, Höhe und Korpus-Anzahl
+ *   2D     Konstruktionsansicht folgt Breiten, Höhe, Fronten und Ausstattung
  *
  *   npm run ue10:test
  */
@@ -30,7 +30,7 @@ import {
   schiebetuerAnzahlText,
   zerlegeInTuerfelder,
 } from '../src/lib/schiebetuer.ts'
-import { schrankModell } from '../src/lib/schrankModell.ts'
+import { konstruktion } from '../src/lib/konstruktion.ts'
 import { materialFuer } from './lib/testMaterial.js'
 
 const c = {
@@ -229,29 +229,41 @@ console.log(c.bold('\nStand der sechs Cramer-Antworten (Mappe = Preisliste)'))
 }
 
 // ---------------------------------------------------------------------------
-console.log(c.bold('\n3D — Schrank-Modell folgt den Maßen'))
+console.log(c.bold('\n2D — Konstruktionsansicht folgt Maßen, Fronten und Ausstattung'))
 {
-  const d = schrank({ breiten: [50, 60, 80, 100], abschluss: 'beide' })
-  const m = schrankModell(d, 'drehtueren')
-  pruefe(m && m.korpusse.length === 4 && m.korpusse.map((k) => k.breiteCm).join() === '50,60,80,100', '4 Module 50er / 60er / 80er / 100er', m?.korpusse)
-  pruefe(m && m.breiteCm === 292 && m.hoeheCm === 235 && m.tiefeCm === 60, `Modell 292 × 235 × 60 cm (290 + 2 × 1 cm Abschlussset)`, m && [m.breiteCm, m.hoeheCm, m.tiefeCm])
-  pruefe(m && m.bauteile.filter((t) => t.art === 'drehtuer').length === 6, 'Standard-Drehtüren: 1 + 1 + 2 + 2 = 6')
-  const hoch = schrankModell(schrank({ breiten: [50, 60, 80, 100], hoehe: '21R' }), 'drehtueren')
-  pruefe(hoch?.hoeheCm === 274, 'Höhe 21 R → Modell 274 cm hoch')
-  const acht = schrankModell(schrank({ breiten: [50, 50, 50, 50, 50, 50, 50, 50] }), 'ohne')
-  pruefe(acht?.korpusse.length === 8 && acht.bauteile.every((t) => !['drehtuer', 'schiebetuer'].includes(t.art)), '8 Module, „Ohne Fronten"')
-  const st = schrankModell(schrank({ breiten: [100, 100], tuer: schiebetuer(), anzahl: 2 }), 'geplant')
-  pruefe(st?.schiebetueren === 2 && st.breiteCm === 204, 'Geplante zweiläufige Schiebetür: 2 Türen über 100 + 100 + 2 × 2 cm', st && [st.schiebetueren, st.breiteCm])
-  const ebenen = new Set(st?.bauteile.filter((t) => t.art === 'schiebetuer').map((t) => t.z))
-  pruefe(ebenen.size === 2, 'Schiebetüren laufen in zwei Ebenen')
+  const m = konstruktion(schrank({ breiten: [50, 60, 80, 100], abschluss: 'beide' }))
+  pruefe(m && m.korpusse.map((k) => k.b).join() === '500,600,800,1000', '4 Module 50er / 60er / 80er / 100er (mm)', m?.korpusse)
+  pruefe(m && m.breiteMm === 2920 && m.hoeheMm === 2350 && m.tiefeMm === 600, 'Zeichnung 2920 × 2350 × 600 mm (2900 + 2 × 10 mm Abschlussset)', m && [m.breiteMm, m.hoeheMm, m.tiefeMm])
+  pruefe(m && m.sockelMm === 46 && m.innenBodenMm === 65, '18 R: Frontzone 2304 mm → Sockel 46 mm, Innenboden 65 mm', m && [m.sockelMm, m.innenBodenMm])
+  pruefe(konstruktion(schrank({ breiten: [50, 60, 80, 100], hoehe: '21R' }))?.hoeheMm === 2740, 'Höhe 21 R → 2740 mm')
+  pruefe(konstruktion(schrank({ breiten: [50, 50, 50, 50, 50, 50, 50, 50] }))?.korpusse.length === 8, '8 Module')
+  const st = konstruktion(schrank({ breiten: [100, 100], tuer: schiebetuer(), anzahl: 2 }))
+  pruefe(st?.schiebetueren === 2 && st.breiteMm === 2040 && new Set(st.fronten.map((f) => f.ebene)).size === 2, 'Zweiläufige Schiebetür: 2 Türen über 2040 mm, zwei Laufebenen', st?.fronten)
   const schub = { id: 's1', typeId: 'schuebe', label: 'S1', widthCm: '49', heightCm: '25,3', styleLineId: 'glatt', fieldValues: {} }
-  const dreh = { id: 'd1', typeId: 'drehtuer', label: 'D1', widthCm: '49', heightCm: '201,5', styleLineId: 'glatt', tuerAnschlag: 'links', fieldValues: {} }
-  const gm = schrankModell(schrank({ breiten: [50, 50], fronten: [[schub, dreh], []] }), 'geplant')
-  pruefe(gm?.bauteile.filter((t) => t.art === 'schublade').length === 1 && gm.bauteile.filter((t) => t.art === 'drehtuer').length === 1, 'Geplante Fronten: Schub unten, Drehtür darüber')
-  const sY = gm?.bauteile.find((t) => t.art === 'schublade')
-  const dY = gm?.bauteile.find((t) => t.art === 'drehtuer')
-  pruefe(sY && dY && dY.y > sY.y + sY.h, 'Drehtür sitzt über dem Schub', [sY, dY])
-  pruefe(schrankModell(schrank({ breiten: [] })) === null, 'Ohne Korpus kein Modell')
+  const dreh = { id: 'd1', typeId: 'drehtuer', label: 'D1', widthCm: '49', heightCm: '201,5', styleLineId: 'glatt', tuerAnschlag: 'rechts', fieldValues: {} }
+  const gm = konstruktion(schrank({ breiten: [50, 50], fronten: [[schub, dreh], []] }))
+  const s = gm?.fronten.find((f) => f.art === 'schublade')
+  const t = gm?.fronten.find((f) => f.art === 'drehtuer')
+  pruefe(s && t && t.y > s.y + s.h && t.anschlag === 'rechts', 'Schub unten, Drehtür darüber, Anschlag rechts', gm?.fronten)
+  // Ausstattung hinter der Front: Boden auf Raster 5 mit Stange, Container 4,5 R, LED-Syncro.
+  const d = schrank({ breiten: [100], abschluss: 'keine' })
+  d.fronts.columns[0].equipment = [
+    { id: 'e1', optionId: 'einlegeboden-kleiderstange', qty: 1, hoehen: [{ modus: 'raster', raster: 5 }] },
+    { id: 'e2', optionId: 'container', qty: 1, variant: '4,5R' },
+    { id: 'e3', optionId: 'led-syncro', qty: 1 },
+    { id: 'e4', optionId: 'krawattenspange', qty: 1 },
+  ]
+  const a = konstruktion(d)?.ausstattung ?? []
+  const boden = a.find((x) => x.art === 'boden')
+  pruefe(boden?.y === 677, `Boden auf Raster 5: ${boden?.y} mm über dem Fußboden (65 + 100 + 4 × 128)`, boden)
+  pruefe(a.find((x) => x.art === 'kleiderstange')?.y === 617, 'Kleiderstange 60 mm unter dem Boden')
+  const cont = a.find((x) => x.art === 'container')
+  pruefe(cont?.y === 65 && cont?.h === 576, 'Container 4,5 R steht am Korpusboden, 576 mm hoch', cont)
+  pruefe(a.some((x) => x.art === 'led-deckel') && a.some((x) => x.art === 'hinweis' && /Krawattenspange/.test(x.label)), 'LED am Deckel, Krawattenspange als Hinweis')
+  const licht = schrank({ breiten: [60] })
+  licht.ausstattung = { selected: ['led-syncro'] }
+  pruefe(konstruktion(licht)?.wandabstandMm === 10, 'Beleuchtung → 10 mm Wandabstand in der Draufsicht')
+  pruefe(konstruktion(schrank({ breiten: [] })) === null, 'Ohne Korpus keine Zeichnung')
 }
 
 console.log(fehler === 0 ? c.green(c.bold('\nAlle Prüfungen bestanden.\n')) : c.red(c.bold(`\n${fehler} Befund(e).\n`)))

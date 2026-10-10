@@ -23,7 +23,7 @@ Kennzeichnung wie gewohnt: **[GEFIXT]** umgesetzt und geprüft · **[OFFEN]** R�
   Außenmaß rechnet mit 2 × 20 mm, ein 2 × 100er Schrank z. B. mit 201,5 statt 199,5 cm.
 - **[GEFIXT] Abschlussset hinter der Tür.** Zusammenfassung und AV-PDF schreiben: „links &
   rechts · 20 mm (Schiebetür zweiläufig: von der Tür abgedeckt, von vorne nicht sichtbar)".
-  Auch die 3D-Vorschau zeigt die Türen über Abschlussset und Innenkorpus.
+  Auch die 2D-Skizze zeigt die Türen vor Abschlussset und Innenkorpus.
 
 ## Seite 2–4 — Korpus-Einteilung für 2, 3 und 4 Schiebetüren
 
@@ -102,18 +102,22 @@ und es gibt keinen fest hinterlegten Betrag. Konfigurator, Abschluss und AV-PDF 
 dieselbe zweistufige Übersicht: Möbelpreis + artikelbezogene Aufschläge = Gesamtmöbelpreis,
 dann + Montage + Lieferung.
 
-**[GEFIXT] 3D-Vorschau (Prototyp).** Im Schritt „Maße" erscheint unter dem Außenmaß eine
-drehbare 3D-Ansicht des Kleiderschranks. Sie zeigt die Korpus-Module (50er, 60er, 80er,
-100er, Sondermaße, beliebig viele, getestet mit 4 bis 8) samt Höhe, Tiefe und Abschlusssets.
-Darüber wahlweise:
+**[GEFIXT] 2D-Konstruktionsansicht neben dem Formular.** Die zwischenzeitliche 3D-Vorschau ist
+wieder entfernt. In den Schritten „Maße", „Material", „Ausstattung" und „Fronten" stehen
+jetzt links eine mitlaufende Skizze und rechts das Formular. Das Formular liegt rechts, weil
+Rechtshänder mit Maus oder Touchpad dann kürzere Wege haben. Die Skizze ist im Stil Ihrer
+AV-Zeichnung gehalten, Maße in mm. Es gibt zwei Ansichten:
 
-- die geplanten Fronten (Drehtüren, Schübe, Schiebetüren),
-- Standard-Drehtüren,
-- zweiläufige Schiebetüren in zwei Laufebenen,
-- keine Fronten (mit Kleiderstange).
+- **Vorderansicht:** Korpus-Aufteilung, Fronten mit Öffnungslinien (Spitze zur Bandseite),
+  Griffe, Schübe, Schiebetüren. Dahinter die Ausstattung mit Höhe über dem Fußboden:
+  Böden, Kleiderstangen, Container, Innenschubladen, Rollböden, LED. Die Fronten lassen sich
+  ausblenden.
+- **Draufsicht:** Tiefe, Korpustrennungen, Wand und Wandabstand (Kabelführung bei
+  Beleuchtung), Abschlusssets, Verblendungen, Fußleistenausschnitt, Kleiderstangen,
+  Türöffnungsbögen und die zwei Laufebenen der Schiebetüren.
 
-Jede Änderung an Breite, Höhe oder Anzahl baut das Modell sofort neu. Das Modell ist eine
-Anschauung, maßgeblich bleiben Außenmaß und AV.
+Jede Eingabe ändert die Skizze sofort. Auf dem iPad quer bleibt die Teilung erhalten, im
+Hochformat steht die Skizze über dem Formular.
 
 ## Rückfragen
 
@@ -142,5 +146,5 @@ Anschauung, maßgeblich bleiben Außenmaß und AV.
 | Fronten-Schritt, Maße-Schritt, Frontkarte | `Fronts.tsx`, `KorpusMasseSection.tsx`, `FrontElementCard.tsx` |
 | Curve ohne Griffprofil | `griffProfilAnwendbar` in `src/lib/frontsHelpers.ts` |
 | Raumteiler / Sichtrückwand | `src/pages/Korpus/Korpus.tsx` |
-| 3D-Modell / Darstellung | `src/lib/schrankModell.ts`, `src/components/vorschau/Schrank3DVorschau.tsx` (Three.js 0.186.1, lazy geladen) |
+| 2D-Skizze / Split-Layout | `src/lib/konstruktion.ts` (Modell in mm), `src/components/konstruktion/Konstruktion2D.tsx`, `KonstruktionsLayout.tsx`, `AppShell skizze` |
 | Prüfung | `scripts/check-ueberarbeitung-10.js` (`npm run ue10:test`), Durchgriff um Schiebetür-Schränke ergänzt |

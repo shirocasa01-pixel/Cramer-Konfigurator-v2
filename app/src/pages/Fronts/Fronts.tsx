@@ -267,7 +267,7 @@ export default function FrontsPage() {
   const selectedEquipment = draft.ausstattung?.selected ?? []
 
   return (
-    <AppShell>
+    <AppShell skizze>
       <div className={styles.page}>
         <StepIndicator activeKey="fronten" />
 

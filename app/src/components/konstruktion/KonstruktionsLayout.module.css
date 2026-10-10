@@ -1,0 +1,48 @@
+.split {
+  width: 100%;
+  max-width: 1720px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 860px);
+  gap: var(--space-5);
+  align-items: start;
+  padding-left: var(--space-5);
+}
+
+.skizze {
+  position: sticky;
+  top: calc(var(--topbar-height) + var(--space-4));
+  padding-top: var(--space-6);
+  min-width: 0;
+}
+
+/* Das Formular behält die Breite und Abstände der jeweiligen Seite. */
+.formular {
+  min-width: 0;
+}
+
+/* iPad quer / kleine Laptops: weiter nebeneinander, Formular etwas breiter. */
+@media (max-width: 1180px) {
+  .split {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+    gap: 0;
+    padding-left: var(--space-4);
+  }
+}
+
+/* Hochformat / Telefon: Skizze über dem Formular, in der Höhe begrenzt. */
+@media (max-width: 860px) {
+  .split {
+    grid-template-columns: minmax(0, 1fr);
+    padding-left: 0;
+  }
+
+  .skizze {
+    position: static;
+    padding: var(--space-4) var(--space-4) 0;
+  }
+
+  .skizze svg {
+    max-height: 42vh;
+  }
+}

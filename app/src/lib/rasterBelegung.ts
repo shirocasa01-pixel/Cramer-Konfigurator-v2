@@ -51,7 +51,7 @@ const RASTER_CM = 12.8
 const RASTER_1_UEBER_BODEN_CM = 10
 
 /** Bauhöhe aus einer Varianten-Bezeichnung („6R" → 6, „1,5R" → 1,5). */
-function varianteRaster(variante: string | undefined): number | undefined {
+export function varianteRaster(variante: string | undefined): number | undefined {
   const treffer = /^(\d+(?:[.,]\d+)?)\s*R$/i.exec(variante?.trim() ?? '')
   return treffer ? Number(treffer[1].replace(',', '.')) : undefined
 }
@@ -74,7 +74,7 @@ function bereichText(von: number, bis: number): string {
 }
 
 /** Ungefähre Einbauhöhe in cm über der Bodenplatte — für den Mindestabstand. */
-function hoeheCmVon(hoehe: EquipmentHoehe | undefined): number | undefined {
+export function hoeheCmVon(hoehe: EquipmentHoehe | undefined): number | undefined {
   if (!hoehe) return undefined
   if (hoehe.modus === 'boden') return 0
   if (hoehe.modus === 'raster' && hoehe.raster != null && hoehe.raster >= 1) {
